@@ -1,0 +1,26 @@
+
+
+# Drills => Offpolicy MPO
+go offstage
+=> go off stage
+damage
+=> increase the opponents percentage as much/ fast as possible
+kill
+=> push offstage as fast as possible
+recover
+=> go into game, move off stage and go back on
+navigate/move
+=> go into game, put targets and reward policy for running to the target as fast as possible
+survivability
+=> dont die
+
+
+# Add a fc layer for discrete values, then concat with continuous
+=> we might lose some information that we could get by combining binary with continuous directly
+
+# variable frame length for actions
+# 1 frame, 2 frames, 3 frames, 5 frames => breaks time horizon
+=> action chains ?
+=> negative rewards for choosing small actions
+
+# Easy debug for dolphin crashes depending on chars and stages
