@@ -347,7 +347,7 @@ class ObsBuilder:
                                         player_port=port,
                                         config=self.config),
                 project_hit_location=StateDataInfo(lambda s: ObsBuilder.FD.project_hit_location(s.players[port],
-                                                                                                s.stage,
+                                                                                                s,
                                                                                                 ),
                                                    StateDataInfo.CONTINUOUS,
                                                    size=3,
