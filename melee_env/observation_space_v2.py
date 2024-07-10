@@ -271,9 +271,9 @@ class ObsBuilder:
             # tweaked side_platfrom and top_platform functions to return 0s instead of Nones
             platform_position=StateDataInfo(lambda s: (stages.top_platform_position(s)
                                                        + stages.side_platform_position(right_platform=True,
-                                                                                       gamestate=s)
+                                                                                       stage=s.stage)
                                                        + stages.side_platform_position(right_platform=False,
-                                                                                       gamestate=s)),
+                                                                                       stage=s.stage)),
                                             StateDataInfo.CONTINUOUS,
                                             scale=ObsBuilder.POS_SCALE,
                                             size=9,
@@ -347,7 +347,7 @@ class ObsBuilder:
                                         player_port=port,
                                         config=self.config),
                 project_hit_location=StateDataInfo(lambda s: ObsBuilder.FD.project_hit_location(s.players[port],
-                                                                                                s,
+                                                                                                s.stage,
                                                                                                 ),
                                                    StateDataInfo.CONTINUOUS,
                                                    size=3,
