@@ -261,7 +261,7 @@ class SSBM(PolarisEnv):
         while not connected:
             self.make_console_and_controllers()
             self.console.run(iso_path=self.iso,
-                             exe_name="dolphin-emu" if self.render else "dolphin-emu-headless"
+                             #exe_name="dolphin-emu" if self.render else "dolphin-emu-headless"
                              #platform=None if self.render else "headless"
                              )
 
