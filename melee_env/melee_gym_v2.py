@@ -143,8 +143,6 @@ class SSBM(PolarisEnv):
 
         super().__init__(env_index=env_index, **config)
 
-        print(self.config)
-
         self.render = (
             self.config["render"] and self.env_index == self.config["render_idx"]
         )
