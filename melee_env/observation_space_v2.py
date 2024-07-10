@@ -271,9 +271,9 @@ class ObsBuilder:
             # tweaked side_platfrom and top_platform functions to return 0s instead of Nones
             platform_position=StateDataInfo(lambda s: (stages.top_platform_position(s)
                                                        + stages.side_platform_position(right_platform=True,
-                                                                                       stage=s.stage)
+                                                                                       gamestate=s)
                                                        + stages.side_platform_position(right_platform=False,
-                                                                                       stage=s.stage)),
+                                                                                       gamestate=s)),
                                             StateDataInfo.CONTINUOUS,
                                             scale=ObsBuilder.POS_SCALE,
                                             size=9,
