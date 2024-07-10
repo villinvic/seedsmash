@@ -152,7 +152,7 @@ class SSBM(PolarisEnv):
         self.slippi_port = 51441 + self.env_index
 
         home = os.path.expanduser("~")
-        path = home + "/SlippiOnline/debug/%s/dolphin"
+        path = home + "/SlippiOnline/%s/dolphin"
 
         self.path = path % "gui"
 
