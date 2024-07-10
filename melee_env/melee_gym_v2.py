@@ -154,7 +154,7 @@ class SSBM(PolarisEnv):
         home = os.path.expanduser("~")
         path = home + "/SlippiOnline/%s/dolphin"
 
-        self.path = path % "gui"
+        self.path = path % "gui" if self.render else path % "headless"
 
         self.iso = home + "/isos/melee.iso"
 
@@ -263,8 +263,8 @@ class SSBM(PolarisEnv):
         while not connected:
             self.make_console_and_controllers()
             self.console.run(iso_path=self.iso,
-                             #exe_name="dolphin-emu" if self.render else "dolphin-emu-headless"
-                             platform=None if self.render else "headless"
+                             exe_name="dolphin-emu" if self.render else "dolphin-emu-headless"
+                             #platform=None if self.render else "headless"
                              )
 
             connected = self.console.connect()
