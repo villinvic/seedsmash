@@ -1,5 +1,6 @@
 import os
 
+from models import small_fc
 from seedsmash.rllib.algorithm import SeedSmash
 
 #os.environ["RAY_DEDUP_LOGS"] = "0"
@@ -25,7 +26,6 @@ from melee_env.simple_action_model import EpsilonCategorical, SSBMModel
 from melee_env.melee_gym_v2 import SSBM
 from melee_env.rllib_utils import SSBMCallbacks, TraceMallocCallback, LeagueImpala, SpectateWorkerTest, SpectateWorker, MultiCharConfig
 from melee_env.ssbm_config import SSBMConfig, SSBM_OBS_Config
-from timer_window import TimerWindow
 
 
 obs_config = (
@@ -72,11 +72,11 @@ env_config = (
     .chars([
         Character.FOX,
         Character.FALCO,
+        Character.CPTFALCON,
         Character.MARIO,
         Character.DOC,
         Character.MARTH,
         Character.ROY,
-        Character.CPTFALCON,
         Character.GANONDORF,
         Character.JIGGLYPUFF,
         Character.LINK,
@@ -116,36 +116,8 @@ for k, v in ma_config["policies"].items():
     v.action_space = dummy_ssbm.action_space[1]
 
 ModelCatalog.register_custom_model(
-    "autoregressive_model",
-    AutoregressiveActionModel,
-)
-ModelCatalog.register_custom_action_dist(
-    "binary_autoreg_dist",
-    TestDummyAutoreg4
-)
-ModelCatalog.register_custom_model(
-    "ssbm_model",
-    SSBMModel,
-)
-ModelCatalog.register_custom_model(
-    "ssbm_model_general",
-    SSBMModelAux,
-)
-
-ModelCatalog.register_custom_model(
-    "seed_smash",
-    SeedSmashModel,
-)
-
-
-ModelCatalog.register_custom_action_dist(
-    "epsilon_categorical",
-    EpsilonCategorical
-)
-
-ModelCatalog.register_custom_model(
-    "re3",
-    RandomEncoder,
+    "disagreement_model",
+    DisagreementModel,
 )
 
 evaluation = False
@@ -175,7 +147,7 @@ config = (
               batch_mode="truncate_episodes", sample_async=True, create_env_on_local_worker=False)
     .multi_agent(policies=ma_config["policies"],
                  policy_mapping_fn=ma_config["policy_mapping_fn"],
-                 policy_map_capacity=11,
+                 policy_map_capacity=3,
                  policy_states_are_swappable=True,
                  )
     .training(lambda_=0.98, clip_param=0.4, vtrace_drop_last_ts=False, gamma=0.997, entropy_coeff=1.1e-3,

@@ -22,23 +22,7 @@ from ray.rllib.utils.spaces.space_utils import get_base_struct_from_space
 from ray.rllib.utils.tf_utils import flatten_inputs_to_1d_tensor, one_hot
 from ray.rllib.utils.typing import AlgorithmConfigDict, TensorType
 
-from melee_env.action_space import ActionSpaceStick
-
 tf1, tf, tfv = try_import_tf()
-
-
-
-class EpsilonCategorical(Categorical):
-
-    def __init__(self, inputs, model=None, temperature=1., epsilon=0.02):
-        self.epsilon = epsilon
-        # weird
-        super().__init__(inputs, model, temperature)
-
-        self.probs = tf.math.exp(self.inputs - tf.reduce_max(self.inputs, axis=-1, keepdims=True))
-        self.epsilon_probs = (1. - self.epsilon) * self.probs + self.epsilon / tf.cast(self.inputs.shape[-1],
-                                                                                       tf.float32)
-        self.inputs = tf.math.log(self.epsilon_probs)
 
 
 class SeedSmashModel(TFModelV2):

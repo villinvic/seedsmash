@@ -187,7 +187,7 @@ class Test:
                         done = False
 
                         while not done:
-                            obs, _, dones, _ = env.step(action_dict=env.action_space.sample())
+                            obs, _, dones, _, _ = env.step(action_dict={aid: env.action_space.sample() for aid in env.get_agent_ids()})
                             done = dones["__all__"]
                             curr_state = env.get_gamestate()
 

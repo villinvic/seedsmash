@@ -1,11 +1,8 @@
 import numpy as np
-
 from melee import Stage, Character, ControllerType
-from ray.rllib.policy.policy import PolicySpec
 from copy import copy
-
 from melee_env.enums import PlayerType
-from seedsmash.ga.naming import Name
+#from seedsmash.ga.naming import Name
 
 
 # env_config = dict(
@@ -64,36 +61,36 @@ class SSBMConfig(dict):
 
 
 
-    def get_ma_config(self, version="v3"):
-
-        pop_size = 6
-        pop = [Name() for _ in range(pop_size)]
-        policy_names = [n.get_safe() for n in pop]
-
-        return {"v1": dict(),
-                          "v2": dict(
-                              policies={
-                                  "TRAINED": PolicySpec(),
-                              },
-                              policy_mapping_fn=lambda p_id, ep, worker, **kwargs: "TRAINED",
-                              policies_to_train=["TRAINED"],
-                              policy_states_are_swappable=True,
-                              capacity=6,
-                            ),
-                          "v3": dict(
-                              policies={
-                                  name.get_safe(): PolicySpec(config={
-                                      "character": self["chars"][i % len(self["chars"])],
-                                      "name": name.get()
-                                      # nametag set in __policy_id
-                                  }) for i, name in enumerate(pop)
-                              },
-                              policy_mapping_fn=lambda p_id, ep, worker, **kwargs: np.random.choice(
-                                  policy_names, replace=False),
-                              policy_states_are_swappable=True,
-                              policy_map_capacity=6,
-                          )
-                          }[version]
+    # def get_ma_config(self, version="v3"):
+    #
+    #     pop_size = 3
+    #     pop = [Name() for _ in range(pop_size)]
+    #     policy_names = [n.get_safe() for n in pop]
+    #
+    #     return {"v1": dict(),
+    #                       "v2": dict(
+    #                           policies={
+    #                               "TRAINED": PolicySpec(),
+    #                           },
+    #                           policy_mapping_fn=lambda p_id, ep, worker, **kwargs: "TRAINED",
+    #                           policies_to_train=["TRAINED"],
+    #                           policy_states_are_swappable=True,
+    #                           capacity=6,
+    #                         ),
+    #                       "v3": dict(
+    #                           policies={
+    #                               name.get_safe(): PolicySpec(config={
+    #                                   "character": self["chars"][i % len(self["chars"])],
+    #                                   "name": name.get()
+    #                                   # nametag set in __policy_id
+    #                               }) for i, name in enumerate(pop)
+    #                           },
+    #                           policy_mapping_fn=lambda p_id, ep, worker, **kwargs: np.random.choice(
+    #                               policy_names, replace=False),
+    #                           policy_states_are_swappable=True,
+    #                           policy_map_capacity=6,
+    #                       )
+    #                       }[version]
 
     def stages(self, stages):
         cself = copy(self)
@@ -120,7 +117,6 @@ class SSBMConfig(dict):
 
     def n_eval(self, n):
         cself = copy(self)
-        assert n >= -1
         cself["n_eval"] = n
         return cself
 

@@ -31,7 +31,7 @@ class SSBMRewards:
     """
     damage_rewards: np.float32 = 0.
     damage_reward_scale: np.float32 = 0.005
-    off_stage_multiplier: np.float32 = 2
+    off_stage_multiplier: np.float32 = 1.
 
     combo_multiplier: np.float32 = 0.
     """
@@ -67,20 +67,8 @@ class SSBMRewards:
     # also punishes more if getting hit in hitstun
     # """
     # combo_bonus: bool = True
-    def to_info(self, policy_names=None, character=None, port=None):
+    def to_dict(self):
         d = asdict(self)
-        d["character"] = character or Character.MARIO
-
-        # TODO : keep in mind that draws are not counted there...
-        if d["win_rewards"] != 0.:
-            for port2 in policy_names:
-                if port2 != port:
-                    d["game_stats"] = {
-                        "opponent": policy_names[port2],
-                        "outcome": d["win_rewards"]
-                    }
-                    break
-
         return d
 
     def total(self):
@@ -102,7 +90,7 @@ class RewardFunction:
         self.episode_finished = False
         self.combo_counter = {i: 0 for i in range(1, 5)}
         self.last_hit_action_state = {i: Action.KIRBY_BLADE_UP for i in range(1, 5)}
-        self.max_combo = 5
+        self.max_combo = 6
         self.combo_gamma = 0.997
         self.linear_discount = 1/120
 
@@ -156,35 +144,36 @@ class RewardFunction:
                         # A two hit combo is irrelevant (some chars have two hit attacks, they will learn to spam it
                         # otherwise...)
                         c1 = self.combo_counter[1]
-                        if c1 == 1:
-                            c1 = 0.33
                         c2 = self.combo_counter[2]
-                        if c2 == 1:
-                            c2 = 0.33
-                        combo_bonus1 = (1. + c1 * rewards[1].combo_multiplier)
+
+                        combo_bonus1 = (1. + np.square(c1/3) * rewards[1].combo_multiplier)
                         # TODO use val from player 2
-                        combo_bonus2 = (1. + c2 * rewards[1].combo_multiplier)
+                        combo_bonus2 = (1. + np.square(c2/3) * rewards[2].combo_multiplier)
                         off_stage_bonus = (1. + np.float32(self.last_state.players[1].off_stage
-                                        and self.last_state.players[2].off_stage)) * rewards[1].off_stage_multiplier
+                                        and self.last_state.players[2].off_stage) * rewards[1].off_stage_multiplier)
 
-                        rewards[1].damage_rewards += combo_bonus2 * off_stage_bonus * dpercent2 - dpercent1 * combo_bonus1
+                        rewards[1].damage_rewards += combo_bonus1 * off_stage_bonus * dpercent2 - dpercent1 * combo_bonus2
                         if bot_port2:
-                            rewards[2].damage_rewards += combo_bonus1 * off_stage_bonus * dpercent1 - dpercent2 * combo_bonus2
-
-                        if dpercent1 > 0:
-                            # encourages to do varied combos ?
-                            if (self.combo_counter[1] < self.max_combo
-                                    and self.last_hit_action_state[2] != new_state.players[2].action):
-                                self.combo_counter[1] += 1
-                            self.combo_counter[2] = 0
-                            self.last_hit_action_state[2] = new_state.players[2].action
+                            rewards[2].damage_rewards += combo_bonus2 * off_stage_bonus * dpercent1 - dpercent2 * combo_bonus1
 
                         if dpercent2 > 0:
-                            if (self.combo_counter[2] < self.max_combo
-                                    and self.last_hit_action_state[1] != new_state.players[1].action):
-                                self.combo_counter[2] += 1
-                            self.combo_counter[1] = 0
+                            # encourages to do varied combos ?
+                            bonus = 1.
+                            if self.last_hit_action_state[1] == new_state.players[1].action:
+                                bonus = 0.5
+                            self.combo_counter[1] = np.minimum(self.combo_counter[1]+bonus, self.max_combo)
+
+                            self.combo_counter[2] = 0
                             self.last_hit_action_state[1] = new_state.players[1].action
+
+                        if dpercent1 > 0:
+                            bonus = 1.
+                            if self.last_hit_action_state[2] == new_state.players[2].action:
+                                bonus = 0.5
+                            self.combo_counter[2] = np.minimum(self.combo_counter[2] + bonus, self.max_combo)
+
+                            self.combo_counter[1] = 0
+                            self.last_hit_action_state[2] = new_state.players[2].action
 
                         # motivates fast combos ? looses one point after a second.
                         if self.combo_counter[1] > 0:

@@ -1,14 +1,6 @@
-import os
-from pprint import pprint
-from time import time
-from typing import List
+
 from gymnasium.spaces.dict import Dict
-
-import pandas as pd
-
-import melee
 from melee import Stage, PlayerState, Character, Action, stages, enums, Projectile, GameState, AttackState
-from ray.rllib.models.preprocessors import DictFlatteningPreprocessor
 
 from melee_env.enums import UsedCharacter, UsedStage
 from melee.framedata import FrameData
@@ -98,7 +90,13 @@ class StateDataInfo:
         return not self.player is None
 
     def init_values(self):
-        dtype = np.float32 if self.nature in (StateDataInfo.CONTINUOUS, StateDataInfo.CATEGORICAL) else np.int8
+        if self.nature == StateDataInfo.CONTINUOUS:
+            dtype = np.float32
+        elif self.nature in (StateDataInfo.BINARY, StateDataInfo.CATEGORICAL):
+            dtype = np.int32
+        else:
+            dtype = np.float32
+        #dtype = np.float32 if self.nature in (StateDataInfo.CONTINUOUS, StateDataInfo.CATEGORICAL) else np.int8
 
         return np.zeros(
             (self.delay + 1, self.size), dtype=dtype,
@@ -120,7 +118,7 @@ class StateDataInfo:
         if self.nature == StateDataInfo.CONTINUOUS:
             return Box(*StateDataInfo.HARD_BOUNDS, (self.size,), dtype=np.float32)
         elif self.nature == StateDataInfo.CATEGORICAL:
-            return Box(0, self.n_values - 1, (1,), dtype=np.float32)
+            return Box(0, self.n_values - 1, (1,), dtype=np.int32)
         elif self.nature == StateDataInfo.BINARY:
             return MultiBinary(self.size)
         else:
@@ -636,13 +634,10 @@ class ObsBuilder:
         # TODO : this is getting sorted, so our indexes are wrong
 
         self.gym_specs = Dict({
-            i: Dict({
                 nature: Dict({feature.name: feature.gym_space for feature in self.features
                               if feature.nature == nature}) for nature in (StateDataInfo.CONTINUOUS,
                                                                            StateDataInfo.BINARY,
                                                                            StateDataInfo.CATEGORICAL)
-            })
-            for i in self.bot_ports
         })
 
         game_state = GameState()
@@ -652,21 +647,21 @@ class ObsBuilder:
         # game_state.players[1].action_frame = 3
 
         for v in game_state.players.values():
-            v.character = Character.MARIO
+            v.character = Character.FOX
 
         self.update(game_state)
-        dummy = self.gym_specs.sample()
+        dummy = {aid: self.gym_specs.sample() for aid in self.bot_ports}
         self.build(dummy)
 
-        self.name2idx = {}
+        # self.name2idx = {}
+        #
+        # checker = DictFlatteningPreprocessor(obs_space=self.gym_specs)
+        # idx = 0
+        # for feature in self.features:
+        #     self.name2idx[feature.name] = idx
+        #     idx += feature.size
 
-        checker = DictFlatteningPreprocessor(obs_space=self.gym_specs[1])
-        idx = 0
-        for feature in self.features:
-            self.name2idx[feature.name] = idx
-            idx += feature.size
-
-        self.flattened_obs = checker.transform(dummy[1])
+        #self.flattened_obs = checker.transform(dummy)
 
     def __getitem__(self, item):
         """
@@ -740,8 +735,8 @@ if __name__ == '__main__':
     ob.update(game_state)
     ob.build(dummies)
 
-    flattened_obs = DictFlatteningPreprocessor(ob.gym_specs).transform(dummies)
-    print(flattened_obs, np.where(flattened_obs==Action.GRABBED.value))
+    #flattened_obs = DictFlatteningPreprocessor(ob.gym_specs).transform(dummies)
+    #print(flattened_obs, np.where(flattened_obs==Action.GRABBED.value))
     print(ob.get_player_obs_idx("action", 1))
     # print("one",dummies)
     # ob.update(game_state)

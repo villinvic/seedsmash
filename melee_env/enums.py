@@ -1,7 +1,7 @@
 from enum import Enum
 
 class PlayerType(Enum):
-    """A VS-mode stage """
+    """ Player type, human, bot, cpu or debug (frame by frame)"""
     HUMAN = 0
     BOT = 1
     CPU = 2

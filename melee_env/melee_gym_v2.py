@@ -6,11 +6,7 @@ from typing import Dict as Dict_T
 from typing import Tuple as Tuple_T
 from copy import copy
 
-from ray.rllib.utils.typing import AgentID
-
 from melee import GameState, Console
-from ray.rllib import MultiAgentEnv
-from ray.rllib.env.base_env import convert_to_base_env
 
 import melee
 import numpy as np
@@ -24,10 +20,12 @@ from melee_env.action_space import ActionSpace, ComboPad, ActionSpaceStick, Acti
     SimpleActionSpace, InputQueue, ActionControllerInterface, SSBMActionSpace
 from melee_env.observation_space_v2 import ObsBuilder
 from melee_env.rewards import RewardFunction, SSBMRewards
-
 import gc
 
-class SSBM(MultiAgentEnv):
+from polaris.environments import PolarisEnv
+
+class SSBM(PolarisEnv):
+    env_id = "SSBM"
 
     before_game_stuck_combs = [
             (Character.FOX, Character.ROY, Stage.POKEMON_STADIUM),
@@ -141,32 +139,28 @@ class SSBM(MultiAgentEnv):
     PAD_INTERFACE = ActionControllerInterface
 
 
-    def __init__(self, config):
-        self.config = config
+    def __init__(self, env_index=-1, **config):
 
-        #print(dir(self.config))
-        self.worker_index = 0 if not hasattr(self.config, "worker_index") else self.config.worker_index
-        self.vector_index = 0 if not hasattr(self.config, "vector_index") else self.config.vector_index
+        super().__init__(env_index=env_index, **config)
+
+        print(self.config)
 
         self.render = (
-            self.config["render"] and self.worker_index == self.config["render_idx"] and self.vector_index == 0
+            self.config["render"] and self.env_index == self.config["render_idx"]
         )
 
-        self.slippi_port = 51441 + self.worker_index * 10 + self.vector_index + int(self.render) * 1280
+        self.slippi_port = 51441 + self.env_index
 
-        print(self.worker_index, self.vector_index)
         home = os.path.expanduser("~")
-        path = home + "/SlippiOnline/%s/dolphin"
+        path = home + "/SlippiOnline/debug/%s/dolphin"
 
-        self.path = path % "gui" if self.render \
-            else path % "headless"
+        self.path = path % "gui"
 
         self.iso = home + "/isos/melee.iso"
 
         self.console = None
         self.controllers = None
         self.previously_crashed = False
-        self.policy_names = None
         self.ingame_stuck_frozen_counter = 0
 
         self.pad_at_end = self.config["obs"]["delay"]
@@ -175,8 +169,8 @@ class SSBM(MultiAgentEnv):
 
         self.players = copy(self.config["players"])
         if not (PlayerType.HUMAN in self.config["players"] or PlayerType.HUMAN_DEBUG in self.config["players"]):
-            print(self.worker_index, self.config["n_eval"])
-            if self.worker_index <= self.config["n_eval"]:
+            print(self.env_index, self.config["n_eval"])
+            if self.env_index <= self.config["n_eval"]:
                 self.players[1] = PlayerType.CPU
             else:
                 print(self.players)
@@ -205,22 +199,13 @@ class SSBM(MultiAgentEnv):
         #                               MultiDiscrete([self.discrete_stick.dim,
         #                                              self.discrete_pad.dim + self.discrete_cstick.dim])
         #                          for i in self.om.bot_ports})
-        self.action_space = Dict({
-            p: self.discrete_controllers[p].gym_spec for p in self.om.bot_ports})
+        self.action_space = self.discrete_controllers[list(self.get_agent_ids())[0]].gym_spec
 
-        self._observation_space_in_preferred_format = True
-        self._action_space_in_preferred_format = True
         self.episode_reward = 0
         self.current_matchup = None
         self.action_queues: Dict_T[int, InputQueue] = None
         self.reward_function: RewardFunction = None
-
-
-        super().__init__()
-
-        #self.state = self.observation_space.sample()
-        # self.observation_space[1][0]
-        self.state = self.observation_space.sample()
+        self.state = {aid: self.observation_space.sample() for aid in self.get_agent_ids()}
 
         atexit.register(self.close)
 
@@ -264,7 +249,7 @@ class SSBM(MultiAgentEnv):
             gfx_backend="" if self.render else "Null",
             disable_audio=not self.render,
             polling_mode=True,
-            dual_core=self.render
+            #dual_core=self.render
         )
         self.controllers = {i + 1: ComboPad(console=self.console, port=i + 1, type=(
             ControllerType.GCN_ADAPTER if p_type == PlayerType.HUMAN else ControllerType.STANDARD
@@ -277,7 +262,10 @@ class SSBM(MultiAgentEnv):
         tries = 10
         while not connected:
             self.make_console_and_controllers()
-            self.console.run(iso_path=self.iso, exe_name="dolphin-emu" if self.render else "dolphin-emu-headless")
+            self.console.run(iso_path=self.iso,
+                             #exe_name="dolphin-emu" if self.render else "dolphin-emu-headless"
+                             platform=None if self.render else "headless"
+                             )
 
             connected = self.console.connect()
             tries -= 1
@@ -288,7 +276,6 @@ class SSBM(MultiAgentEnv):
 
                 self.console.stop()
                 for controller in self.controllers.values():
-                    controller: ComboPad
                     #controller.disconnect()
                     del controller
 
@@ -332,6 +319,7 @@ class SSBM(MultiAgentEnv):
 
         # Reset some attributes
         self.reward_function = RewardFunction()
+        self.episode_metrics = defaultdict(float)
         self.pad_at_end = self.config["obs"]["delay"] + 1
         self.reached_end = False
         self.ingame_stuck_frozen_counter = 0
@@ -345,11 +333,11 @@ class SSBM(MultiAgentEnv):
 
         combination_crash_checking = not self.render
 
-        stage = np.random.choice(self.config["stages"]) if (options is None or "stage" not in options) else options[
-            "stage"]
+        # For now we do random stages
+        stage = np.random.choice(self.config["stages"]) #if (options is None or "stage" not in options) else options["stage"]
         chars = np.random.choice(self.config["chars"], len(self.config["players"])) if (
                     options is None) \
-            else (options[1]["character"], options[2]["character"])
+            else tuple(options[aid]["character"] for aid in self.get_agent_ids())
 
         # TODO fair randomization, some chars will be sampled less as a result
         if options is not None:
@@ -363,18 +351,9 @@ class SSBM(MultiAgentEnv):
                 stage = np.random.choice(self.config["stages"])
                 chars = np.random.choice(self.config["chars"], len(self.config["players"]))
 
-        # chars = (Character.GANONDORF, Character.FALCO)
-        # stage = Stage.YOSHIS_STORY
-
         n_start = 70
         counter = 0
         self.current_matchup = tuple(chars) + (stage,)
-        if options is not None:
-            self.policy_names = {p: options[p]["__policy_id"] for p in options}
-        else:
-            # multi_agent_env calls reset once for init without options
-            self.policy_names = {p: "Undefined" for p in self._agent_ids}
-        print(self.current_matchup)
 
         while state.menu_state in [melee.Menu.IN_GAME, melee.Menu.SUDDEN_DEATH, None]:
             state = self.step_nones(reset_if_stuck=True)
@@ -570,21 +549,22 @@ class SSBM(MultiAgentEnv):
         }
         dones["__all__"] = done
 
-        # TODO support team
-
         if done and self.config["debug"]:
             print(f"Collected rewards: {rewards}")
-        infos = {p: reward.to_info(policy_names=self.policy_names, port=p, character=None if p not in state.players else state.players[p].character)
-                 for p, reward in rewards.items()}
-        rewards = {p: reward.total() for p, reward in rewards.items()}
 
-        return self.state, rewards, dones, dones, infos
+        total_rewards = {}
+        for aid, reward in rewards.items():
+            total_rewards[aid] = reward.total()
+            for rid, r in reward.to_dict().items():
+                self.episode_metrics[f"{aid}/{rid}"] += r
+
+        return self.state, total_rewards, dones, dones, {}
 
     def close(self):
-        print(self.worker_index,
+        print(self.env_index,
               "STOPING=================================================================================================")
 
-        if self.worker_index == 1:
+        if self.env_index == 1:
             # Flush updated frame data to csv
             self.om.FFD.override()
 
@@ -617,12 +597,5 @@ class SSBM(MultiAgentEnv):
         else:
             return self.console._prev_gamestate
 
-
-    def with_agent_groups(
-            self,
-            groups,
-            obs_space: gymnasium.Space = None,
-            act_space: gymnasium.Space = None) -> "MultiAgentEnv":
-        print(groups)
-        return super().with_agent_groups(groups, obs_space, act_space)
-
+    def get_episode_metrics(self):
+        return self.episode_metrics
