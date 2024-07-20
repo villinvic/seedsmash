@@ -1,11 +1,13 @@
 import atexit
 from collections import defaultdict
+from socket import socket
 from time import sleep
 from typing import Optional, List, Union
 from typing import Dict as Dict_T
 from typing import Tuple as Tuple_T
 from copy import copy
 
+from gymnasium.error import ResetNeeded
 from melee import GameState, Console
 
 import melee
@@ -118,10 +120,14 @@ class SSBM(PolarisEnv):
             (Character.CPTFALCON, Character.DOC, Stage.YOSHIS_STORY),
             (Character.JIGGLYPUFF, Character.LINK, Stage.POKEMON_STADIUM),
             (Character.MARTH, Character.LINK, Stage.BATTLEFIELD),
+            (Character.CPTFALCON, Character.FALCO, Stage.FINAL_DESTINATION),
+            (Character.FOX, Character.MARTH, Stage.BATTLEFIELD),
 
-            # TODO : fix those combinations where p2 is stuck (apparently ?)
+        # TODO : fix those combinations where p2 is stuck (apparently ?)
             #       the game still goes on, but p2 cannot die, I see controller states and position updating though
             (Character.CPTFALCON, Character.CPTFALCON, Stage.FINAL_DESTINATION),
+            (Character.CPTFALCON, Character.CPTFALCON, Stage.YOSHIS_STORY),
+            (Character.CPTFALCON, Character.FOX, Stage.FINAL_DESTINATION)
 
         #(Character.CPTFALCON,  Character.FOX, Stage.YOSHIS_STORY),
 
@@ -147,7 +153,10 @@ class SSBM(PolarisEnv):
             self.config["render"] and self.env_index == self.config["render_idx"]
         )
 
-        self.slippi_port = 51441 + self.env_index
+        sock = socket()
+        sock.bind(('', 0))
+
+        self.slippi_port = int(sock.getsockname()[1])#51441 + self.env_index * 100 + np.random.randint(0, 100)
 
         home = os.path.expanduser("~")
         path = home + "/SlippiOnline/%s/dolphin"
@@ -167,11 +176,12 @@ class SSBM(PolarisEnv):
 
         self.players = copy(self.config["players"])
         if not (PlayerType.HUMAN in self.config["players"] or PlayerType.HUMAN_DEBUG in self.config["players"]):
-            print(self.env_index, self.config["n_eval"])
+            #print(self.env_index, self.config["n_eval"])
             if self.env_index <= self.config["n_eval"]:
                 self.players[1] = PlayerType.CPU
             else:
-                print(self.players)
+                pass
+                #print(self.players)
 
         self.om = ObsBuilder(self.config, self.players)
         self._agent_ids = set(self.om.bot_ports)
@@ -215,7 +225,7 @@ class SSBM(PolarisEnv):
             try:
                 state = self.console.step()
             except BrokenPipeError as e:
-                print(e)
+                print(e, self.env_index)
                 break
             c += 1
             if c > max_w:
@@ -223,13 +233,7 @@ class SSBM(PolarisEnv):
                 print("we are stuck")
                 break
         if state is None and reset_if_stuck:
-            print("Closing and restarting...")
-            self.close()
-            sleep(2)
-            self.setup()
-            print("Restarted.")
-
-            return self.step_nones(reset_if_stuck=True)
+            raise ResetNeeded(f"Dolphin {self.env_index} crashed with {self.current_matchup}[error:3]")
 
         return state
 
@@ -333,15 +337,22 @@ class SSBM(PolarisEnv):
 
         # For now we do random stages
         stage = np.random.choice(self.config["stages"]) #if (options is None or "stage" not in options) else options["stage"]
-        chars = np.random.choice(self.config["chars"], len(self.config["players"])) if (
-                    options is None) \
-            else tuple(options[aid]["character"] for aid in self.get_agent_ids())
+        if options is None:
+            chars = np.random.choice(self.config["chars"], len(self.config["players"]))
+        else:
+            chars = ()
+            for port, _ in enumerate(self.players, 1):
+                if port in options:
+                    chars = chars + (options[port]["character"],)
+                else:
+                    chars = chars + (np.random.choice(self.config["chars"]),)
 
         # TODO fair randomization, some chars will be sampled less as a result
+        #print((*chars, stage), "?", (*chars, stage) in SSBM.before_game_stuck_combs + SSBM.ingame_stuck_combs)
         if options is not None:
             while combination_crash_checking and (*chars, stage) in SSBM.before_game_stuck_combs + SSBM.ingame_stuck_combs:
                 # TODO : make it swap player ports.
-                print("Tried playing as", (*chars, stage), "but this combination does not work")
+                #print("Tried playing as", (*chars, stage), "but this combination does not work")
                 stage = np.random.choice(self.config["stages"])
 
         else:
@@ -358,10 +369,11 @@ class SSBM(PolarisEnv):
             if state is None:
                 return None
 
+        lvl = 4  # TODO: # np.random.randint(1, 10)
         while state.menu_state not in [melee.Menu.IN_GAME, melee.Menu.SUDDEN_DEATH]:
             for port, controller in self.controllers.items():
                 if controller._type != PlayerType.HUMAN:
-                    cpu_level = 9 if self.players[port-1] == PlayerType.CPU else 0
+                    cpu_level = lvl if self.players[port-1] == PlayerType.CPU else 0
                     if port == 2:
                         auto_start = counter > n_start
                     else:
@@ -400,8 +412,6 @@ class SSBM(PolarisEnv):
 
         self.om.update(state)
         self.game_frame = 0
-
-        print("Went Through!")
 
         return self.om.build(self.state), {i: {} for i in self.om.bot_ports}
 
@@ -462,8 +472,7 @@ class SSBM(PolarisEnv):
                     # Weird state
                     print(f"Stuck here?, crashed with {self.current_matchup}")
                     # force full reset here
-                    self.previously_crashed = True
-                    return next_state, collected_rewards, game_is_finished
+                    raise ResetNeeded(f"Dolphin {self.env_index} crashed with {self.current_matchup} [error:2]")
                     #return {}, {}, {"__all__": True}, {"__all__": True}, {}
                 else:
                     # Put in our custom frame counter
@@ -507,7 +516,8 @@ class SSBM(PolarisEnv):
 
         if state is None:
             # We crashed, return dummy stuff
-            return {}, {}, {"__all__": True}, {"__all__": True}, {}
+            raise ResetNeeded(f"Dolphin {self.env_index} crashed with {self.current_matchup} [error:1]")
+            #return {}, {}, {"__all__": True}, {"__all__": True}, {}
 
         elif state.menu_state not in [melee.Menu.IN_GAME, melee.Menu.SUDDEN_DEATH]:
             # Might have happened if we reached time limit ?
@@ -556,6 +566,8 @@ class SSBM(PolarisEnv):
             for rid, r in reward.to_dict().items():
                 self.episode_metrics[f"{aid}/{rid}"] += r
 
+        #if self.env_index == 0:
+         #   print(self.state[1]["continuous"]["position1"])
         return self.state, total_rewards, dones, dones, {}
 
     def close(self):

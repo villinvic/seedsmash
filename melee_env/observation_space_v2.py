@@ -59,13 +59,12 @@ def randall_position(frame, stage):
 
     return y, x1, x2
 
-
 class StateDataInfo:
     CONTINUOUS = "continuous"
     BINARY = "binary"
     CATEGORICAL = "categorical"
 
-    HARD_BOUNDS = (-30., 30)
+    HARD_BOUNDS = (-5., 5)
 
     def __init__(
             self, extractor, nature, name="UNSET", scale=1., size=1, player_port=None, config={}
@@ -93,7 +92,7 @@ class StateDataInfo:
         if self.nature == StateDataInfo.CONTINUOUS:
             dtype = np.float32
         elif self.nature in (StateDataInfo.BINARY, StateDataInfo.CATEGORICAL):
-            dtype = np.int32
+            dtype = np.float32
         else:
             dtype = np.float32
         #dtype = np.float32 if self.nature in (StateDataInfo.CONTINUOUS, StateDataInfo.CATEGORICAL) else np.int8
@@ -118,7 +117,7 @@ class StateDataInfo:
         if self.nature == StateDataInfo.CONTINUOUS:
             return Box(*StateDataInfo.HARD_BOUNDS, (self.size,), dtype=np.float32)
         elif self.nature == StateDataInfo.CATEGORICAL:
-            return Box(0, self.n_values - 1, (1,), dtype=np.int32)
+            return Box(0, self.n_values - 1, (1,), dtype=np.float32)
         elif self.nature == StateDataInfo.BINARY:
             return MultiBinary(self.size)
         else:
@@ -139,7 +138,7 @@ class StateDataInfo:
 
 class ObsBuilder:
     FRAME_SCALE = 0.01
-    SPEED_SCALE = 0.5
+    SPEED_SCALE = 0.2
     POS_SCALE = 0.01
     HITBOX_SCALE = 0.1
     PERCENT_SCALE = 0.009
@@ -315,10 +314,10 @@ class ObsBuilder:
                 #                                    config=self.config),
 
                 # hitbox_count
-                iasa=StateDataInfo(lambda s: max(ObsBuilder.FD.iasa(s.players[port].character,
+                iasa=StateDataInfo(lambda s: np.int8(ObsBuilder.FD.iasa(s.players[port].character,
                                                                     s.players[port].action
-                                                                    ) - s.players[port].action_frame, 0.),
-                                   StateDataInfo.CONTINUOUS,
+                                                                    ) - s.players[port].action_frame < 3),
+                                   StateDataInfo.BINARY,
                                    scale=ObsBuilder.FRAME_SCALE,
                                    player_port=port,
                                    config=self.config),

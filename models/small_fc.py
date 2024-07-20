@@ -67,10 +67,13 @@ class SmallFC(BaseModel):
         self.joint_embedding_size = 64
         self.last_action_embedding_size = 16
 
-        self.optimiser = RMSprop(
+        self.optimiser = snt.optimizers.RMSProp(
             learning_rate=config.lr,
-            rho=config.rms_prop_rho,
-            epsilon=config.rms_prop_epsilon
+            decay=config.rms_prop_rho,
+            momentum=0.0,
+            epsilon=config.rms_prop_epsilon,
+            centered=False,
+            name="rmsprop"
         )
         self.action_dist = CategoricalDistribution
 
@@ -130,26 +133,29 @@ class SmallFC(BaseModel):
     ):
         continuous_inputs = [v for k, v in obs["continuous"].items()]
 
-        binary_inputs = [v for k, v in obs["continuous"].items()]
+        binary_inputs = [tf.cast(v, dtype=tf.float32, name=k) for k, v in obs["binary"].items()]
 
         categorical_inputs = obs["categorical"]
 
-        categorical_one_hots = [tf.one_hot(tensor, depth=tf.cast(space.high[0], tf.int32) + 1, dtype=tf.float32, name=name)[:, :, 0]
+        categorical_one_hots = [tf.one_hot(tf.cast(tensor, tf.int32), depth=tf.cast(space.high[0], tf.int32) + 1, dtype=tf.float32, name=name)[:, :, 0]
                                 for tensor, (name, space) in
                                 zip(categorical_inputs.values(), self.observation_space["categorical"].items())
-                                if name not in ["action1", "character1", "action2", "character2"]]
+                                if name not in ["character1", "action1", "action2", "character2"]]
 
         action_state_self = categorical_inputs["action1"]
         action_state_opp = categorical_inputs["action2"]
         opp_char_input = categorical_inputs["character2"]
 
+        #last_action_one_hot = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
+
         last_action_embedding = self.last_action_embed(prev_action)
-        action_state_embedding = self.action_state_embed(action_state_self)[:, :, 0]
-        opp_char_state_joint_embedding = self.opp_char_state_joint_embed(action_state_opp + self.n_action_states * opp_char_input)[:, :, 0]
-        opp_char_embedding = self.opp_char_embed(opp_char_input)[:, :, 0]
+        action_state_embedding = self.action_state_embed(tf.cast(action_state_self, tf.int32))[:, :, 0]
+        opp_char_state_joint_embedding = self.opp_char_state_joint_embed(tf.cast(action_state_opp + self.n_action_states * opp_char_input, tf.int32))[:, :, 0]
+        opp_char_embedding = self.opp_char_embed(tf.cast(opp_char_input, tf.int32))[:, :, 0]
 
         obs_input_post_embedding = self.post_embedding_concat(
-            continuous_inputs + binary_inputs + categorical_one_hots +
+            continuous_inputs + binary_inputs + categorical_one_hots
+            +
             [last_action_embedding, action_state_embedding, opp_char_state_joint_embedding, opp_char_embedding,
             tf.tanh(tf.expand_dims(tf.cast(prev_reward, dtype=tf.float32), axis=-1) / 5.)
             ]
@@ -158,10 +164,11 @@ class SmallFC(BaseModel):
 
         x = self._mlp(obs_input_post_embedding)
 
+
         pi_out = self._pi_out(x)
         self._values = tf.squeeze(self._value_out(x))
 
-        return pi_out, None
+        return (pi_out, None), self._values
 
 
 

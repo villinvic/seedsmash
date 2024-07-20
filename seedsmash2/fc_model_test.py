@@ -1,5 +1,7 @@
 
 from functools import partial
+
+import numpy as np
 from melee.enums import Character, Stage
 from melee_env.enums import PlayerType
 from melee_env.melee_gym_v2 import SSBM
@@ -18,11 +20,11 @@ ex = Experiment(exp_name)
 obs_config = (
     SSBM_OBS_Config()
     .character()
-    #.ecb()
+    .ecb()
     .stage()
     .max_projectiles(4)  # one falco can generate more than 3 projectiles apparently ?
-    .controller_state()
-    .delay(0) # 4 (* 3)
+    #.controller_state()
+    .delay(1) # 4 (* 3)
 )
 
 # TODO : should add stage idx for walls (walljump and stuff)
@@ -54,7 +56,7 @@ env_conf = (
         Character.CPTFALCON,
         # Character.MARIO,
         # Character.DOC,
-        # Character.MARTH,
+        Character.MARTH,
         # Character.ROY,
         # Character.GANONDORF,
         # Character.JIGGLYPUFF,
@@ -63,7 +65,7 @@ env_conf = (
     ])
     .stages([
         Stage.FINAL_DESTINATION,
-        Stage.YOSHIS_STORY,
+        #Stage.YOSHIS_STORY, # Why is this so buggy ?
         Stage.POKEMON_STADIUM,
         Stage.BATTLEFIELD,
         Stage.DREAMLAND,
@@ -72,11 +74,11 @@ env_conf = (
         # falcon falco, jiggs falco, marth falcon, jigs falcon, falcon falcon, falcon fox, marth falcon, falco falco,
         # marth falco, jigs marth
     ])
-    .players([PlayerType.BOT, PlayerType.BOT])
+    .players([PlayerType.BOT, PlayerType.CPU])
     .n_eval(-100)
     .set_obs_conf(obs_config)
 
-    .render(idx=0)
+    .render()
     #.debug()
     #.save_replays()
 )
@@ -91,37 +93,42 @@ def my_config():
     del env_obj
     env_config = dict(env_conf)
 
-    num_workers = 1
-    policy_path = 'polaris.policies.VMPO'
+    num_workers = 64
+    policy_path = 'policies.VMPOMelee'
     model_path = 'models.small_fc'
     policy_class = 'VMPO'
     model_class = 'SmallFC'
-    trajectory_length = 256
-    max_seq_len = 256
-    train_batch_size = 512
+    trajectory_length = 32
+    train_batch_size = 1024 * 4
     max_queue_size = train_batch_size * 10
+    max_seq_len = 32
 
     default_policy_config = {
-            'discount'    : 0.997,
-            'entropy_cost': 0.,
-            'popart_std_clip': 1e-2,
-            'popart_lr': 2e-2,
-            'grad_clip': 10.,
-            'lr'              : 0.0005,
-            'rms_prop_rho'    : 0.99,
-            'rms_prop_epsilon': 1e-5,
-            'fc_dims'         : [128, 128],
+        'discount': 0.995,  # 0.997
+        'entropy_cost': 1.5e-3, # 1e-3 with impala, or around " 0.3, 0.4
+        'popart_std_clip': 1e-2,
+        'popart_lr': 1e-1,
+        'grad_clip': 2.,
+        'lr': 1e-4,
+        'rms_prop_rho': 0.99,
+        'rms_prop_epsilon': 1e-5,
+        'fc_dims': [128, 128],
 
-            # VMPO
-            'temperature_speed'        : 10.,
-            'initial_trust_region_coeff': 5.,
-            'trust_region_eps'          : 0.01,
+        # VMPO
+        'trust_region_speed': 100.,
+        'initial_trust_region_coeff': 1.,
+        'trust_region_eps': 1e-4,
+        'trust_region_weight': 1.,
 
-            'initial_temperature'       : 1.,
-            'temperature_eps'           : 0.01,
+        'temperature_speed': 10.,
+        'initial_temperature': 1.,
+        'temperature_eps': 0.02,
 
-            'target_update_freq'        : 20,
-            'top_sample_frac'           : 0.5,
+        'target_update_freq': 10,
+        'top_sample_frac': 0.5,
+
+        'policy_weight': 1.,#1. / np.log(dummy_ssbm.action_space.n),
+        'baseline_weight': 0.5,  # np.log(dummy_ssbm.action_space.n)
         }
 
     policy_params = [dict(
@@ -133,15 +140,20 @@ def my_config():
         #     name="FALCON",
         #     config=default_policy_config.copy(),
         #     options=dict(character=Character.CPTFALCON)
+        # ),
+        # dict(
+        #     name="FALCO",
+        #     config=default_policy_config.copy(),
+        #     options=dict(character=Character.FALCO)
         # )
     ]
 
     tensorboard_logdir = 'small_fc_tests_fox_falcon'
     report_freq = 5
-    episode_metrics_smoothing = 0.9
+    episode_metrics_smoothing = 0.2
 
     checkpoint_config = dict(
-        checkpoint_frequency=100,
+        checkpoint_frequency=1000,
         checkpoint_path=exp_path,
         stopping_condition={"environment_steps": 1e9},
         keep=3,
@@ -149,7 +161,7 @@ def my_config():
 
     episode_callback_class = partial(
     SSBMCallbacks,
-    negative_reward_scale=0.95,
+    negative_reward_scale=0.7, #0.95
 )
 
 # Define a simple main function that will use the configuration
@@ -157,6 +169,9 @@ def my_config():
 def main(_config):
     import tensorflow as tf
     tf.compat.v1.enable_eager_execution()
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    for gpu in gpus:
+        tf.config.experimental.set_memory_growth(gpu, False)
     from polaris.trainers import AsyncTrainer
 
 

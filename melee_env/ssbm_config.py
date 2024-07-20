@@ -130,7 +130,7 @@ class SSBMConfig(dict):
         cself["save_replays"] = True
         return cself
 
-    def render(self, render=True, idx=None):
+    def render(self, render=True, idx=0):
         cself = copy(self)
         cself["render"] = render
         if idx is not None:

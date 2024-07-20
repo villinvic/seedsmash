@@ -617,7 +617,7 @@ class SSBMActionSpace:
     DOWN_LEFT = lambda _: InputSequence(ControllerInput(stick=StickPosition.DOWN_LEFT, energy_cost=0.))
     DOWN_RIGHT = lambda _: InputSequence(ControllerInput(stick=StickPosition.DOWN_RIGHT, energy_cost=0.))
     A_NEUTRAL = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_A))
-    # Disable this when in the air, its the same as c stick
+    #Disable this when in the air, its the same as c stick
     TILT_UP = lambda _: InputSequence(
         [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.UP_TILT, duration=2, test_func=disable_in_air),
          ControllerInput(test_func=disable_in_air, duration=1),
@@ -638,7 +638,7 @@ class SSBMActionSpace:
          ControllerInput(test_func=disable_in_air, duration=1),
          ]
         )
-    # Is this costly ? might be annoying, never saw the ai using it properly, only allow on ground obviously
+    #Is this costly ? might be annoying, never saw the ai using it properly, only allow on ground obviously
     SHIELD_DROP = lambda _: InputSequence([
         ControllerInput(buttons=Button.BUTTON_L, test_func=disable_in_air, duration=3),
         ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.SHIELD_DROP, duration=1, test_func=disable_in_air)
@@ -646,7 +646,7 @@ class SSBMActionSpace:
     B_NEUTRAL = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, energy_cost=0.1))
 
     # Do it depending on the char ?
-    #B_UP = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.UP, duration=3))
+    # B_UP = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.UP, duration=3))
     B_UP_LEFT = lambda _: InputSequence([
         ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.UP, duration=2),
         # allows reversed up-b
@@ -657,7 +657,7 @@ class SSBMActionSpace:
         # allows reversed up-b
         ControllerInput(stick=StickPosition.RIGHT, duration=1),
     ])
-    #B_DOWN = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.DOWN))
+    #########B_DOWN = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.DOWN))
     B_LEFT = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.LEFT))
     B_RIGHT = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.RIGHT))
     C_UP = lambda _: InputSequence(ControllerInput(c_stick=StickPosition.UP))
@@ -688,7 +688,7 @@ class SSBMActionSpace:
                                                              test_func=disable_on_ground, energy_cost=0.))
 
     # Hook, Z-cancel, NAIR
-    Z = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_Z, test_func=disable_on_ground))
+    Z = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_Z, test_func=disable_on_ground, energy_cost=0.2))
 
     # Only makes sense on ground, TODO: are we kneebent for the second input ?
     Z_GRAB = lambda _: InputSequence([
@@ -763,7 +763,6 @@ class SSBMActionSpace:
             for character, short_hop_frames in char2kneebend.items()
         }
     )
-
     WAVEDASH_NEUTRAL = lambda _: CharDependentInputSequence(
         {
             character: InputSequence([
@@ -775,7 +774,6 @@ class SSBMActionSpace:
             for character, short_hop_frames in char2kneebend.items()
         }
     )
-
     WAVEDASH_SLIGHT_LEFT = lambda _: CharDependentInputSequence(
         {
             character: InputSequence([
@@ -787,7 +785,6 @@ class SSBMActionSpace:
             for character, short_hop_frames in char2kneebend.items()
         }
     )
-
     WAVEDASH_SLIGHT_RIGHT = lambda _: CharDependentInputSequence(
         {
             character: InputSequence([

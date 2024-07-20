@@ -25,12 +25,12 @@ class SSBMRewards:
     rewards collected for winning/loosing
     """
     win_rewards: np.float32 = 0.
-    win_reward_scale: np.float32 = 0.  # 5.
+    win_reward_scale: np.float32 = 5.
     """
     rewards collected for damaging/taking damage
     """
     damage_rewards: np.float32 = 0.
-    damage_reward_scale: np.float32 = 0.005
+    damage_reward_scale: np.float32 = 0.1 #0.25
     off_stage_multiplier: np.float32 = 1.
 
     combo_multiplier: np.float32 = 0.
@@ -38,27 +38,27 @@ class SSBMRewards:
     rewards collected for moving toward the opponent
     """
     distance_rewards: np.float32 = 0.
-    distance_reward_scale: np.float32 = 0.  # 0.00003
+    distance_reward_scale: np.float32 = 0. # 0.00015
 
     """
     rewards collected for killing/dying
     """
     kill_rewards: np.float32 = 0.
-    kill_reward_scale: np.float32 = 1.
+    kill_reward_scale: np.float32 = 5.
     death_rewards: np.float32 = 0.
-    death_reward_scale: np.float32 = 1.
+    death_reward_scale: np.float32 = 5.
 
     """
     Cost incurred for sweating on the c-stick or the buttons
     We should not punish techskill though
     """
     energy_costs: np.float32 = 0.
-    energy_cost_scale: np.float32 = 0.0003
+    energy_cost_scale: np.float32 = 0.#-0.0015
 
     #shield_reflect_rewards: np.float32 = 0.
     #shield_reflect_scale: np.float32 = 0.2
 
-    time_cost: np.float32 = -0.0002
+    time_cost: np.float32 = 0.#-0.001
 
 
     # Put that in the rewardfunction class
@@ -148,7 +148,11 @@ class RewardFunction:
 
                         combo_bonus1 = (1. + np.square(c1/3) * rewards[1].combo_multiplier)
                         # TODO use val from player 2
-                        combo_bonus2 = (1. + np.square(c2/3) * rewards[2].combo_multiplier)
+                        if bot_port2:
+                            p2_combo_multipler = rewards[2].combo_multiplier
+                        else:
+                            p2_combo_multipler = rewards[1].combo_multiplier
+                        combo_bonus2 = (1. + np.square(c2/3) * p2_combo_multipler)
                         off_stage_bonus = (1. + np.float32(self.last_state.players[1].off_stage
                                         and self.last_state.players[2].off_stage) * rewards[1].off_stage_multiplier)
 
@@ -209,7 +213,7 @@ class RewardFunction:
 
                         # ACTION RELATED
                         for p, reward in rewards.items():
-                            rewards[p].energy_costs -= current_actions[p].energy_cost
+                            rewards[p].energy_costs += current_actions[p].energy_cost
 
 
             self.last_state = new_state
