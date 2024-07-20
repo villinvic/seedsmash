@@ -29,7 +29,7 @@ players = [
 
 
 for player in players:
-    player['icon'] = Image.open(f"icons/{player['main']}.png").resize(ICON_SIZE, Image.ANTIALIAS)
+    player['icon'] = Image.open(f"assets/icons/{player['main']}.png").resize(ICON_SIZE, Image.ANTIALIAS)
 
 def draw_text_with_pillow(image, text, position, font, color):
     # Convert OpenCV image to PIL image
