@@ -58,7 +58,7 @@ class SSBMRewards:
     #shield_reflect_rewards: np.float32 = 0.
     #shield_reflect_scale: np.float32 = 0.2
 
-    time_cost: np.float32 = 0.#-0.001
+    time_cost: np.float32 = 0.#-0.0002
 
 
     # Put that in the rewardfunction class

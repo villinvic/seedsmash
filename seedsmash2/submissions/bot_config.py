@@ -190,15 +190,35 @@ color2index = {
 class BotConfig:
     """SEEDSMASH Bot configuration file:
 Please fill properly/completely.
+
+"Play-style" parameters shape the strategy you will get. Note that their effect is not 100% clear,
+as the combined effect of our chosen parameters is not obvious.
+To illustrate with an example, a bot with a default configuration is rewarded with:
+> 1 point for killing, -1 point for dying,
+> 0.005 point per percent dealt, -0.005 point per percent suffered,
+> -0.0002 point every 3 frames
+NOTE: those rewards and other play-style related rewards affect the rewards collected by your bot for training only.
+This is different from the actual performance metrics of your bot: rank, winrate, rating... which only depend on
+whether your bot wins or loses.
+
+* Will later be added:
+- details about the algorithm used for training,
+- the model used for the policy.
     """
+
+    def __post_init__(self):
+        pass
+        # validate inputs
+        # raise an error if one input is wrong, or switch to default.
 
     __field_docs__ = {}
 
-    tag: str = "seedsmash"
+    tag: str = "your_bot_name"
     __field_docs__["tag"] = """Bot tag
     
     Tags length should be between 3 and 16 characters.
 Special characters may end up be removed.
+For now, if your tag is taken, a number will be added at the end of the tag. 
     """
 
     character: str = "MARIO"
@@ -226,19 +246,117 @@ Each component affects how your bot learns, shaping its optimal strategy.
 Note: An extreme configuration will certainly lead to poor results. Experiment at your own risk.
     """
 
-    # TODO: reward shaping !
+    # We should control entropy on our side, in order to ensure no bot collapses mid training
 
-    lookahead_half_life: float = 6
-    __field_docs__["lookahead_half_life"] = """Lookahead half-life.
+    random_action_chance: float = 1
+    __field_docs__["random_action_chance"] = """Random action chance.
+Valid range: [0, 10]
+
+
+Percentage of actions to be picked completely randomly.
+As your bot progress throughout learning, its certainty about its actions will grow, sometimes stopping exploration 
+entirely in specific situations. 
+A value higher than 0 should ensure that your bot keeps considering every action and constant exploration.
+Nevertheless, this gives your bot a chance to make some very bad decisions.
+This offers a constant tradeoff between performance and strategy exploration.
+
+Ex: since bots take 20 actions per second, with 1%, your bot will pick 1 random action every 5 seconds. 
+By default, this is set to 1.
+        """
+
+    reflexion: float = 6
+    __field_docs__["reflexion"] = """(Play-style) Reflexion.
+Valid range: [3, 30]
 
 Your bot cares decreasingly less about rewards as we go further into the future.
 This value is for the number of seconds before your bot cares about half of the rewards it is getting.
 Essentially defines how much your bot cares about future rewards.
 
-Higher the value, harder and longer it is to learn, obviously.
+Note: Higher the value, harder and longer it is to learn.
 
 For example:
 - 1 will lead to a bot only caring about instant rewards, such as smashing
 - 5-10 is a generally a good range.
-    """
+By default, this is set to 6.
+        """
+
+    agressivity: float = 50
+    __field_docs__["agressivity"] = """(Play-style) Agressivity.
+Valid range: [0, 100]
+
+How much your bot prioritises damaging/killing over getting damaged/dying.
+
+Ex:
+A value of 50 leads to a bot equally caring about defense and attack.
+A value of 100 leads to a bot that does not care about dying.
+A value of 0 leads to a bot that does not care about killing/damaging its opponent.
+40-60 is a good range for agressivity
+By default, this is set to 50.
+            """
+
+    winning_signal_strength: float = 0
+    __field_docs__["winning_signal_strength"] = """(Play-style) Winning Signal Strength.
+
+Strength of the reward signal received by your bot when winning, on top of the reward received when your opponent 
+loses its last stock.
+
+A reasonable range for the signal is 0-10
+By default, this is set to 0.
+                """
+
+    patience: float = 50
+    __field_docs__["patience"] = """(Play-style) Patience.
+Valid range: [0, 100]
+
+By default, this is set to 50.
+Every 3 frames, your bot receives a small penalty, that diminishes with patience.
+
+With a low patience, your bot will try to finish the game more quickly.
+NOTE: a timeout is always considered a draw, and not a win for the play which has more stocks and less percent.
+
+By default, this is set to 50.
+                    """
+
+    creativity: float = 0
+    __field_docs__["creativity"] = """(Play-style) Creativity.
+Valid range: [0, 100]
+
+Gives a small bonus to your bot when in action animations it rarely encounters, e.g., wall-jumping, the different Marth dancing blades.
+This essentially gives some exploratory boost.
+
+By default this is set to 0.
+                        """
+
+    off_stage_plays: float = 0
+    __field_docs__["off_stage_plays"] = """(Play-style) Off-stage plays.
+Valid range: [0, 100]
+
+How much your bot likes being offstage
+Boosts the positive rewards received when offstage.
+
+By default this is set to 0.
+                        """
+
+    combo_game: float = 0
+    __field_docs__["combo_game"] = """(Play-style) Combo game.
+Valid range: [0, 100]
+
+How much your bot plays around combos.
+Boosts exponentially the reward received for each consecutive hit of a combo.
+This incentives your bot to go for combos, rather than hit and run. 
+
+Note: depending on the mained character, this may work as intended, or not...
+
+By default this is set to 0.
+                            """
+
+    combo_breaker: float = 0
+    __field_docs__["combo_breaker"] = """(Play-style) Combo breaker.
+Valid range: [0, 100]
+
+How much your bot avoids getting combo-ed.
+Boosts exponentially the penalties received for each consecutive hit of the opponent's combo.
+This incentives your bot to avoid combos/break out of combos. 
+By default this is set to 0.
+                            """
 

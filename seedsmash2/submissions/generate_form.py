@@ -9,17 +9,20 @@ def generate_file_template(cls):
     Generate a user-friendly file template from the dataclass.
     """
     template_lines = []
-    x = "   | "
-    xs = "   * "
+    x = "  | "
+    xs = "  * "
 
 
     for docline in cls.__doc__.split("\n"):
         template_lines.append(docline)
 
+    template_lines.append("="*90+"\n")
+
     for name, doc in cls.__field_docs__.items():
-        doc = doc.replace('\n', '\n' +x)
-        template_lines.append(xs + f"{doc}")
-        template_lines.append(f"[INPUT] {name} =\n")
+        doc = doc.rstrip("\n ").replace('\n', '\n' +x)
+
+        template_lines.append(f"[INPUT] {name} = {getattr(cls, name)}")
+        template_lines.append(xs + f"{doc}\n"+xs )
 
     return "\n".join(template_lines)
 
@@ -56,7 +59,7 @@ def load_filled_form(filename):
     return obj
 
 if __name__ == "__main__":
-    #template_content = generate_file_template(BotConfig)
-    #write_template_to_file("your_bot_name.txt", template_content)
+    template_content = generate_file_template(BotConfig)
+    write_template_to_file("your_bot_name.txt", template_content)
 
-    print(load_filled_form("your_bot_name.txt"))
+    #print(load_filled_form("your_bot_name.txt"))
