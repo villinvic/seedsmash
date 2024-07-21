@@ -5,13 +5,15 @@ import numpy as np
 import time
 import random
 from PIL import Image, ImageDraw, ImageFont
+import pathlib
+
+file_path = pathlib.Path(__file__).parent.resolve()
 
 WIDTH, HEIGHT = 800, 600
 BACKGROUND_COLOR = (255, 255, 255)
 TEXT_COLOR = (0, 0, 0)
 FONT_SIZE = 32
-FONT = ImageFont.truetype("/usr/share/fonts/truetype/ubuntu/UbuntuMono-R.ttf",FONT_SIZE)
-#FONT = cv2.FONT_HERSHEY_SCRIPT_SIMPLEX
+FONT = ImageFont.truetype(file_path / "assets" / "fonts" / "A-OTF-FolkPro-Heavy.ttf",FONT_SIZE)
 FONT_SCALE = 0.7
 LINE_HEIGHT = 50
 UPDATE_INTERVAL = 2
@@ -19,17 +21,14 @@ TRANSITION_DURATION = 1.0
 ICON_SIZE = (40, 40)  # Size of the player icons
 FPS = 30
 players = [
-
-    {"name": "MangoWWWW", "score": 0, "main": "FOX"},
-    {"name": "Ludwig", "score": 0, "main": "FALCO"},
-    {"name": "Charlie", "score": 0, "main": "MARTH"},
-    {"name": "l", "score": 0, "main": "CPTFALCON"}
+    {"name": "MangoWWWW", "rating": 0, "main": "FOX"},
+    {"name": "Ludwig", "rating": 0, "main": "FALCO"},
+    {"name": "Charlie", "rating": 0, "main": "MARTH"},
+    {"name": "l", "rating": 0, "main": "CPTFALCON"}
 ]
 
-
-
 for player in players:
-    player['icon'] = Image.open(f"assets/icons/{player['main']}.png").resize(ICON_SIZE, Image.ANTIALIAS)
+    player['icon'] = Image.open(f"icons/{player['main']}.png").resize(ICON_SIZE, Image.ANTIALIAS)
 
 def draw_text_with_pillow(image, text, position, font, color):
     # Convert OpenCV image to PIL image
@@ -53,17 +52,17 @@ def overlay_icon(img, icon, position):
 
     img[y1:y2, x1:x2] = (alpha_s * icon[:, :, :3] + alpha_l * img[y1:y2, x1:x2])
 
-def update_scores():
+def update_ratings():
     for player in players:
-        player["score"] += random.randint(0, 100)
+        player["rating"] += random.randint(0, 100)
 
-def draw_rankings(img, data, positions, ranks, scores):
+def draw_rankings(img, data, positions, ranks, ratings):
     pil_image = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
     draw = ImageDraw.Draw(pil_image)
 
     for i, player in enumerate(data):
         x, y = positions[i]
-        text = f"{round(ranks[i]):<3}     {player['name']:<20}|{int(scores[i]):<5}|"
+        text = f"{round(ranks[i]):<3}     {player['name']:<20}|{int(ratings[i]):<5}|"
         # cv2.putText(img, text, (x, y), FONT, FONT_SCALE, TEXT_COLOR, 2, cv2.LINE_AA)
 
         icon_x = x + 35
@@ -103,8 +102,8 @@ def animate_transition(previous, current, duration, fps):
         [prev["ranking"], curr["ranking"]] for prev, curr in zip(previous, current)
     ])
 
-    delta_score = np.array([
-        [prev["score"], curr["score"]] for prev, curr in zip(previous, current)
+    delta_rating = np.array([
+        [prev["rating"], curr["rating"]] for prev, curr in zip(previous, current)
     ])
 
     def get_pos(rank):
@@ -115,25 +114,25 @@ def animate_transition(previous, current, duration, fps):
         img = np.full((HEIGHT, WIDTH, 3), BACKGROUND_COLOR, np.uint8)
         ranks = anneal(t, delta_rank)
         pos = [get_pos(rank) for rank in ranks]
-        scores = anneal(t, delta_score)
-        img =  draw_rankings(img, current, pos, ranks, scores)
+        ratings = anneal(t, delta_rating)
+        img =  draw_rankings(img, current, pos, ranks, ratings)
         cv2.imshow("Ranking", img)
-        #print(scores)
+        #print(ratings)
         if cv2.waitKey(int(1000 / fps)) & 0xFF == ord('q'):
             break
 
 cv2.namedWindow("Ranking")
 previous_players = players
-ranking = np.argsort([p["score"] for p in players])
+ranking = np.argsort([p["rating"] for p in players])
 for rank, idx in enumerate(ranking, 1):
     previous_players[idx]["ranking"] = rank
 
 while True:
     start_time = time.time()
 
-    update_scores()
+    update_ratings()
     current_players = players
-    ranking = np.argsort([p["score"] for p in players])
+    ranking = np.argsort([p["rating"] for p in players])
     for rank, idx in enumerate(ranking, 1):
         current_players[idx]["ranking"] = rank
     animate_transition(previous_players, current_players, TRANSITION_DURATION, FPS)

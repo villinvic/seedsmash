@@ -317,10 +317,10 @@ stats = {
 
 config = dict(
 nametag = "Wario?",
-color = "yellow",
-char = Character.MARIO,
+color = "default",
+char = Character.GAMEANDWATCH,
 stage = Stage.YOSHIS_STORY,
-bot_id = 19478799
+bot_id = 19478888799
 )
 
 specialties = {

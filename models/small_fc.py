@@ -61,7 +61,7 @@ class SmallFC(BaseModel):
         )
 
         self.num_outputs = action_space.n
-        self.size = 128
+        self.size = 128+32
         self.character_embedding_size = 5
         self.action_state_embedding_size = 32
         self.joint_embedding_size = 64

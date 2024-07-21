@@ -316,9 +316,9 @@ class ObsBuilder:
                 # hitbox_count
                 iasa=StateDataInfo(lambda s: np.int8(ObsBuilder.FD.iasa(s.players[port].character,
                                                                     s.players[port].action
-                                                                    ) - s.players[port].action_frame < 3),
+                                                                    ) - s.players[port].action_frame < 2),
                                    StateDataInfo.BINARY,
-                                   scale=ObsBuilder.FRAME_SCALE,
+                                   #scale=ObsBuilder.FRAME_SCALE,
                                    player_port=port,
                                    config=self.config),
                 # is_attack=StateDataInfo(lambda s: ObsBuilder.FD.is_attack(s.players[port].character,

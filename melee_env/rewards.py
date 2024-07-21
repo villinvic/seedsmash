@@ -30,7 +30,7 @@ class SSBMRewards:
     rewards collected for damaging/taking damage
     """
     damage_rewards: np.float32 = 0.
-    damage_reward_scale: np.float32 = 0.1 #0.25
+    damage_reward_scale: np.float32 = 0.025
     off_stage_multiplier: np.float32 = 1.
 
     combo_multiplier: np.float32 = 0.
