@@ -21,7 +21,7 @@ from melee_env.enums import PlayerType
 from melee_env.action_space import ActionSpace, ComboPad, ActionSpaceStick, ActionSpaceCStick, ControllerStateCombo, \
     SimpleActionSpace, InputQueue, ActionControllerInterface, SSBMActionSpace
 from melee_env.observation_space_v2 import ObsBuilder
-from melee_env.rewards import RewardFunction, SSBMRewards
+from melee_env.rewards import RewardFunction, DeltaFrame, StepRewards
 import gc
 
 from polaris.environments import PolarisEnv
@@ -212,7 +212,9 @@ class SSBM(PolarisEnv):
         self.episode_reward = 0
         self.current_matchup = None
         self.action_queues: Dict_T[int, InputQueue] = None
-        self.reward_function: RewardFunction = None
+        self.reward_functions : Dict_T[int, RewardFunction] = None
+        self.delta_frame: DeltaFrame = None
+
         self.state = {aid: self.observation_space.sample() for aid in self.get_agent_ids()}
 
         atexit.register(self.close)
@@ -320,7 +322,11 @@ class SSBM(PolarisEnv):
         state = self.step_nones(reset_if_stuck=True)
 
         # Reset some attributes
-        self.reward_function = RewardFunction()
+        self.delta_frame = DeltaFrame()
+        self.reward_functions = {
+            port: RewardFunction(port, options[port])
+            for port in self.get_agent_ids()
+        }
         self.episode_metrics = defaultdict(float)
         self.pad_at_end = self.config["obs"]["delay"] + 1
         self.reached_end = False
@@ -416,14 +422,14 @@ class SSBM(PolarisEnv):
         return self.om.build(self.state), {i: {} for i in self.om.bot_ports}
 
     def get_next_state_reward(self, every=3) \
-            -> Tuple_T[Union[GameState, None], Dict_T[int, SSBMRewards], bool]:
+            -> Tuple_T[Union[GameState, None], Dict_T[int, StepRewards], bool]:
 
-        collected_rewards = {p: SSBMRewards() for p in self._agent_ids}
+        collected_rewards = {p: StepRewards() for p in self._agent_ids}
         active_actions = {p: None for p in self._agent_ids | self._debug_port}
 
         # Are we done ? check if one of the teams are out
-        game_is_finished = (self.reward_function.episode_finished or
-                           any([np.int32(p.stock)==0 for p in self.get_gamestate().players.values()]))
+        game_is_finished = (self.delta_frame.episode_finished or
+                            any([np.int32(p.stock)==0 for p in self.get_gamestate().players.values()]))
 
         next_state = None
 
@@ -480,10 +486,15 @@ class SSBM(PolarisEnv):
                     next_state.custom["game_frame"] = self.game_frame
 
                     # process rewards
-                    self.reward_function.compute(next_state, active_actions, collected_rewards)
+                    self.delta_frame.update(next_state)
 
+                    for port in self.get_agent_ids():
+                        self.reward_functions[port].get_frame_rewards(
+                            self.delta_frame, active_actions[port], collected_rewards[port]
+                        )
+                    game_is_finished = self.delta_frame.episode_finished
                 # check if we are done
-                game_is_finished = self.reward_function.episode_finished
+
                 if game_is_finished:
                     break
         else:
@@ -512,7 +523,7 @@ class SSBM(PolarisEnv):
 
             self.action_queues[port].push(action)
 
-        state, rewards, is_game_finished = self.get_next_state_reward()
+        state, rewards, game_finished = self.get_next_state_reward()
 
         if state is None:
             # We crashed, return dummy stuff
@@ -532,7 +543,7 @@ class SSBM(PolarisEnv):
             self.om.update(state, game_frame=True)
             self.om.build(self.state)
 
-        elif is_game_finished:
+        elif game_finished:
             done = self.pad_at_end <= 0
             self.pad_at_end -= 1
 
@@ -561,10 +572,12 @@ class SSBM(PolarisEnv):
             print(f"Collected rewards: {rewards}")
 
         total_rewards = {}
-        for aid, reward in rewards.items():
-            total_rewards[aid] = reward.total()
-            for rid, r in reward.to_dict().items():
-                self.episode_metrics[f"{aid}/{rid}"] += r
+        for port in self.get_agent_ids():
+            other_port = 1 + (port % 2)
+            other_combo_count = self.reward_functions[other_port].int_combo_counter
+            total_rewards[port] = self.reward_functions[port].compute(rewards[port], other_combo_count)
+            for rid, r in rewards[port].to_dict().items():
+                self.episode_metrics[f"{port}/{rid}"] += r
 
         #if self.env_index == 0:
          #   print(self.state[1]["continuous"]["position1"])

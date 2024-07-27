@@ -294,8 +294,8 @@ A value of 0 leads to a bot that does not care about killing/damaging its oppone
 By default, this is set to 50.
             """
 
-    winning_signal_strength: float = 0
-    __field_docs__["winning_signal_strength"] = """(Play-style) Winning Signal Strength.
+    winning_desire: float = 0
+    __field_docs__["winning_desire"] = """(Play-style) Winning desire.
 
 Strength of the reward signal received by your bot when winning, on top of the reward received when your opponent 
 loses its last stock.
@@ -332,7 +332,7 @@ By default this is set to 0.
 Valid range: [0, 100]
 
 How much your bot likes being offstage
-Boosts the positive rewards received when offstage.
+Boosts the positive rewards received when offstage,
 
 By default this is set to 0.
                         """

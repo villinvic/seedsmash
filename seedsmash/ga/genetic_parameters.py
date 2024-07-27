@@ -1,4 +1,4 @@
-from melee_env.rewards import SSBMRewards
+from melee_env.rewards import StepRewards
 from ray.tune import uniform, loguniform, choice, randint, qrandint, lograndint
 import numpy as np
 
@@ -117,7 +117,7 @@ class SSBMRewardShaping:
 
 
     def generate(self):
-        return SSBMRewards(**self.sample())
+        return StepRewards(**self.sample())
 
 
 if __name__ == '__main__':
