@@ -6,6 +6,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
+import pathlib
+
+assets_path = pathlib.Path(__file__).parent.parent.resolve()
+
 
 # look into this : http://slippicardgenerator.voidslayer.com/
 # https://www.youtube.com/watch?v=0-3EmXgd_Wc&t=6s
@@ -117,7 +121,7 @@ def create_diagonal_gradient_blend(card, stage):
 
 def blit_logo(image, bot_color):
     w = 150
-    logo = inbue_with_bot_color(Image.open("assets/logo_alpha.png").resize((w, w)), bot_color,
+    logo = inbue_with_bot_color(Image.open(assets_path / "assets/logo_alpha.png").resize((w, w)), bot_color,
                                 0.85,
                                 apply_black_power=5)
 
@@ -150,16 +154,18 @@ def inbue_with_bot_color(img, bot_color, weight, apply_black_power=2):
 
 
 
-def create_smash_player_card(bot_config, specialties, stats):
-    char = bot_config["char"]
-    stage = bot_config["stage"]
-    color = bot_config["color"]
-    nametag = bot_config["nametag"]
+def create_smash_player_card(bot_config: "BotConfig", stats):
+    char = bot_config.character
+    stage = bot_config.preferred_stage
+    color = bot_config.costume
+    nametag = bot_config.tag
 
-    BOT_COLOR = attribute_color(bot_config["bot_id"])
+    specialties = {field.replace("_", " ").upper(): getattr(bot_config, field) for field in bot_config.__characterisation_fields__}
 
-    main_character_img_path = f"assets/chars/{char.name}_{color}.png"
-    stage_img_path = f"assets/stages/{stage.name}.png"
+    BOT_COLOR = attribute_color(bot_config._id)
+
+    main_character_img_path = assets_path / f"assets/chars/{char.name}_{color}.png"
+    stage_img_path = assets_path / f"assets/stages/{stage.name}.png"
     # Load images
     character_img = Image.open(main_character_img_path).convert("RGBA")
     stage_img = inbue_with_bot_color(Image.open(stage_img_path).convert("RGBA"),
@@ -167,15 +173,15 @@ def create_smash_player_card(bot_config, specialties, stats):
                                      0.15,
                                      apply_black_power=4
                                      )
-    card_background = inbue_with_bot_color(Image.open("assets/backgrounds/background_blue.jpeg").convert("RGBA"),
+    card_background = inbue_with_bot_color(Image.open(assets_path / "assets/backgrounds/background_blue.jpeg").convert("RGBA"),
                                            BOT_COLOR,
                                            0.15,
                                            apply_black_power=5
                                            )
 
-    slide = Image.open("assets/ui/slide.png")
+    slide = Image.open(assets_path / "assets/ui/slide.png")
     slide = slide.resize((int(slide.width*0.15), int(slide.height*0.15)),)
-    slider = Image.open("assets/ui/slider.png")
+    slider = Image.open(assets_path / "assets/ui/slider.png")
     slider = slider.resize((int(slider.width*0.15), int(slider.height*0.15)),)
 
 
@@ -190,10 +196,10 @@ def create_smash_player_card(bot_config, specialties, stats):
     blit_logo(card, BOT_COLOR)
     width, height = card.size
 
-    header = inbue_with_bot_color(Image.open("assets/ui/box1_gray.png"),BOT_COLOR,
-                                           0.7,
-                                           apply_black_power=0.5
-                                           )
+    header = inbue_with_bot_color(Image.open(assets_path / "assets/ui/box1_gray.png"), BOT_COLOR,
+                                  0.7,
+                                  apply_black_power=0.5
+                                  )
     header = header.resize((int(header.width*0.95), int(header.height*0.95)))
     alpha = np.minimum(np.float32(header.split()[-1]), 200).astype(np.uint8)
     card.paste(header, (width//2 - header.width//2, 0), Image.fromarray(alpha))
@@ -227,11 +233,11 @@ def create_smash_player_card(bot_config, specialties, stats):
     # Resize character image to fit on the card
 
     # Add nametag
-    big = ImageFont.truetype("assets/fonts/A-OTF-FolkPro-Heavy.otf", 30)
+    big = ImageFont.truetype(str(assets_path / "assets/fonts/A-OTF-FolkPro-Heavy.otf"), 30)
     draw.text((int(width*0.6), int(height*0.1)), nametag, (255, 255, 255), font=big, anchor="ms")
-    medium = ImageFont.truetype("assets/fonts/A-OTF-FolkPro-Heavy.otf", 22)
-    small = ImageFont.truetype("assets/fonts/A-OTF-FolkPro-Heavy.otf", 18)
-    tiny = ImageFont.truetype("assets/fonts/A-OTF-FolkPro-Heavy.otf", 14)
+    medium = ImageFont.truetype(str(assets_path / "assets/fonts/A-OTF-FolkPro-Heavy.otf"), 22)
+    small = ImageFont.truetype(str(assets_path / "assets/fonts/A-OTF-FolkPro-Heavy.otf"), 18)
+    tiny = ImageFont.truetype(str(assets_path / "assets/fonts/A-OTF-FolkPro-Heavy.otf"), 14)
 
 
     # specialties
@@ -305,48 +311,19 @@ def create_smash_player_card(bot_config, specialties, stats):
     # Save the final card
     card.save(f"{nametag}_card.png")
 
-from melee.enums import Stage, Character
-# Example usage
 
-stats = {
-    "winrate": 0.78,
-    "games_played": 4315,
-    "elo": 2465,
-    "rank": 2,
-}
+if __name__ == '__main__':
 
-config = dict(
-nametag = "Wario?",
-color = "default",
-char = Character.GAMEANDWATCH,
-stage = Stage.YOSHIS_STORY,
-bot_id = 19478888799
-)
+    from seedsmash2.submissions.bot_config import BotConfig
 
-specialties = {
-    "Patience": 85,
-    "Agressivity": 64,
-    "Combos": 91,
-    "Off-stage plays": 74,
-    "Swag": 80
-}
+    stats = {
+        "winrate"     : 0.78,
+        "games_played": 4315,
+        "elo"         : 2465,
+        "rank"        : 2,
+    }
+    x = BotConfig()
 
-create_smash_player_card(config, specialties, stats)
-# obtained_colors = []
-# for i in range(20):
-#     obtained_colors.append(attribute_color(i))
-#
-#
-# fig, ax = plt.subplots(figsize=(len(obtained_colors), 2))
-# ax.set_title("obtained_colors", fontsize=16)
-#
-# # Create a bar for each color
-# for idx, color in enumerate(obtained_colors):
-#     ax.add_patch(plt.Rectangle((idx, 0), 1, 1, color=[c / 255.0 for c in color]))
-#
-# # Set limits and remove ticks
-# ax.set_xlim(0, len(obtained_colors))
-# ax.set_ylim(0, 1)
-# ax.set_xticks([])
-# ax.set_yticks([])
-# plt.savefig("obtained.color.png")
+    create_smash_player_card(
+        x, stats
+    )

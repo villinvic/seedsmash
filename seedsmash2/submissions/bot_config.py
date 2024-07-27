@@ -1,5 +1,7 @@
 from typing import NamedTuple, Union
-from melee.enums import Character
+
+import numpy as np
+from melee.enums import Character, Stage
 from dataclasses import dataclass
 import inspect
 from dataclasses import fields
@@ -185,6 +187,17 @@ color2index = {
     },
 }
 
+for char, costume_dict in color2index.items():
+    costume_dict["default"] = 0
+
+stage_to_enum = {
+    stage.name: stage for stage in Stage
+}
+
+char_to_enum = {
+    char.name: char for char in Character
+}
+
 
 @dataclass
 class BotConfig:
@@ -207,11 +220,68 @@ whether your bot wins or loses.
     """
 
     def __post_init__(self):
-        pass
+        self._id = np.random.randint(2**32)
+        default_config = BotConfig
+
         # validate inputs
         # raise an error if one input is wrong, or switch to default.
+        def validation_message(value, field, default):
+            print(f"({self.tag} BotConfig) The value {value} for parameter {field} is invalid, using default {default} instead.")
+
+        try:
+            self.character = char_to_enum[self.character]
+        except:
+            validation_message(self.character, "character", default_config.character)
+            self.character = default_config.character
+
+        try:
+            costume_id = int(self.costume)
+            self.costume = costume_id
+        except Exception:
+            try:
+                costume_color = self.costume.lower()
+                self.costume = color2index[self.character][costume_color]
+            except Exception:
+                validation_message(self.costume, "costume", default_config.costume)
+                self.costume = default_config.costume
+
+        try:
+            self.preferred_stage = stage_to_enum[self.preferred_stage]
+        except Exception:
+            validation_message(self.character, "preferred_stage", default_config.preferred_stage)
+            self.preferred_stage = default_config.preferred_stage
+
+        try:
+            self.random_action_chance = np.float32(self.random_action_chance)
+        except Exception:
+            validation_message(self.random_action_chance, "random_action_chance", default_config.random_action_chance)
+            self.random_action_chance = default_config.random_action_chance
+
+        for field in self.__characterisation_fields__:
+            try:
+                v =  np.float32(getattr(self, field))
+                if not (0<=v<=100):
+                    raise ValueError
+                else:
+                    setattr(self, field, v)
+            except Exception:
+                default_value = getattr(default_config, field)
+                validation_message(v, field,
+                                   default_value)
+                setattr(self, field, default_value)
+
 
     __field_docs__ = {}
+    __characterisation_fields__ = {
+        "reflexion",
+        "agressivity",
+        "winning_desire",
+        "patience",
+        "creativity",
+        "off_stage_plays",
+        "combo_game",
+        "combo_breaker"
+    }
 
     tag: str = "your_bot_name"
     __field_docs__["tag"] = """Bot tag
@@ -221,7 +291,7 @@ Special characters may end up be removed.
 For now, if your tag is taken, a number will be added at the end of the tag. 
     """
 
-    character: str = "MARIO"
+    character: Union[str, Character] = "MARIO"
     __field_docs__["character"] = """Character to be mained.
 
 Should be among the following:
@@ -246,6 +316,15 @@ Each component affects how your bot learns, shaping its optimal strategy.
 Note: An extreme configuration will certainly lead to poor results. Experiment at your own risk.
     """
 
+    preferred_stage: Union[str, Stage] = "BATTLEFIELD"
+    __field_docs__["character"] = """Character to be mained.
+
+Should be among the following:
+FINAL_DESTINATION, BATTLEFIELD, POKEMON_STADIUM, DREAMLAND
+Yet unsupported stages (buggy):
+FOUNTAIN_OF_DREAMS, YOSHIS_STORY
+        """
+
     # We should control entropy on our side, in order to ensure no bot collapses mid training
 
     random_action_chance: float = 1
@@ -264,20 +343,21 @@ Ex: since bots take 20 actions per second, with 1%, your bot will pick 1 random 
 By default, this is set to 1.
         """
 
-    reflexion: float = 6
+    reflexion: float = 50
     __field_docs__["reflexion"] = """(Play-style) Reflexion.
-Valid range: [3, 30]
+Valid range: [0, 100]
 
 Your bot cares decreasingly less about rewards as we go further into the future.
-This value is for the number of seconds before your bot cares about half of the rewards it is getting.
 Essentially defines how much your bot cares about future rewards.
+With a value of 0, your bot cares about half the rewards it will get two seconds into the future. This will lead
+to a bot only caring about instant rewards, such as smashing.
+With a value of 100, it will be 20 seconds instead.
 
 Note: Higher the value, harder and longer it is to learn.
 
 For example:
-- 1 will lead to a bot only caring about instant rewards, such as smashing
-- 5-10 is a generally a good range.
-By default, this is set to 6.
+- 40-60 is a generally a good range.
+By default, this is set to 50.
         """
 
     agressivity: float = 50
@@ -359,4 +439,5 @@ Boosts exponentially the penalties received for each consecutive hit of the oppo
 This incentives your bot to avoid combos/break out of combos. 
 By default this is set to 0.
                             """
+
 

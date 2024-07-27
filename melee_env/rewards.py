@@ -213,7 +213,7 @@ class RewardFunction:
     def compute(self, rewards: StepRewards, opponent_combo_count):
 
         combo_gaming_bonus = (1 + 0.1 * self.int_combo_counter * self.bot_config.combo_game)
-        combo_braking_bonus = (1 + 0.1 * opponent_combo_count * self.bot_config.combo_breaker)
+        combo_breaking_bonus = (1 + 0.1 * opponent_combo_count * self.bot_config.combo_breaker)
 
         return (
                 rewards.kill_rewards * self.kill_reward_scale
@@ -221,7 +221,7 @@ class RewardFunction:
                 + rewards.win_rewards * self.bot_config.winning_desire
                 + rewards.damage_inflicted_rewards * self.damage_inflicted_scale * combo_gaming_bonus
                 + rewards.off_stage_percents_inflicted * self.bot_config.off_stage_plays
-                - rewards.damage_received_rewards * self.damage_received_scale * combo_braking_bonus
+                - rewards.damage_received_rewards * self.damage_received_scale * combo_breaking_bonus
                 + rewards.distance_rewards * self.distance_reward_scale
                 - rewards.energy_costs * self.energy_cost_scale
                 - self.time_cost
