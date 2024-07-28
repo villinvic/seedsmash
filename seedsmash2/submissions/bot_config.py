@@ -272,7 +272,7 @@ whether your bot wins or loses.
 
 
     __field_docs__ = {}
-    __characterisation_fields__ = {
+    __characterisation_fields__ = sorted([
         "reflexion",
         "agressivity",
         "winning_desire",
@@ -281,7 +281,7 @@ whether your bot wins or loses.
         "off_stage_plays",
         "combo_game",
         "combo_breaker"
-    }
+    ])
 
     tag: str = "your_bot_name"
     __field_docs__["tag"] = """Bot tag
@@ -317,7 +317,9 @@ Note: An extreme configuration will certainly lead to poor results. Experiment a
     """
 
     preferred_stage: Union[str, Stage] = "BATTLEFIELD"
-    __field_docs__["character"] = """Character to be mained.
+    __field_docs__["character"] = """Stage preferred by your bot.
+
+Your bot picks this stage with a higher chance.
 
 Should be among the following:
 FINAL_DESTINATION, BATTLEFIELD, POKEMON_STADIUM, DREAMLAND

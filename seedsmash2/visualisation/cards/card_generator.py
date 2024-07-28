@@ -117,7 +117,7 @@ def create_diagonal_gradient_blend(card, stage):
     g = 1 - np.clip(g, 0.1, 1)
     gradient = (g * 255).astype(np.uint8)
 
-    card.paste(stage, (int(-0.3*card.width), int(card.height*0.55-stage.height*0.5)), mask=Image.fromarray(gradient))
+    card.paste(stage, (int(-0.3*card.width), int(card.height*0.5-stage.height*0.5)), mask=Image.fromarray(gradient))
 
 def blit_logo(image, bot_color):
     w = 150
@@ -160,7 +160,7 @@ def create_smash_player_card(bot_config: "BotConfig", stats):
     color = bot_config.costume
     nametag = bot_config.tag
 
-    specialties = {field.replace("_", " ").upper(): getattr(bot_config, field) for field in bot_config.__characterisation_fields__}
+    specialties = {field.replace("_", " ").capitalize(): getattr(bot_config, field) for field in bot_config.__characterisation_fields__}
 
     BOT_COLOR = attribute_color(bot_config._id)
 
@@ -242,7 +242,7 @@ def create_smash_player_card(bot_config: "BotConfig", stats):
 
     # specialties
     x = int(width*0.05)
-    y = int(height*0.85)
+    y = int(height*0.75)
     target_value = np.array([250, 150, 26], dtype=np.float32)
     initial_value = np.array([100, 100, 255], dtype=np.float32)
     for i, (stat_name, value) in enumerate(specialties.items()):
@@ -251,7 +251,7 @@ def create_smash_player_card(bot_config: "BotConfig", stats):
         fill_color = initial_value * (1-ratio) + target_value * ratio
 
         draw.text((x, y + i * 20), stat_name, tuple(np.uint8(fill_color)), font=small)
-        draw.text((x + 260, y + i * 20), str(value), tuple(np.uint8(fill_color)), font=small)
+        draw.text((x + 260, y + i * 20), str(round(value)), tuple(np.uint8(fill_color)), font=small)
 
         slide_colored = np.float32(slide)
         slide_colored[:,:, :3] = fill_color[np.newaxis, np.newaxis]
@@ -293,7 +293,7 @@ def create_smash_player_card(bot_config: "BotConfig", stats):
     draw.text((int(width * 0.45) + 170, int(height * 0.145)), str(games_played), (130, 130, 130),font=medium)
 
     draw.text((int(width * 0.52), int(height * 0.145)+33), "Prefered stage", (255, 255, 255), font=medium)
-    draw.text((int(width * 0.67), int(height * 0.145)+80), stage.name.replace("_", " "), (130, 130, 130), font=small, anchor="ms")
+    draw.text((int(width * 0.67), int(height * 0.145)+86), stage.name.replace("_", " ").capitalize(), (130, 130, 130), font=medium, anchor="ms")
 
 
     # time
@@ -322,7 +322,7 @@ if __name__ == '__main__':
         "elo"         : 2465,
         "rank"        : 2,
     }
-    x = BotConfig()
+    x = BotConfig(character="LINK", costume=2, preferred_stage="DREAMLAND")
 
     create_smash_player_card(
         x, stats

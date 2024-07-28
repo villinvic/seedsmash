@@ -7,28 +7,38 @@ import random
 from PIL import Image, ImageDraw, ImageFont
 import pathlib
 
+from seedsmash2.submissions.bot_config import BotConfig
+
+
 file_path = pathlib.Path(__file__).parent.resolve()
+
+assets_path = file_path / "assets"
+
 
 WIDTH, HEIGHT = 800, 600
 BACKGROUND_COLOR = (255, 255, 255)
 TEXT_COLOR = (0, 0, 0)
 FONT_SIZE = 32
-FONT = ImageFont.truetype(file_path / "assets" / "fonts" / "A-OTF-FolkPro-Heavy.ttf",FONT_SIZE)
+FONT = ImageFont.truetype(str(assets_path / "fonts" / "A-OTF-FolkPro-Heavy.otf"),FONT_SIZE)
 FONT_SCALE = 0.7
 LINE_HEIGHT = 50
 UPDATE_INTERVAL = 2
-TRANSITION_DURATION = 1.0
+
+TRANSITION_DURATION = 0.2
 ICON_SIZE = (40, 40)  # Size of the player icons
-FPS = 30
+FPS = 60
 players = [
-    {"name": "MangoWWWW", "rating": 0, "main": "FOX"},
-    {"name": "Ludwig", "rating": 0, "main": "FALCO"},
-    {"name": "Charlie", "rating": 0, "main": "MARTH"},
-    {"name": "l", "rating": 0, "main": "CPTFALCON"}
+    {'config': BotConfig(tag="bob"), "rating": 0},
+    {'config': BotConfig(tag="marth", character="MARTH", costume=2), "rating": 0},
+    {'config': BotConfig(tag="jack", character="YLINK", costume="WHITE"), "rating": 0},
+    {'config': BotConfig(tag="chevrifan420", character="FOX", costume=1), "rating": 0},
 ]
 
 for player in players:
-    player['icon'] = Image.open(f"icons/{player['main']}.png").resize(ICON_SIZE, Image.ANTIALIAS)
+    # TODO: fox splashes
+    conf = player["config"]
+    main_character_img_path = assets_path / f"icons/{conf.character.name}_{conf.costume}.png"
+    player['icon'] = Image.open(main_character_img_path).resize(ICON_SIZE, Image.ANTIALIAS)
 
 def draw_text_with_pillow(image, text, position, font, color):
     # Convert OpenCV image to PIL image
@@ -62,14 +72,17 @@ def draw_rankings(img, data, positions, ranks, ratings):
 
     for i, player in enumerate(data):
         x, y = positions[i]
-        text = f"{round(ranks[i]):<3}     {player['name']:<20}|{int(ratings[i]):<5}|"
+        tag = player["config"].tag
         # cv2.putText(img, text, (x, y), FONT, FONT_SCALE, TEXT_COLOR, 2, cv2.LINE_AA)
 
-        icon_x = x + 35
+        icon_x = x + 55
         icon_y = y - ICON_SIZE[1] // 2  # Center the icon vertically
         pil_image.paste(player['icon'], (icon_x, icon_y), player['icon'])
 
-        draw.text((x, y - FONT_SIZE // 2), text, font=FONT, fill=TEXT_COLOR)
+        draw.text((x, y - FONT_SIZE // 2), str(round(ranks[i])), font=FONT, fill=TEXT_COLOR)
+        draw.text((x + 100, y - FONT_SIZE // 2), tag, font=FONT, fill=TEXT_COLOR)
+        draw.text((x + 400, y - FONT_SIZE // 2), str(round(ratings[i])), font=FONT, fill=TEXT_COLOR)
+
     return cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
 
 
@@ -86,13 +99,18 @@ def sigmoid(x, k=0.1):
     s = 1 / (1 + np.exp(-x / k))
     return s
 
+
+def f(x):
+    return np.exp(-1/(x+1e-8))
+
 def anneal(t, delta):
     start = delta[:, 0]
     end = delta[:, 1]
-    return start + (end - start) * (1 - np.exp(-3 * t)) / (1 - np.exp(-3))
+    ft = f(t)
+    return start + (end - start) * (ft / (ft + f(1-t)))
 
-def bump(t, c):
-
+def bump(t):
+    return (t - 0.5)**2 - 0.5**2
 
 
 def animate_transition(previous, current, duration, fps):
@@ -106,14 +124,15 @@ def animate_transition(previous, current, duration, fps):
         [prev["rating"], curr["rating"]] for prev, curr in zip(previous, current)
     ])
 
-    def get_pos(rank):
-        return (50, int(50 + rank * LINE_HEIGHT))
+    def get_pos(t, r, d_rank):
+        bump_dir = np.clip(np.diff(d_rank), -1, 0)
+        return (50 + int(90 * bump(t) * bump_dir), int(50 + r * LINE_HEIGHT))
 
     for i in range(frames + 1):
         t = i / frames
         img = np.full((HEIGHT, WIDTH, 3), BACKGROUND_COLOR, np.uint8)
         ranks = anneal(t, delta_rank)
-        pos = [get_pos(rank) for rank in ranks]
+        pos = [get_pos(t, rank, d_rank) for rank, d_rank in zip(ranks, delta_rank)]
         ratings = anneal(t, delta_rating)
         img =  draw_rankings(img, current, pos, ranks, ratings)
         cv2.imshow("Ranking", img)
@@ -132,7 +151,7 @@ while True:
 
     update_ratings()
     current_players = players
-    ranking = np.argsort([p["rating"] for p in players])
+    ranking = np.argsort([-p["rating"] for p in players])
     for rank, idx in enumerate(ranking, 1):
         current_players[idx]["ranking"] = rank
     animate_transition(previous_players, current_players, TRANSITION_DURATION, FPS)
