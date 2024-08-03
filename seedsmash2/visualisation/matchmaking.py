@@ -5,6 +5,13 @@ import numpy as np
 from seedsmash2.submissions.bot_config import BotConfig
 from seedsmash2.visualisation.cards.card_generator import create_smash_player_card
 
+
+
+# 3 states:
+# emoty
+# rolling
+# showing cards
+
 file_path = pathlib.Path(__file__).parent.resolve()
 
 assets_path = file_path / "assets"
@@ -52,10 +59,8 @@ class RankingWindow(pyglet.window.Window):
 
     def __init__(self, players, *args, **kwargs):
         self.ICON_SIZE = 24
-        self.SPACING = 35
         self.SCREEN_WIDTH = 400
-        self.SCREEN_HEIGHT = 520
-        self.MAX_PLAYERS = 15
+        self.SCREEN_HEIGHT = 400
 
         super().__init__(*args, **kwargs)
         self.batch = pyglet.graphics.Batch()
@@ -127,7 +132,14 @@ class RankingWindow(pyglet.window.Window):
                 d[tag].delete()
                 del d[tag]
 
-    def update_ratings(self, players, frames=30):
+    def animate_matchmaking(self, players, frames=30):
+        # Smooth fade in
+        # Have too columns scroll in opposite directions
+        # smooth slow down
+        # When halted, make a VS appear with a boom effect
+        # fade out, fade in with cards
+        # stays for the whole game, should be visible
+        # bot tags should be visible under the screen, or on the screen, below the stocks.
 
         # TODO: ranking will be obtained from trainer
         players_ranked = sorted(players, key=lambda p: -p["rating"])
@@ -220,6 +232,10 @@ class RankingWindow(pyglet.window.Window):
             self.ranking_labels[player_name].color = rgb
             self.ranking_labels[player_name].font_size = font_size
 
+    def fade_out(self):
+        # smooth transition to black
+        pass
+
     def on_draw(self):
         self.clear()
         self.batch.draw()
@@ -264,33 +280,35 @@ if __name__ == '__main__':
     for idx, player in enumerate(players_):
         # TODO: fox splashes
         conf = player["config"]
-
-        rank = stats["rank"]
-        rating = stats["elo"]
-        winrate = stats["winrate"]
-        games_played = stats["games_played"]
-
-        player['card'] = create_smash_player_card(
-            bot_config=player,
-            stats={
-                "rank":
-            }
-        )
-
         player["last_rating"] = 0
         player["rank"] = idx + 1
         player["last_rank"] = idx + 1
 
+        main_character_img_path = assets_path / f"icons/{conf.character.name}_{conf.costume}.png"
+        player['icon'] = pyglet.image.load(main_character_img_path)
+
     window = RankingWindow(players_)
 
 
+    t = 0
     def update(dt):
-        # Simulate game results here and update ELO scores
-        # Example: smooth_update_elo(0, 1)  # Player 0 wins against Player 1
-        for player in players_:
-            player["rating"] += np.random.randint(0, 100)
+        global t
+        # We should read from a pipe or something here, try with ray ?
 
-        window.update_ratings(players_)
+        if t % 2 == 0:
+            for player in players_:
+                player["rating"] += np.random.randint(0, 100)
+                player["winrate"] = np.random.random()
+                player["games_played"] += np.random.randint(10)
+
+
+            matchmaking = np.random.choice(players_, size=2, replace=False)
+            window.animate_matchmaking(players_, matchmaking)
+        elif t % 2 == 1:
+            window.fade_out()
+
+        t = t + 1
+
         # Draw the players' positions based on ELO scores
 
 
