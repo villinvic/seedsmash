@@ -166,19 +166,13 @@ class IMPALA(ParametrisedPolicy):
                 total_loss = policy_loss + critic_loss + entropy_loss
 
         gradients = tape.gradient(total_loss, self.model.trainable_variables)
-        gradients = [tf.clip_by_norm(g, self.policy_config.grad_clip)
-                 for g in gradients]
+        gradients, _ = tf.clip_by_global_norm(gradients, self.policy_config.grad_clip)
+        mean_grad_norm = tf.linalg.global_norm(gradients)
 
-        self.model.optimiser.apply(gradients,self.model.trainable_variables)
+        self.model.optimiser.apply(gradients, self.model.trainable_variables)
 
         vf_loss = tf.reduce_mean(critic_loss)
         pi_loss = tf.reduce_mean(policy_loss)
-        total_grad_norm = 0.
-        num_params = 0
-        for grad in gradients:
-            total_grad_norm += tf.reduce_sum(tf.abs(grad))
-            num_params += tf.size(grad)
-        mean_grad_norm = total_grad_norm / tf.cast(num_params, tf.float32)
         explained_vf = explained_variance(
             gpi,
             vf_preds,

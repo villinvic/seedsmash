@@ -129,34 +129,59 @@ class SmallFC(BaseModel):
             prev_reward,
             #state,
             seq_lens,
+            single_obs=False,
             **kwargs
+
     ):
-        continuous_inputs = [v for k, v in obs["continuous"].items()]
 
-        binary_inputs = [tf.cast(v, dtype=tf.float32, name=k) for k, v in obs["binary"].items()]
+        if single_obs:
 
-        categorical_inputs = obs["categorical"]
+            continuous_inputs = [tf.expand_dims(v, axis=0) for k, v in obs["continuous"].items()]
 
-        categorical_one_hots = [tf.one_hot(tf.cast(tensor, tf.int32), depth=tf.cast(space.high[0], tf.int32) + 1, dtype=tf.float32, name=name)[:, :, 0]
-                                for tensor, (name, space) in
-                                zip(categorical_inputs.values(), self.observation_space["categorical"].items())
-                                if name not in ["character1", "action1", "action2", "character2"]]
+            binary_inputs = [tf.cast(tf.expand_dims(v, axis=0), dtype=tf.float32, name=k) for k, v in
+                             obs["binary"].items()]
 
-        action_state_self = categorical_inputs["action1"]
-        action_state_opp = categorical_inputs["action2"]
-        opp_char_input = categorical_inputs["character2"]
+            categorical_inputs = obs["categorical"]
 
-        #last_action_one_hot = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
+            categorical_one_hots = [
+                tf.one_hot(tf.cast(tensor, tf.int32), depth=tf.cast(self.observation_space["categorical"][name].high[0], tf.int32) + 1, dtype=tf.float32,
+                           name=name)[:, :]
+                for name, tensor in
+                categorical_inputs.items()
+                if name not in ["character1"]]  # "action1", "action2", "character2"
 
-        last_action_embedding = self.last_action_embed(prev_action)
-        action_state_embedding = self.action_state_embed(tf.cast(action_state_self, tf.int32))[:, :, 0]
-        opp_char_state_joint_embedding = self.opp_char_state_joint_embed(tf.cast(action_state_opp + self.n_action_states * opp_char_input, tf.int32))[:, :, 0]
-        opp_char_embedding = self.opp_char_embed(tf.cast(opp_char_input, tf.int32))[:, :, 0]
+            last_action_one_hot = tf.one_hot(tf.cast(tf.expand_dims(prev_action, axis=0), tf.int32),
+                                             depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
+
+            prev_reward = tf.expand_dims(prev_reward, axis=0)
+
+        else:
+            continuous_inputs = [v for k, v in obs["continuous"].items()]
+
+            binary_inputs = [tf.cast(v, dtype=tf.float32, name=k) for k, v in obs["binary"].items()]
+
+            categorical_inputs = obs["categorical"]
+
+            categorical_one_hots = [tf.one_hot(tf.cast(tensor, tf.int32), depth=tf.cast(self.observation_space["categorical"][name].high[0], tf.int32) + 1, dtype=tf.float32, name=name)[:, :, 0]
+                                    for name, tensor in
+                                    categorical_inputs.items()
+                                    if name not in ["character1"]] #"action1", "action2", "character2"
+
+            # action_state_self = categorical_inputs["action1"]
+            # action_state_opp = categorical_inputs["action2"]
+            # opp_char_input = categorical_inputs["character2"]
+
+            last_action_one_hot = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
+
+            # last_action_embedding = self.last_action_embed(prev_action)
+            # action_state_embedding = self.action_state_embed(tf.cast(action_state_self, tf.int32))[:, :, 0]
+            # opp_char_state_joint_embedding = self.opp_char_state_joint_embed(tf.cast(action_state_opp + self.n_action_states * opp_char_input, tf.int32))[:, :, 0]
+            # opp_char_embedding = self.opp_char_embed(tf.cast(opp_char_input, tf.int32))[:, :, 0]
 
         obs_input_post_embedding = self.post_embedding_concat(
             continuous_inputs + binary_inputs + categorical_one_hots
             +
-            [last_action_embedding, action_state_embedding, opp_char_state_joint_embedding, opp_char_embedding,
+            [last_action_one_hot,
             tf.tanh(tf.expand_dims(tf.cast(prev_reward, dtype=tf.float32), axis=-1) / 5.)
             ]
 

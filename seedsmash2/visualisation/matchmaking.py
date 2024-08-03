@@ -2,9 +2,8 @@ import pathlib
 
 import pyglet
 import numpy as np
-import os
-from melee_env.enums import UsedCharacter
 from seedsmash2.submissions.bot_config import BotConfig
+from seedsmash2.visualisation.cards.card_generator import create_smash_player_card
 
 file_path = pathlib.Path(__file__).parent.resolve()
 
@@ -31,13 +30,13 @@ def get_font_for_rank(rank):
     rank = round(rank)
     if rank == 1:
         fill_color = (212, 175, 55, 255)
-        font_size = 20
+        font_size = 18
     elif rank == 2:
         fill_color = (192, 192, 192, 255)
-        font_size = 18
+        font_size = 16
     elif rank == 3:
         fill_color = (205, 127, 50, 255)
-        font_size = 16
+        font_size = 15
     else:
         fill_color = (255, 255, 255, 255)
         font_size = 14
@@ -71,24 +70,27 @@ class RankingWindow(pyglet.window.Window):
         self.rating_labels = {}
         self.player_name_labels = {}
         self.ranking_labels = {}
+        self.bg_rects = {}
         self.data = [
-            self.sprites, self.ranking_labels, self.player_name_labels, self.rating_labels
+            self.sprites, self.ranking_labels, self.player_name_labels, self.rating_labels, self.bg_rects
         ]
 
         for player in players_[:self.MAX_PLAYERS]:
             self.instanciate_for_player(player)
 
-        headfont = 14
-        head_color = tuple(np.int8(self.WHITE * 0.8))
+        headfont = 15
+        head_color = (190, 190, 190)
+
         x = 60
         y = self.SCREEN_HEIGHT - 24
-        pyglet.text.Label("Rating", font_name='A-OTF-FolkPro-Heavy', font_size=headfont,
+
+        self.rating_label = pyglet.text.Label("Rating", font_name='A-OTF-FolkPro-Heavy', font_size=headfont,
                           color=head_color,
                           x=x + 250, y=y, anchor_x='left', anchor_y='bottom', batch=self.batch)
-        pyglet.text.Label("Tag", font_name='A-OTF-FolkPro-Heavy', font_size=headfont,
+        self.tag_label = pyglet.text.Label("Tag", font_name='A-OTF-FolkPro-Heavy', font_size=headfont,
                           color=head_color,
                           x=x +24, y=y , anchor_x='left', anchor_y='bottom', batch=self.batch)
-        pyglet.text.Label("Rank", font_name='A-OTF-FolkPro-Heavy', font_size=headfont,
+        self.rank_label = pyglet.text.Label("Rank", font_name='A-OTF-FolkPro-Heavy', font_size=headfont,
                           color=head_color,
                           x=x - 32, y=y, anchor_x='left', anchor_y='bottom', batch=self.batch)
 
@@ -112,14 +114,20 @@ class RankingWindow(pyglet.window.Window):
                                               color=rgb,
                                               x=x-32, y=y-4, anchor_x='left', anchor_y='bottom', batch=self.batch)
 
+        self.bg_rects[player_name] = pyglet.shapes.Rectangle(x-38, y-2, 360, 24, color=(20, 20, 20, 255),
+                                                             batch=self.batch)
+
+
+
     def remove_player(self, player):
+        # TODO: Does that remove the components from the batch ?
         tag = player["config"].tag
         for d in self.data:
             if tag in d:
                 d[tag].delete()
                 del d[tag]
 
-    def update_ratings(self, players, frames=60):
+    def update_ratings(self, players, frames=30):
 
         # TODO: ranking will be obtained from trainer
         players_ranked = sorted(players, key=lambda p: -p["rating"])
@@ -144,18 +152,17 @@ class RankingWindow(pyglet.window.Window):
                 player["last_rating"] = easing * delta_rating[rank][1] + (1-easing) * delta_rating[rank][0]
                 player["last_rank"] =  easing * (rank+1) + (1-easing) * prev_rank[rank]
 
-            # update params
-            self.update_batch(players, t)
             # we need to update the screen too
-            pyglet.gl.glClearColor(0, 0, 0, 1)  # Set the clear color to white
+            #pyglet.gl.glClearColor(0, 0, 0, 1)  # Set the clear color to white
             self.clear()
             pyglet.clock.tick()
+            # update params
+            self.update_batch(players, t)
             self.batch.draw()
-            self.flip()
+            #self.flip()
 
 
         for rank, player in enumerate(players_ranked):
-            print(player["last_rank"], player["rank"], player["last_rating"], player["rating"])
             player["last_rating"] = player["rating"]
             player["rank"] = rank
         #
@@ -206,6 +213,10 @@ class RankingWindow(pyglet.window.Window):
             self.ranking_labels[player_name].y = y - 4
             self.ranking_labels[player_name].x = x - 32
 
+            self.bg_rects[player_name].x = x - 38
+            self.bg_rects[player_name].y = y - 2
+
+
             self.ranking_labels[player_name].color = rgb
             self.ranking_labels[player_name].font_size = font_size
 
@@ -253,9 +264,18 @@ if __name__ == '__main__':
     for idx, player in enumerate(players_):
         # TODO: fox splashes
         conf = player["config"]
-        main_character_img_path = assets_path / f"icons/{conf.character.name}_{conf.costume}.png"
-        player['icon'] = pyglet.image.load(main_character_img_path)
-        player['icon'].scale = 1
+
+        rank = stats["rank"]
+        rating = stats["elo"]
+        winrate = stats["winrate"]
+        games_played = stats["games_played"]
+
+        player['card'] = create_smash_player_card(
+            bot_config=player,
+            stats={
+                "rank":
+            }
+        )
 
         player["last_rating"] = 0
         player["rank"] = idx + 1
@@ -274,7 +294,7 @@ if __name__ == '__main__':
         # Draw the players' positions based on ELO scores
 
 
-    pyglet.clock.schedule_interval(update, 2)
+    pyglet.clock.schedule_interval(update, 5)
 
     pyglet.app.run()
 

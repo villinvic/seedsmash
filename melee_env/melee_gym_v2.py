@@ -26,6 +26,9 @@ import gc
 
 from polaris.environments import PolarisEnv
 
+from seedsmash2.submissions.bot_config import BotConfig
+
+
 class SSBM(PolarisEnv):
     env_id = "SSBM"
 
@@ -122,6 +125,7 @@ class SSBM(PolarisEnv):
             (Character.MARTH, Character.LINK, Stage.BATTLEFIELD),
             (Character.CPTFALCON, Character.FALCO, Stage.FINAL_DESTINATION),
             (Character.FOX, Character.MARTH, Stage.BATTLEFIELD),
+            (Character.CPTFALCON, Character.MARTH, Stage.FINAL_DESTINATION),
 
         # TODO : fix those combinations where p2 is stuck (apparently ?)
             #       the game still goes on, but p2 cannot die, I see controller states and position updating though
@@ -300,7 +304,7 @@ class SSBM(PolarisEnv):
             *,
             seed: Optional[int] = None,
             return_info: bool = False,
-            options: Optional[dict] = None,
+            options: dict[int, BotConfig],
     ):
         gc.collect()
 
@@ -349,7 +353,7 @@ class SSBM(PolarisEnv):
             chars = ()
             for port, _ in enumerate(self.players, 1):
                 if port in options:
-                    chars = chars + (options[port]["character"],)
+                    chars = chars + (options[port].character,)
                 else:
                     chars = chars + (np.random.choice(self.config["chars"]),)
 
@@ -376,24 +380,22 @@ class SSBM(PolarisEnv):
                 return None
 
         lvl = 4  # TODO: # np.random.randint(1, 10)
+        ready = [True for _ in range(4)]
+        press_start = False
         while state.menu_state not in [melee.Menu.IN_GAME, melee.Menu.SUDDEN_DEATH]:
             for port, controller in self.controllers.items():
                 if controller._type != PlayerType.HUMAN:
                     cpu_level = lvl if self.players[port-1] == PlayerType.CPU else 0
-                    if port == 2:
-                        auto_start = counter > n_start
-                    else:
-
-                        auto_start = False
-
-                    melee.MenuHelper.menu_helper_simple(
+                    ready[port-1] = melee.MenuHelper.menu_helper_simple(
                         state,
                         controller,
                         chars[port-1],
                         stage,
-                        autostart=auto_start,
+                        costume=0 if port not in options else options[port].costume,
+                        autostart=press_start,
                         cpu_level=cpu_level
                     )
+            press_start = all(ready)
 
             state = self.step_nones(reset_if_stuck=True)
             if state is None:
@@ -406,7 +408,7 @@ class SSBM(PolarisEnv):
             if counter > 3800:
                 if counter > 3900:
                     self.previously_crashed = True
-                    return self.reset()
+                    return self.reset(options=options)
                 print("STUCK", state.menu_state, state.frame, state.stage_select_cursor_x, state.stage_select_cursor_y)
 
 
@@ -574,7 +576,7 @@ class SSBM(PolarisEnv):
         total_rewards = {}
         for port in self.get_agent_ids():
             other_port = 1 + (port % 2)
-            other_combo_count = self.reward_functions[other_port].int_combo_counter
+            other_combo_count = 0 if other_port not in self.reward_functions else self.reward_functions[other_port].int_combo_counter
             total_rewards[port] = self.reward_functions[port].compute(rewards[port], other_combo_count)
             for rid, r in rewards[port].to_dict().items():
                 self.episode_metrics[f"{port}/{rid}"] += r

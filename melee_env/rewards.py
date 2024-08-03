@@ -158,7 +158,7 @@ class RewardFunction:
         self.death_reward_scale = 10. * (1 - agressivity_p)
         self.time_cost = 2 * 0.00010416 * self.bot_config.patience / 100
         self.distance_reward_scale = 0.
-        self.energy_cost_scale = 0.
+        self.energy_cost_scale = 1e-4
 
         self.combo_counter = 0.
         self.int_combo_counter = 0

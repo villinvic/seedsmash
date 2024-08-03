@@ -12,6 +12,8 @@ from sacred import Experiment
 from sacred.observers import FileStorageObserver
 from ml_collections import ConfigDict
 
+from seedsmash2.submissions.bot_config import BotConfig
+
 exp_name = 'fc_model_test_impala'
 exp_path = "experiments/" + exp_name
 ex = Experiment(exp_name)
@@ -95,9 +97,9 @@ def my_config():
 
     num_workers = 64
     policy_path = 'policies.IMPALAMelee'
-    model_path = 'models.iasafc'
+    model_path = 'models.small_fc'
     policy_class = 'IMPALA'
-    model_class = 'IASAFC'
+    model_class = 'SmallFC'
     trajectory_length = 32
     train_batch_size = 1024*8
     max_queue_size = train_batch_size * 10
@@ -105,11 +107,11 @@ def my_config():
 
     default_policy_config = {
         'discount': 0.995,  # 0.997
-        'entropy_cost': 2e-3, # 5e-5 with impala, or around " 0.3, 0.4
+        'entropy_cost': 1e-3, # 5e-5 with impala, or around " 0.3, 0.4
         'popart_std_clip': 1e-2,
         'popart_lr': 1e-1,
         'grad_clip': 2.,
-        'lr': 2.5e-4,
+        'lr': 3e-4,
         'rms_prop_rho': 0.99,
         'rms_prop_epsilon': 1e-5,
         'fc_dims': [128, 128],
@@ -117,9 +119,12 @@ def my_config():
         }
 
     policy_params = [dict(
-        name="FOX",
+        name="LINK",
         config=default_policy_config.copy(),
-        options=dict(character=Character.FOX)
+        options=BotConfig(
+            character="LINK",
+            costume=2
+        )
     ),
         # dict(
         #     name="FALCON",
@@ -135,7 +140,9 @@ def my_config():
 
     tensorboard_logdir = 'small_fc_tests_fox_falcon'
     report_freq = 5
-    episode_metrics_smoothing = 0.2
+    episode_metrics_smoothing = 0.8
+    training_metrics_smoothing = 0.8
+
 
     checkpoint_config = dict(
         checkpoint_frequency=1000,
@@ -146,7 +153,7 @@ def my_config():
 
     episode_callback_class = partial(
     SSBMCallbacks,
-    negative_reward_scale=0.95, #0.95
+    negative_reward_scale=1., #0.95
 )
 
 # Define a simple main function that will use the configuration
@@ -165,7 +172,7 @@ def main(_config):
     c = ConfigDict(_config)
     print("Experiment Configuration:")
     print(c)
-    trainer = AsyncTrainer(c, restore=True)
+    trainer = AsyncTrainer(c, restore=False)
     trainer.run()
 
 
