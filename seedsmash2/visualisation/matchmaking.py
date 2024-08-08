@@ -1,7 +1,15 @@
+import datetime
+import os
 import pathlib
+from collections import defaultdict
 
 import pyglet
 import numpy as np
+from melee import Character
+from polaris.policies import PolicyParams
+from pyglet.font.ttf import TruetypeInfo
+
+from melee_env.enums import UsedCharacter
 from seedsmash2.submissions.bot_config import BotConfig
 from seedsmash2.visualisation.cards.card_generator import create_smash_player_card
 
@@ -14,20 +22,27 @@ from seedsmash2.visualisation.cards.card_generator import create_smash_player_ca
 
 file_path = pathlib.Path(__file__).parent.resolve()
 
-assets_path = file_path / "assets"
-pyglet.resource.path = str(assets_path)
-pyglet.resource.reindex()
-
-def compute_text_offsets(player_idx, text, y):
-    x_center = (player_idx+3) * (RankingWindow.ICON_SIZE+RankingWindow.SPACING) + RankingWindow.ICON_SIZE // 2
-    x_offset = x_center - text.width // 2
-    y_offset = y - 25
-    return x_offset, y_offset
+assets_path = file_path / "assets/"
 
 def ease_in_out_quad(t):
+
+    if t < 0.2:
+        return 0
+    elif t > 0.9:
+        return 1
+    else:
+        t = (t-.2) / 0.7
+
     return t**2 if t < 0.5 else -(t * (t - 2))
 
-def ease_in_out_sine(t):
+def ease_out_sine(t):
+    if t < 0.2:
+        return 0.
+    elif t > 0.9:
+        return 1.
+    else:
+        t = (t - 0.2)/(0.9-0.2)
+
     return -(np.cos(np.pi * t) - 1) / 2
 
 def bump(t):
@@ -50,38 +65,38 @@ def get_font_for_rank(rank):
     return fill_color, font_size
 
 
-class RankingWindow(pyglet.window.Window):
+class MatchMakingWindow(pyglet.window.Window):
     WHITE = np.array([255, 255, 255, 255])
     BLACK = np.array([0, 0, 0, 255])
     BACKGROUND_COLOR = BLACK
 
-
-
-    def __init__(self, players, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         self.ICON_SIZE = 24
+        self.SPACING = 400
         self.SCREEN_WIDTH = 400
-        self.SCREEN_HEIGHT = 400
-
+        self.SCREEN_HEIGHT = 760
         super().__init__(*args, **kwargs)
         self.batch = pyglet.graphics.Batch()
 
         self.video_set()
 
-        pyglet.font.load("fonts/A-OTF-FolkPro-Heavy.otf", 30)
-        pyglet.font.load("fonts/A-OTF-FolkPro-Bold.otf", 30)
-
+        pyglet.font.add_directory(str(assets_path / "fonts"))
+        # Heavy font is loaded as bold....
+        font = pyglet.font.load("A-OTF Folk Pro", 30, bold=True)
 
         self.sprites = {}
         self.rating_labels = {}
         self.player_name_labels = {}
         self.ranking_labels = {}
         self.bg_rects = {}
-        self.data = [
-            self.sprites, self.ranking_labels, self.player_name_labels, self.rating_labels, self.bg_rects
-        ]
+        self.icons = {}
 
-        for player in players_[:self.MAX_PLAYERS]:
-            self.instanciate_for_player(player)
+        self.selected = None
+
+        self.data = [
+            self.sprites, self.ranking_labels, self.player_name_labels, self.rating_labels, self.bg_rects,
+            self.icons,
+        ]
 
         headfont = 15
         head_color = (190, 190, 190)
@@ -89,148 +104,225 @@ class RankingWindow(pyglet.window.Window):
         x = 60
         y = self.SCREEN_HEIGHT - 24
 
-        self.rating_label = pyglet.text.Label("Rating", font_name='A-OTF-FolkPro-Heavy', font_size=headfont,
-                          color=head_color,
-                          x=x + 250, y=y, anchor_x='left', anchor_y='bottom', batch=self.batch)
-        self.tag_label = pyglet.text.Label("Tag", font_name='A-OTF-FolkPro-Heavy', font_size=headfont,
-                          color=head_color,
-                          x=x +24, y=y , anchor_x='left', anchor_y='bottom', batch=self.batch)
-        self.rank_label = pyglet.text.Label("Rank", font_name='A-OTF-FolkPro-Heavy', font_size=headfont,
-                          color=head_color,
-                          x=x - 32, y=y, anchor_x='left', anchor_y='bottom', batch=self.batch)
+        self.init = True
+
 
     def instanciate_for_player(self, player):
-        x = 60
-        y = self.SCREEN_HEIGHT - (player["last_rank"] * 32 + 32)
-        player_name = player["config"].tag
-        self.sprites[player["config"].tag] = pyglet.sprite.Sprite(player["icon"], x=x+220, y=y-2, batch=self.batch)
 
-        rgb, font_size = get_font_for_rank(player["last_rank"])
+        player_name = player.name
+        main_character_img_path = assets_path / f"icons/{player.options.character.name}_{player.options.costume}.png"
+        self.icons[player_name] = pyglet.image.load(main_character_img_path)
 
-        self.rating_labels[player_name] = pyglet.text.Label(str(int(player["last_rating"])), font_name='A-OTF-FolkPro-Bold', font_size=12,
-                                      color=(255,255,255,255),
-                                      x=x+250 , y=y, anchor_x='left', anchor_y='bottom', batch=self.batch)
-
-        self.player_name_labels[player_name] = pyglet.text.Label(player_name, font_name='A-<OTF-FolkPro-Heavy', font_size=11,
-                                              color=(255,255,255,255),
-                                              x=x+24, y=y, anchor_x='left', anchor_y='bottom', batch=self.batch)
-
-        self.ranking_labels[player_name] = pyglet.text.Label(str(player["last_rank"]), font_name='A-OTF-FolkPro-Heavy', font_size=font_size,
-                                              color=rgb,
-                                              x=x-32, y=y-4, anchor_x='left', anchor_y='bottom', batch=self.batch)
-
-        self.bg_rects[player_name] = pyglet.shapes.Rectangle(x-38, y-2, 360, 24, color=(20, 20, 20, 255),
+        self.sprites[player_name] = pyglet.sprite.Sprite(self.icons[player_name], x=-500, batch=self.batch)
+        self.player_name_labels[player_name] = pyglet.text.Label(player_name, font_name='A-OTF-FolkPro-Bold', font_size=11,
+                                              color=(255,255,255,255), bold=True,
+                                              x=-500, anchor_x='left', anchor_y="bottom", batch=self.batch)
+        self.bg_rects[player_name] = pyglet.shapes.Rectangle(-500, 0, 60, 24, color=(40, 10, 10, 255),
                                                              batch=self.batch)
+
+        vs_icon = assets_path / "ui/versus_red.png"
+        img = pyglet.image.load(vs_icon)
+        self.vs_icon = pyglet.sprite.Sprite(img, batch=self.batch)
+        self.vs_icon.opacity = 0
+        self.vs_icon.scale = 0.7
+
+        self.cards = []
 
 
 
     def remove_player(self, player):
         # TODO: Does that remove the components from the batch ?
-        tag = player["config"].tag
+        tag = player if isinstance(player, str) else player.name
         for d in self.data:
             if tag in d:
-                d[tag].delete()
+                try:
+                    d[tag].delete()
+                except:
+                    pass
                 del d[tag]
 
-    def animate_matchmaking(self, players, frames=30):
-        # Smooth fade in
-        # Have too columns scroll in opposite directions
-        # smooth slow down
-        # When halted, make a VS appear with a boom effect
-        # fade out, fade in with cards
-        # stays for the whole game, should be visible
-        # bot tags should be visible under the screen, or on the screen, below the stocks.
+    def animate_matchmaking(self, selected, policy_params, frames=260):
 
-        # TODO: ranking will be obtained from trainer
-        players_ranked = sorted(players, key=lambda p: -p["rating"])
-        prev_rank = [
-            p["last_rank"] for p in players_ranked
-        ]
-        for rank, p in enumerate(players_ranked, 1):
-            p['rank'] = rank
-            if rank <= self.MAX_PLAYERS:
-                if p["config"].tag not in self.player_name_labels:
-                    self.instanciate_for_player(p)
-        delta_rating = [
-            [p["last_rating"], p["rating"]] for p in players_ranked
-        ]
+        if self.init:
+            self.init = False
+            # init (needed for the first icon, for some reason)
+            dummy = PolicyParams(stats={"rank": 0, "rating": 0}, options=BotConfig())
+            self.instanciate_for_player(dummy)
+            self.remove_player(dummy)
 
+        params_copy = policy_params.copy()
+        left_list = []
+        right_list = []
+
+        left_list.append(params_copy.pop(selected[0]))
+        right_list.append(params_copy.pop(selected[1]))
+
+        players = list(params_copy.values())
+        np.random.shuffle(players)
+
+        n = len(players)// 2
+        left_list.extend(players[:n])
+        right_list.extend(players[n:])
+
+
+        for p in left_list+right_list:
+            if p.name not in self.player_name_labels:
+                self.instanciate_for_player(p)
+        for pid in self.sprites:
+            if pid not in policy_params:
+                self.remove_player(pid)
+
+        for card in self.cards:
+            card.delete()
+        del self.cards
+        self.cards = []
+
+        left_random_pos_start = np.random.uniform(0.95, 1.05)
+        right_random_pos_start = np.random.uniform(0.95, 1.05)
+
+        # we simulate the scrolling backwards.
+        k = len(left_list)
+        k2 = len(right_list)
+        left_positions = np.zeros((k,))
+        left_arange = np.arange(k)
+        right_positions = np.zeros((k2,))
+        right_arange = np.arange(k2)
+
+        selected = [policy_params[selected[0]], policy_params[selected[1]]]
+        now = datetime.datetime.now()
+        self.SPACING = 380 * ((k + k2) / 25)
+        print(left_list)
+        print(right_list)
         for frame in range(frames+1):
-            t = frame / frames
-            easing = ease_in_out_sine(t)
+            if frame <= 200:
+                t = frame / 200
 
-            for rank, player in enumerate(players_ranked):
+                if t == 21 / 200:
+                    for i, p in enumerate(selected):
+                        card = create_smash_player_card(
+                            p.options, p.stats, now_time=now
+                        )
+                        card_sprite = pyglet.sprite.Sprite(card, x=5+280 * i, y=40+95*i, batch=self.batch)
+                        card_sprite.scale = 0.45
+                        card_sprite.opacity = 0
+                        self.cards.append(
+                            card_sprite
+                        )
 
-                player["last_rating"] = easing * delta_rating[rank][1] + (1-easing) * delta_rating[rank][0]
-                player["last_rank"] =  easing * (rank+1) + (1-easing) * prev_rank[rank]
+                easing = ease_in_out_quad(1-t)
 
-            # we need to update the screen too
-            #pyglet.gl.glClearColor(0, 0, 0, 1)  # Set the clear color to white
-            self.clear()
-            pyglet.clock.tick()
-            # update params
-            self.update_batch(players, t)
-            self.batch.draw()
-            #self.flip()
+                left_positions[:] = (np.int32(easing * 4000 * left_random_pos_start + 100+left_arange*(200/k)) % 200)/200
+                right_positions[:] = (np.int32(-easing * 4000 * right_random_pos_start + 100+right_arange*(200/k2)) % 200)/200
+                self.clear()
+                pyglet.clock.tick()
+                self.scroll(t, left_list, left_positions, right_list, right_positions)
+                self.batch.draw()
 
-
-        for rank, player in enumerate(players_ranked):
-            player["last_rating"] = player["rating"]
-            player["rank"] = rank
-        #
-        # update params
-        self.update_batch(players, 1)
-        # we need to update the screen too
-        pyglet.gl.glClearColor(0, 0, 0, 1)  # Set the clear color to white
-        self.clear()
-        pyglet.clock.tick()
-        self.batch.draw()
-        self.flip()
-
-        for rank, p in enumerate(players_ranked, 1):
-            p['rank'] = rank
-            if rank <= self.MAX_PLAYERS:
-               pass
             else:
-                self.remove_player(p)
+                t = (frame - 200) / 60
 
-    def update_batch(self, players, t):
-
-        for player in players:
-            player_name = player["config"].tag
-            if player_name not in self.player_name_labels:
-                continue
-
-            x = 60
-            bump_x = int(player["last_rank"] - player["rank"] < -1e-8) * bump(t)
-            x += int(25 * bump_x)
-
-            # x = (self.ICON_SIZE + self.SPACING) * (player["rank"] + 3)
-            y = self.SCREEN_HEIGHT - (player["last_rank"] * 32 + 32)
-
-            self.sprites[player_name].y = y - 2
-            self.sprites[player_name].x = x +220
-
-            rgb, font_size = get_font_for_rank(player["last_rank"])
-
-            self.rating_labels[player_name].text = str(int(player["last_rating"]))
-            self.rating_labels[player_name].y = y
-            self.rating_labels[player_name].x = x + 250
-
-            self.player_name_labels[player_name].y = y
-            self.player_name_labels[player_name].x = x + 24
+                self.clear()
+                pyglet.clock.tick()
+                self.show_cards(t)
+                self.batch.draw()
 
 
-            self.ranking_labels[player_name].text = str(round(player["last_rank"]))
-            self.ranking_labels[player_name].y = y - 4
-            self.ranking_labels[player_name].x = x - 32
+    def scroll(self, t, left_players, left_positions, right_list, right_positions):
+        x = 80
 
-            self.bg_rects[player_name].x = x - 38
-            self.bg_rects[player_name].y = y - 2
+        fadein = 0
+        fadeout = 0
+        if t <= 0.05:
+            fadein = (0.1 - t)/0.1
+        elif t >= 0.99:
+            fadeout = 1 - (1 - t) / 0.1
 
 
-            self.ranking_labels[player_name].color = rgb
-            self.ranking_labels[player_name].font_size = font_size
+        self.vs_icon.opacity = round(255 * (1-fadein))
+        self.vs_icon.x = self.SCREEN_WIDTH //2 - self.vs_icon.width * 0.5
+        self.vs_icon.y = self.SCREEN_HEIGHT //2 - self.vs_icon.height * 0.5
+        self.vs_icon.scale = 0.7
+
+
+        fading = np.maximum(fadein, fadeout)
+
+
+        for lplayer, lpos in zip(left_players, left_positions):
+
+            y = round((lpos-0.5) * self.SPACING)
+
+            d_middle = 1 - np.minimum(np.abs(0.5-lpos) **0.33 * 1.3 , 1)
+            self.sprites[lplayer.name].opacity = round(d_middle * 255 * (1-fading))
+            self.sprites[lplayer.name].y = self.SCREEN_HEIGHT//2 + y - self.sprites[lplayer.name].height//2
+            self.sprites[lplayer.name].x = self.SCREEN_WIDTH//2 - 30 - self.sprites[lplayer.name].width//2
+
+            self.player_name_labels[lplayer.name].y = (self.SCREEN_HEIGHT//2 + y -
+                                                       self.player_name_labels[lplayer.name].content_height//2)
+            self.player_name_labels[lplayer.name].x = (self.SCREEN_WIDTH//2 - 50 -
+                                                       self.player_name_labels[lplayer.name].content_width)
+            self.player_name_labels[lplayer.name].opacity = round(d_middle * 255 * (1-fading))
+
+            self.bg_rects[lplayer.name].width = self.player_name_labels[lplayer.name].content_width + 38
+            self.bg_rects[lplayer.name].y = (self.SCREEN_HEIGHT//2 + y -
+                                                       self.player_name_labels[lplayer.name].content_height//2 - 3)
+            self.bg_rects[lplayer.name].x = (self.SCREEN_WIDTH//2 - 53 -
+                                                       self.player_name_labels[lplayer.name].content_width)
+            self.bg_rects[lplayer.name].opacity = round(d_middle * 255 * (1-fading))
+
+
+        for rplayer, rpos in zip(right_list, right_positions):
+
+            y = round((rpos-0.5) * self.SPACING)
+
+            d_middle = 1 - np.minimum(np.abs(0.5-rpos) **0.33 * 1.3 , 1)
+
+            self.sprites[rplayer.name].opacity = round(d_middle * 255 * (1-fading) )
+            self.sprites[rplayer.name].y = self.SCREEN_HEIGHT//2 + y - self.sprites[rplayer.name].height//2
+            self.sprites[rplayer.name].x = self.SCREEN_WIDTH//2 + 30 - self.sprites[rplayer.name].width//2
+
+            self.player_name_labels[rplayer.name].y = (self.SCREEN_HEIGHT//2 + y -
+                                                       self.player_name_labels[rplayer.name].content_height//2)
+            self.player_name_labels[rplayer.name].x = (self.SCREEN_WIDTH//2 + 50)
+            self.player_name_labels[rplayer.name].opacity = round(d_middle * 255 * (1-fading))
+
+            self.bg_rects[rplayer.name].width = self.player_name_labels[rplayer.name].content_width + 38
+            self.bg_rects[rplayer.name].y = (self.SCREEN_HEIGHT//2 + y -
+                                                       self.player_name_labels[rplayer.name].content_height//2 - 3)
+            self.bg_rects[rplayer.name].x = (self.SCREEN_WIDTH//2 + 18)
+            self.bg_rects[rplayer.name].opacity = round(d_middle * 255 * (1-fading))
+
+    def show_cards(self, t):
+        x = 80
+        if t <= 0.02:
+            easing = t/0.02
+
+        else:
+            easing = 1
+
+        if t <= 0.04:
+            easing2 = t/0.04
+
+        else:
+            easing2 = 1
+
+
+        self.vs_icon.scale = 0.7 + easing * 0.5
+        self.vs_icon.x = self.SCREEN_WIDTH //2 - self.vs_icon.width * 0.5
+        self.vs_icon.y = self.SCREEN_HEIGHT//2 - self.vs_icon.height * 0.5
+
+        for i, card in enumerate(self.cards):
+            card.opacity = round(easing * 255)
+
+            dy = -(1-easing2)*160
+
+            if i == 1:
+                dy = -dy
+
+            card.x = round(112 + x - card.width * 0.5)
+            card.y = round(4 + 408 * i + dy)
+
+
+
 
     def fade_out(self):
         # smooth transition to black
@@ -246,7 +338,7 @@ class RankingWindow(pyglet.window.Window):
         self.set_size(self.SCREEN_WIDTH, self.SCREEN_HEIGHT)
         self.location = self.default_screen.width // 2 - self.SCREEN_WIDTH // 2, self.default_screen.height // 2 - self.SCREEN_HEIGHT // 2
         self.set_location(self.location[0], self.location[1])
-        self.set_caption("SeedSmash ranking")
+        self.set_caption("SeedSmash matchmaking")
         self.set_fullscreen(False)
 
 
@@ -256,63 +348,25 @@ class RankingWindow(pyglet.window.Window):
 if __name__ == '__main__':
     from seedsmash.ga.elo import Elo
 
-    players_ = [
-        {'config': BotConfig(tag="bob"), "rating": 0},
-        {'config': BotConfig(tag="marth", character="MARTH", costume=2), "rating": 0},
-        {'config': BotConfig(tag="jack", character="YLINK", costume="WHITE"), "rating": 0},
-        {'config': BotConfig(tag="chevrifan420", character="FOX", costume=1), "rating": 0},
-        {'config': BotConfig(tag="bobiij"), "rating": 0},
-        {'config': BotConfig(tag="j", character="MARTH", costume=2), "rating": 0},
-        {'config': BotConfig(tag="vspkv", character="YLINK", costume="WHITE"), "rating": 0},
-        {'config': BotConfig(tag="dakork", character="LUIGI", costume=1), "rating": 0},
-        {'config': BotConfig(tag="boba"), "rating": 0},
-        {'config': BotConfig(tag="martha", character="MARTH", costume=2), "rating": 0},
-        {'config': BotConfig(tag="jacka", character="YLINK", costume="WHITE"), "rating": 0},
-        {'config': BotConfig(tag="chevraifan420", character="FOX", costume=1), "rating": 0},
-        {'config': BotConfig(tag="bobiiaj"), "rating": 0},
-        {'config': BotConfig(tag="ja", character="MARTH", costume=2), "rating": 0},
-        {'config': BotConfig(tag="vsapkv", character="YLINK", costume="WHITE"), "rating": 0},
-        {'config': BotConfig(tag="dakaork", character="LUIGI", costume=1), "rating": 0},
-        {'config': BotConfig(tag="PAPAGANONWWW", character="GANONDORF", costume=2), "rating": 0},
+    policies = {f"player_{i}": PolicyParams(
+        name=f"player_{i}",
+        options=BotConfig(tag=f"player_{i}", character=np.random.choice(UsedCharacter).name, costume=i % 3),
+        stats={"rating": i, 'rank': 8, "winrate": 0.5, "games_played":1}
+    ) for i in range(40)}
 
-    ]
-
-    for idx, player in enumerate(players_):
-        # TODO: fox splashes
-        conf = player["config"]
-        player["last_rating"] = 0
-        player["rank"] = idx + 1
-        player["last_rank"] = idx + 1
-
-        main_character_img_path = assets_path / f"icons/{conf.character.name}_{conf.costume}.png"
-        player['icon'] = pyglet.image.load(main_character_img_path)
-
-    window = RankingWindow(players_)
-
+    window = MatchMakingWindow()
 
     t = 0
     def update(dt):
-        global t
-        # We should read from a pipe or something here, try with ray ?
 
-        if t % 2 == 0:
-            for player in players_:
-                player["rating"] += np.random.randint(0, 100)
-                player["winrate"] = np.random.random()
-                player["games_played"] += np.random.randint(10)
+        # Simulate game results here and update ELO scores
+        # Example: smooth_update_elo(0, 1)  # Player 0 wins against Player 1
+        selected = np.random.choice(list(policies.keys()), size=2, replace=False)
 
-
-            matchmaking = np.random.choice(players_, size=2, replace=False)
-            window.animate_matchmaking(players_, matchmaking)
-        elif t % 2 == 1:
-            window.fade_out()
-
-        t = t + 1
-
+        window.animate_matchmaking(selected, policies)
         # Draw the players' positions based on ELO scores
 
-
-    pyglet.clock.schedule_interval(update, 5)
+    pyglet.clock.schedule_interval(update, 8)
 
     pyglet.app.run()
 

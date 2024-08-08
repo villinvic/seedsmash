@@ -294,6 +294,7 @@ char2kneebend = {
     Character.MARTH: 4,
     Character.ROY: 5,
     Character.JIGGLYPUFF: 5,
+    Character.LUIGI: 4
 }
 
 
@@ -317,7 +318,7 @@ class StickPosition(Enum):
     WAVE_RIGHT = (0.953, -0.294)
 
     # TODO
-    SHIELD_DROP = (0., -0.43)  # 0.675
+    SHIELD_DROP = (0., -0.44)  # 0.675
 
 class ControllerInput:
     def __init__(self, buttons: Union[Button, Tuple[Button, Button]] = (), stick=StickPosition.NEUTRAL,
@@ -641,7 +642,7 @@ class SSBMActionSpace:
     #Is this costly ? might be annoying, never saw the ai using it properly, only allow on ground obviously
     SHIELD_DROP = lambda _: InputSequence([
         ControllerInput(buttons=Button.BUTTON_L, test_func=disable_in_air, duration=3),
-        ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.SHIELD_DROP, duration=1, test_func=disable_in_air)
+        ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.SHIELD_DROP, duration=1, test_func=disable_in_air),
     ])
     B_NEUTRAL = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, energy_cost=0.1))
 

@@ -5,7 +5,7 @@ from time import sleep
 from typing import Optional, List, Union
 from typing import Dict as Dict_T
 from typing import Tuple as Tuple_T
-from copy import copy
+from copy import copy, deepcopy
 
 from gymnasium.error import ResetNeeded
 from melee import GameState, Console
@@ -219,8 +219,6 @@ class SSBM(PolarisEnv):
         self.reward_functions : Dict_T[int, RewardFunction] = None
         self.delta_frame: DeltaFrame = None
 
-        self.state = {aid: self.observation_space.sample() for aid in self.get_agent_ids()}
-
         atexit.register(self.close)
 
     def step_nones(self, reset_if_stuck=False) -> Union[GameState, None]:
@@ -308,6 +306,9 @@ class SSBM(PolarisEnv):
     ):
         gc.collect()
 
+        if self.render:
+            print(options)
+
         if self.config["full_reset"] or self.previously_crashed:
             if self.console is not None:
                 self.close()
@@ -379,7 +380,7 @@ class SSBM(PolarisEnv):
             if state is None:
                 return None
 
-        lvl = 4  # TODO: # np.random.randint(1, 10)
+        lvl = 9  # TODO: # np.random.randint(1, 10)
         ready = [True for _ in range(4)]
         press_start = False
         while state.menu_state not in [melee.Menu.IN_GAME, melee.Menu.SUDDEN_DEATH]:
@@ -409,7 +410,7 @@ class SSBM(PolarisEnv):
                 if counter > 3900:
                     self.previously_crashed = True
                     return self.reset(options=options)
-                print("STUCK", state.menu_state, state.frame, state.stage_select_cursor_x, state.stage_select_cursor_y)
+                print("STUCK", state.menu_state, state.frame, state.stage_select_cursor_x, state.stage_select_cursor_y, self.current_matchup)
 
 
         init_frames = 77 # 77
@@ -421,7 +422,7 @@ class SSBM(PolarisEnv):
         self.om.update(state)
         self.game_frame = 0
 
-        return self.om.build(self.state), {i: {} for i in self.om.bot_ports}
+        return self.om.build(), {i: {} for i in self.om.bot_ports}
 
     def get_next_state_reward(self, every=3) \
             -> Tuple_T[Union[GameState, None], Dict_T[int, StepRewards], bool]:
@@ -543,7 +544,7 @@ class SSBM(PolarisEnv):
             # Do not give the new state, because it looks weird right now
             # Just update the game frame
             self.om.update(state, game_frame=True)
-            self.om.build(self.state)
+            obs = self.om.build()
 
         elif game_finished:
             done = self.pad_at_end <= 0
@@ -554,11 +555,11 @@ class SSBM(PolarisEnv):
             else:
                 self.om.update(state)
             self.reached_end = True
-            self.om.build(self.state)
+            obs = self.om.build()
         else:
             done = False
             self.om.update(state)
-            self.om.build(self.state)
+            obs = self.om.build()
 
         # Punish for overtime
         # if self.game_frame > 8 * 60 * 60 + 63:
@@ -583,7 +584,7 @@ class SSBM(PolarisEnv):
 
         #if self.env_index == 0:
          #   print(self.state[1]["continuous"]["position1"])
-        return self.state, total_rewards, dones, dones, {}
+        return obs, total_rewards, dones, dones, {}
 
     def close(self):
         print(self.env_index,

@@ -271,7 +271,7 @@ def create_smash_player_card(bot_config: "BotConfig", stats, now_time):
     # stats
     # main
     rank = stats["rank"]
-    rating = stats["elo"]
+    rating = stats["rating"]
     winrate = stats["winrate"]
     games_played = stats["games_played"]
 
@@ -350,12 +350,12 @@ if __name__ == '__main__':
     from seedsmash2.submissions.bot_config import BotConfig
 
     stats = {
-        "winrate"     : 0.78,
-        "games_played": 4315,
-        "elo"         : 2465,
-        "rank"        : 2,
+        "winrate"     : 0.71,
+        "games_played": 5568,
+        "elo"         : 1999,
+        "rank"        : 3,
     }
-    x = BotConfig(character="GAMEANDWATCH", costume=0, preferred_stage="DREAMLAND")
+    x = BotConfig(tag="PuffMain420", character="GAMEANDWATCH", costume=0, preferred_stage="BATTLEFIELD")
 
     now = datetime.now()
 

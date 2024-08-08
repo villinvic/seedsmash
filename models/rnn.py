@@ -14,9 +14,8 @@ import numpy as np
 from polaris.models.utils import CategoricalDistribution
 
 
-class SmallFC(BaseModel):
-
-    is_recurrent = False
+class RNN(BaseModel):
+    is_recurrent = True
 
     def initialise(self):
         T = 5
@@ -30,7 +29,7 @@ class SmallFC(BaseModel):
         dummy_actions = np.zeros((T, B), dtype=np.int32)
 
         dummy_state = self.get_initial_state()
-        #states = [np.zeros_like(dummy_state, shape=(B,) + d.shape) for d in dummy_state]
+        states = [np.zeros_like(dummy_state, shape=(B,) + d.shape) for d in dummy_state]
         seq_lens = np.ones((B,), dtype=np.int32) * T
 
         @tf.function
@@ -43,7 +42,7 @@ class SmallFC(BaseModel):
             SampleBatch.OBS        : dummy_obs,
             SampleBatch.PREV_ACTION: dummy_actions,
             SampleBatch.PREV_REWARD: dummy_reward,
-            #SampleBatch.STATE      : states,
+            SampleBatch.STATE      : states,
             SampleBatch.SEQ_LENS   : seq_lens,
         })
 
@@ -53,15 +52,15 @@ class SmallFC(BaseModel):
             action_space: Discrete,
             config,
     ):
-        super(SmallFC, self).__init__(
-            name="SmallFC",
+        super(RNN, self).__init__(
+            name="RNN",
             observation_space=observation_space,
             action_space=action_space,
             config=config,
         )
 
         self.num_outputs = action_space.n
-        self.size = 128+32
+        self.size = 128#+32
         self.character_embedding_size = 5
         self.action_state_embedding_size = 32
         self.joint_embedding_size = 64
@@ -82,6 +81,8 @@ class SmallFC(BaseModel):
             activate_final=True,
             name="MLP"
         )
+
+        self._lstm = snt.LSTM(256, name="lstm")
 
         self._pi_out = snt.Linear(
             output_size=self.num_outputs,
@@ -127,7 +128,7 @@ class SmallFC(BaseModel):
             obs,
             prev_action,
             prev_reward,
-            #state,
+            state,
             seq_lens,
             single_obs=False,
             **kwargs
@@ -165,6 +166,7 @@ class SmallFC(BaseModel):
             # opp_char_embedding = self.opp_char_embed(tf.cast(opp_char_input, tf.int32))
             prev_reward = tf.expand_dims(prev_reward, axis=0)
 
+            state = [tf.expand_dims(s, axis=0) for s in state]
 
         else:
 
@@ -193,6 +195,7 @@ class SmallFC(BaseModel):
             #     tf.cast(action_state_opp + self.n_action_states * opp_char_input, tf.int32))[:, :, 0]
             # opp_char_embedding = self.opp_char_embed(tf.cast(opp_char_input, tf.int32))[:, :, 0]
 
+
         obs_input_post_embedding = self.post_embedding_concat(
             continuous_inputs + binary_inputs + categorical_one_hots
             +
@@ -204,12 +207,37 @@ class SmallFC(BaseModel):
         )
 
         x = self._mlp(obs_input_post_embedding)
+        #hidden, cell = tf.split(state, 2)
+
+        if single_obs:
+            x = (tf.expand_dims(x, axis=0))
 
 
-        pi_out = self._pi_out(x)
-        self._values = tf.squeeze(self._value_out(x))
 
-        return (pi_out, None), self._values
+        lstm_out, states_out = snt.static_unroll(
+            self._lstm,
+            input_sequence=x,
+            initial_state=snt.LSTMState(
+                hidden=state[0],
+                cell=state[1]
+            ),
+            sequence_length=seq_lens,
+        )
+
+        pi_out = self._pi_out(lstm_out)
+        self._values = tf.squeeze(self._value_out(lstm_out))
+
+        if single_obs:
+            return (pi_out, [states_out.hidden[0], states_out.cell[0]]), self._values
+
+
+        return (pi_out, [states_out.hidden, states_out.cell]), self._values
+
+
+    def get_initial_state(self):
+        return [np.zeros((256,), dtype=np.float32) for _ in range(2)]
+
+
 
 
 

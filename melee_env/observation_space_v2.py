@@ -1,3 +1,4 @@
+from collections import defaultdict
 
 from gymnasium.spaces.dict import Dict
 from melee import Stage, PlayerState, Character, Action, stages, enums, Projectile, GameState, AttackState
@@ -31,6 +32,7 @@ all_chars_to_used = {
     Character.CPTFALCON: 8,
     Character.GANONDORF: 9,
     Character.JIGGLYPUFF: 10,
+    Character.LUIGI: 11,
 }
 
 # print(used_character_idx)
@@ -610,9 +612,15 @@ class ObsBuilder:
         for feature in self.features:
             feature.advance()
 
-    def build(self, obs_dict):
-        for idx, obs in obs_dict.items():
-            self.build_for(idx, obs)
+    def build(self):
+        obs_dict = {}
+        for port in self.bot_ports:
+            obs_dict[port] = {
+                StateDataInfo.BINARY: {},
+                StateDataInfo.CATEGORICAL: {},
+                StateDataInfo.CONTINUOUS: {},
+            }
+            self.build_for(port, obs_dict[port])
         return obs_dict
 
     def build_for(self, player_idx, obs):
@@ -649,8 +657,7 @@ class ObsBuilder:
             v.character = Character.FOX
 
         self.update(game_state)
-        dummy = {aid: self.gym_specs.sample() for aid in self.bot_ports}
-        self.build(dummy)
+        self.build()
 
         # self.name2idx = {}
         #
