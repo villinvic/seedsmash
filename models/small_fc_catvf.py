@@ -103,30 +103,30 @@ class SmallFCCatVf(BaseModel):
         self.n_chars = int(observation_space["categorical"]["character1"].high) + 1
         self.n_action_states = int(observation_space["categorical"]["action1"].high) + 1
 
-        # self.last_action_embed = snt.Embed(
-        #     vocab_size=self.num_outputs,
-        #     embed_dim=self.last_action_embedding_size,
-        #     densify_gradients=True,
-        #     name="last_action_embed"
-        # )
-        # self.action_state_embed = snt.Embed(
-        #     vocab_size=self.n_action_states,
-        #     embed_dim=self.action_state_embedding_size,
-        #     densify_gradients=True,
-        #     name="action_state_embed"
-        # )
-        # self.opp_char_embed = snt.Embed(
-        #     vocab_size=self.n_chars,
-        #     embed_dim=self.character_embedding_size,
-        #     densify_gradients=True,
-        #     name = "opp_char_embed"
-        # )
-        # self.opp_char_state_joint_embed = snt.Embed(
-        #     vocab_size=self.n_chars * self.n_action_states,
-        #     embed_dim=self.joint_embedding_size,
-        #     densify_gradients=True,
-        #     name="opp_char_state_joint_embed"
-        # )
+        self.last_action_embed = snt.Embed(
+            vocab_size=self.num_outputs,
+            embed_dim=self.last_action_embedding_size,
+            densify_gradients=True,
+            name="last_action_embed"
+        )
+        self.action_state_embed = snt.Embed(
+            vocab_size=self.n_action_states,
+            embed_dim=self.action_state_embedding_size,
+            densify_gradients=True,
+            name="action_state_embed"
+        )
+        self.opp_char_embed = snt.Embed(
+            vocab_size=self.n_chars,
+            embed_dim=self.character_embedding_size,
+            densify_gradients=True,
+            name = "opp_char_embed"
+        )
+        self.opp_char_state_joint_embed = snt.Embed(
+            vocab_size=self.n_chars * self.n_action_states,
+            embed_dim=self.joint_embedding_size,
+            densify_gradients=True,
+            name="opp_char_state_joint_embed"
+        )
 
         self.post_embedding_concat = tf.keras.layers.Concatenate(axis=-1, name="post_embedding_concat")
 
@@ -151,15 +151,27 @@ class SmallFCCatVf(BaseModel):
 
             categorical_one_hots = [
                 tf.one_hot(tf.cast(tensor, tf.int32), depth=tf.cast(space.high[0], tf.int32) + 1, dtype=tf.float32,
-                           name=name)[:, :]
+                           name=name)
                 for tensor, (name, space) in
                 zip(categorical_inputs.values(), self.observation_space["categorical"].items())
-                if name not in ["character1"]]  # "action1", "action2", "character2"
+                if name not in ["character1", "action1", "action2", "character2"]]  # "action1", "action2", "character2"
 
-            last_action_one_hot = tf.one_hot(tf.cast(tf.expand_dims(prev_action, axis=0), tf.int32),
-                                             depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
+            #last_action_one_hot = tf.one_hot(tf.cast(tf.expand_dims(prev_action, axis=0), tf.int32),
+            #                                 depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
 
+            action_state_self = categorical_inputs["action1"]
+            action_state_opp = categorical_inputs["action2"]
+            opp_char_input = categorical_inputs["character2"]
+
+            # last_action_one_hot = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
+
+            last_action_embedding = self.last_action_embed(tf.expand_dims(prev_action, axis=0))
+            action_state_embedding = self.action_state_embed(tf.cast(action_state_self, tf.int32))
+            opp_char_state_joint_embedding = self.opp_char_state_joint_embed(
+                tf.cast(action_state_opp + self.n_action_states * opp_char_input, tf.int32))
+            opp_char_embedding = self.opp_char_embed(tf.cast(opp_char_input, tf.int32))
             prev_reward = tf.expand_dims(prev_reward, axis=0)
+
 
         else:
 
@@ -172,26 +184,26 @@ class SmallFCCatVf(BaseModel):
             categorical_one_hots = [tf.one_hot(tf.cast(tensor, tf.int32), depth=tf.cast(space.high[0], tf.int32) + 1, dtype=tf.float32, name=name)[:, :, 0]
                                     for tensor, (name, space) in
                                     zip(categorical_inputs.values(), self.observation_space["categorical"].items())
-                                    if name not in ["character1"]] # "action1", "action2", "character2"
-            last_action_one_hot = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
+                                    if name not in ["character1", "action1", "action2", "character2"]] # "action1", "action2", "character2"
+            #last_action_one_hot = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
 
-        # action_state_self = categorical_inputs["action1"]
-        # action_state_opp = categorical_inputs["action2"]
-        # opp_char_input = categorical_inputs["character2"]
+            action_state_self = categorical_inputs["action1"]
+            action_state_opp = categorical_inputs["action2"]
+            opp_char_input = categorical_inputs["character2"]
 
-        #last_action_one_hot = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
+            #last_action_one_hot = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
 
-        # last_action_embedding = self.last_action_embed(prev_action)
-        # action_state_embedding = self.action_state_embed(tf.cast(action_state_self, tf.int32))[:, :, 0]
-        # opp_char_state_joint_embedding = self.opp_char_state_joint_embed(tf.cast(action_state_opp + self.n_action_states * opp_char_input, tf.int32))[:, :, 0]
-        # opp_char_embedding = self.opp_char_embed(tf.cast(opp_char_input, tf.int32))[:, :, 0]
+            last_action_embedding = self.last_action_embed(prev_action)
+            action_state_embedding = self.action_state_embed(tf.cast(action_state_self, tf.int32))[:, :, 0]
+            opp_char_state_joint_embedding = self.opp_char_state_joint_embed(tf.cast(action_state_opp + self.n_action_states * opp_char_input, tf.int32))[:, :, 0]
+            opp_char_embedding = self.opp_char_embed(tf.cast(opp_char_input, tf.int32))[:, :, 0]
 
         obs_input_post_embedding = self.post_embedding_concat(
             continuous_inputs + binary_inputs + categorical_one_hots
             +
             [
-                #last_action_embedding, action_state_embedding, opp_char_state_joint_embedding, opp_char_embedding,
-            tf.tanh(tf.expand_dims(tf.cast(prev_reward, dtype=tf.float32), axis=-1) / 5.), last_action_one_hot
+                last_action_embedding, action_state_embedding, opp_char_state_joint_embedding, opp_char_embedding,
+            tf.tanh(tf.expand_dims(tf.cast(prev_reward, dtype=tf.float32), axis=-1) / 5.), #last_action_one_hot
             ]
 
         )

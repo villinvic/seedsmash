@@ -114,25 +114,20 @@ class DeltaFrame:
                 self.win[1] = np.float32(dead2)
                 self.win[2] = np.float32(dead1)
 
-            dist_before = np.sqrt(
-                np.square(self.last_frame.players[1].position.x - self.last_frame.players[2].position.x)
-                +
-                np.square(self.last_frame.players[1].position.y - self.last_frame.players[2].position.y)
-            )
+            dx_before = np.abs(self.last_frame.players[1].position.x - self.last_frame.players[2].position.x)
+            dy_before = np.abs(self.last_frame.players[1].position.y - self.last_frame.players[2].position.y)
+
             for port in self.ports:
                 self.dstock[port] = np.clip(self.last_frame.players[port].stock - frame.players[port].stock, 0., 1.)
                 self.dpercent[port] = np.clip(frame.players[port].percent - self.last_frame.players[port].percent, 0., 50.)
 
                 other_port = 1 + (port % 2)
                 # DISTANCE
-                dist_now = np.sqrt(
-                    np.square(frame.players[port].position.x - self.last_frame.players[other_port].position.x)
-                    +
-                    np.square(frame.players[port].position.y - self.last_frame.players[other_port].position.y)
-                )
-                self.ddist[port] = np.clip(
-                    dist_before - dist_now, 0., 5.
-                )
+                dx_now = np.abs(frame.players[port].position.x - self.last_frame.players[other_port].position.x)
+                dy_now = np.abs(frame.players[port].position.y - self.last_frame.players[other_port].position.y)
+
+                ddist = (dx_before - dx_now) + (dy_before - dy_now) * 0.15
+                self.ddist[port] = np.clip(np.minimum(ddist, 0) * 0.2 + np.maximum(ddist, 0), -4, 4)
 
                 self.action[port] = frame.players[port].action
 
@@ -152,12 +147,12 @@ class RewardFunction:
         self.bot_config = bot_config
 
         agressivity_p = self.bot_config.agressivity / 100
-        self.damage_inflicted_scale = 0.05 * agressivity_p
-        self.damage_received_scale = 0.05 * (1 - agressivity_p)
+        self.damage_inflicted_scale = 0.07 * agressivity_p
+        self.damage_received_scale = 0.07 * (1 - agressivity_p)
         self.kill_reward_scale = 10. * agressivity_p
         self.death_reward_scale = 10. * (1 - agressivity_p)
         self.time_cost = 2 * 0.00010416 * self.bot_config.patience / 100
-        self.distance_reward_scale = 0.
+        self.distance_reward_scale = 1e-4
         self.energy_cost_scale = 1e-4
 
         self.combo_counter = 0.
@@ -198,7 +193,7 @@ class RewardFunction:
         if delta_frame.dpercent[other_port] > 0:
             bonus = 2
             if self.last_hit_action_state == delta_frame.action[port]:
-                bonus = 1
+                bonus = 0.27
 
             self.combo_counter = np.minimum(self.combo_counter + bonus, self.max_combo_score)
             self.int_combo_counter = np.int32(self.combo_counter)

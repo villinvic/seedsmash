@@ -232,7 +232,7 @@ whether your bot wins or loses.
             self.character = char_to_enum[self.character]
         except:
             validation_message(self.character, "character", default_config.character)
-            self.character = default_config.character
+            self.character = char_to_enum[default_config.character]
 
         try:
             costume_id = int(self.costume)

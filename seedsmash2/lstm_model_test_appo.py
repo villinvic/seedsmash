@@ -14,7 +14,7 @@ from ml_collections import ConfigDict
 
 from seedsmash2.submissions.bot_config import BotConfig
 
-exp_name = 'fc_model_test_appo'
+exp_name = 'lstm_model_test_appo'
 exp_path = "experiments/" + exp_name
 ex = Experiment(exp_name)
 
@@ -54,11 +54,11 @@ obs_config = (
 env_conf = (
     SSBMConfig()
     .chars([
-        Character.FOX,
-        Character.FALCO,
-        Character.CPTFALCON,
-        Character.MARIO,
-        #Character.LUIGI, # TODO
+        #Character.FOX,
+        #Character.FALCO,
+        #Character.CPTFALCON,
+        #Character.MARIO,
+        Character.LUIGI, # TODO
         # Character.DOC,
         #Character.MARTH,
         # Character.ROY,
@@ -68,10 +68,10 @@ env_conf = (
         # Character.YLINK
     ])
     .stages([
-        #Stage.FINAL_DESTINATION,
+        Stage.FINAL_DESTINATION,
         #Stage.YOSHIS_STORY, # Why is this so buggy ?
         #Stage.POKEMON_STADIUM,
-        Stage.BATTLEFIELD,
+        #Stage.BATTLEFIELD,
         #Stage.DREAMLAND,
 
         # Stage.FOUNTAIN_OF_DREAMS  # TODO support FOD
@@ -106,20 +106,20 @@ def my_config():
 
     num_workers = 64
     policy_path = 'polaris.policies.APPO'
-    model_path = 'models.small_fc'
+    model_path = 'models.rnn'
     policy_class = 'APPO'
-    model_class = 'SmallFC'
-    trajectory_length = 128
-    max_seq_len = 128
-    train_batch_size = 1024*8
+    model_class = 'RNN'
+    trajectory_length = 32
+    max_seq_len = 32
+    train_batch_size = 2048
     max_queue_size = train_batch_size * 10
 
     default_policy_config = {
-        'discount': 0.997,  # 0.997
-        'gae_lambda': 0.99,
+        'discount': 0.996,  # 0.997
+        'gae_lambda': 1.,
         'entropy_cost': 1e-3, # 1e-3 with impala, or around " 0.3, 0.4
         'popart_std_clip': 1e-2,
-        'popart_lr': 1e-2,
+        'popart_lr': 2e-2,
         'grad_clip': 4.,
         'lr': 5e-4,
         'rms_prop_rho': 0.99,
@@ -129,39 +129,32 @@ def my_config():
         # APPO
 
         'ppo_clip': 0.4,
-        'ppo_kl_coeff': 0.,
-        'target_update_freq': 1,
+        'ppo_kl_coeff': 0.1,
+        'target_update_freq': 16,
         'baseline_coeff': 0.5,
         }
 
 
     policy_params = [dict(
-        name="FALCON",
+        name="LUIGI",
         config=default_policy_config,
         options=BotConfig(
-            character="CPTFALCON",
+            character="LUIGI",
             costume=1
         )),
         dict(
-            name="FALCO",
+            name="LUIGI2",
             config=default_policy_config,
             options=BotConfig(
-                character="FALCO",
-                costume=2
+                character="LUIGI",
+                costume=1
             )),
         dict(
-            name="FOX",
+            name="LUIGI3",
             config=default_policy_config,
             options=BotConfig(
-                character="FOX",
-                costume=2
-            )),
-        dict(
-            name="MARIO",
-            config=default_policy_config,
-            options=BotConfig(
-                    character="MARIO",
-                costume=2
+                character="LUIGI",
+                costume=1
             )),
         ]
 
@@ -179,7 +172,7 @@ def my_config():
 
     episode_callback_class = partial(
     SSBMCallbacks,
-    negative_reward_scale=0.85
+    negative_reward_scale=0.95
 )
 
 # Define a simple main function that will use the configuration
