@@ -57,7 +57,7 @@ whether your bot wins or loses.
   | Yet unsupported stages (buggy):
   | FOUNTAIN_OF_DREAMS, YOSHIS_STORY
   * 
-[INPUT] reflexion = 50
+[INPUT] reflexion = 55
   * (Play-style) Reflexion.
   | Valid range: [0, 100]
   | 
@@ -73,7 +73,7 @@ whether your bot wins or loses.
   | - 40-60 is a generally a good range.
   | By default, this is set to 50.
   * 
-[INPUT] agressivity = 50
+[INPUT] agressivity = 60
   * (Play-style) Agressivity.
   | Valid range: [0, 100]
   | 
@@ -86,7 +86,7 @@ whether your bot wins or loses.
   | 40-60 is a good range for agressivity
   | By default, this is set to 50.
   * 
-[INPUT] winning_desire = 0
+[INPUT] winning_desire = 1
   * (Play-style) Winning desire.
   | 
   | Strength of the reward signal received by your bot when winning, on top of the reward received when your opponent 
@@ -125,7 +125,7 @@ whether your bot wins or loses.
   | 
   | By default this is set to 0.
   * 
-[INPUT] combo_game = 0
+[INPUT] combo_game = 5
   * (Play-style) Combo game.
   | Valid range: [0, 100]
   | 
