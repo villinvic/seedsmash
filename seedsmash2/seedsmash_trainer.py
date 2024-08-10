@@ -1,4 +1,6 @@
+import copy
 import importlib
+import os
 import queue
 import threading
 import time
@@ -8,6 +10,7 @@ from typing import Dict
 import numpy as np
 import polaris.experience.matchmaking
 import tree
+from melee import Action
 from ml_collections import ConfigDict
 
 from polaris.checkpointing.checkpointable import Checkpointable
@@ -22,50 +25,95 @@ from polaris.utils.metrics import MetricBank, GlobalCounter, GlobalTimer, averag
 import psutil
 
 from seedsmash2.elo_matchmaking import SeedSmashMatchmaking
+from seedsmash2.spotlight_worker_set import SpotlightWorkerSet
+from seedsmash2.submissions.bot_config import BotConfig
+from seedsmash2.submissions.generate_form import load_filled_form
 
 
-class AsyncTrainer(Checkpointable):
+def inject_botconfig(policy_config, botconfig: BotConfig):
+
+    # patience of 0: half-life of 3 seconds
+    # patience of 100: half-life of 15 seconds
+    halflife = botconfig.reflexion / 100. * (15-3) + 3
+    policy_config["discount"] = np.exp(-np.log(2)/(halflife*20))
+    policy_config["action_state_reward_scale"] = botconfig.creativity * 3e-3
+
+
+class ActionStateValues:
+    discarded_states = np.array([a.value for a in [
+        Action.WALK_SLOW, Action.WALK_FAST, Action.WALK_MIDDLE,
+        Action.TUMBLING, Action.TURNING, Action.TURNING_RUN, Action.GRABBED,
+        Action.EDGE_TEETERING, Action.EDGE_TEETERING_START, Action.RUN_BRAKE,
+        Action.EDGE_ATTACK_QUICK, Action.EDGE_HANGING, Action.EDGE_ATTACK_SLOW,
+        Action.EDGE_GETUP_QUICK, Action.EDGE_JUMP_1_QUICK, Action.EDGE_JUMP_2_QUICK,
+        Action.EDGE_JUMP_1_SLOW, Action.EDGE_JUMP_2_SLOW, Action.EDGE_GETUP_SLOW,
+        Action.EDGE_ROLL_QUICK, Action.EDGE_ROLL_SLOW, Action.DEAD_UP, Action.DEAD_FLY, Action.DEAD_FLY_SPLATTER,
+        Action.DEAD_DOWN, Action.DEAD_LEFT, Action.DEAD_RIGHT
+    ]])
+    wall_tech_states = np.array([a.value for a in [
+        Action.WALL_TECH, Action.WALL_TECH_JUMP
+    ]])
+
+    def __init__(self, config):
+        self.config = config
+        self.n_action_states = len(Action)
+        self.probs = np.full((self.n_action_states,), dtype=np.float32, fill_value=1/self.n_action_states)
+
+        self.discarded_mask = np.ones((self.n_action_states,), dtype=np.float32)
+        self.discarded_mask[self.discarded_states] = 0.
+
+        self.prob_treshold = 1 / (8*self.n_action_states)
+
+    def push_samples(self, action_states):
+        u, counts = np.unique(action_states, return_counts=True)
+        lr = 5e-2
+        count_probs = counts / counts.sum()
+        self.probs[:] *= (1-lr)
+        self.probs[u] += count_probs * lr
+        np.clip(self.probs, 1e-6, 1., out=self.probs)
+
+    def get_rewards(self, action_states):
+        mask = self.probs < self.prob_treshold
+        logprobs = np.log(self.probs) * np.float32(mask) * self.discarded_mask
+        rewards = - logprobs[action_states]
+        return rewards * self.config.action_state_reward_scale
+
+    def get_metrics(self):
+        return {
+            "entropy": - np.sum(np.log(self.probs) * self.probs),
+            "min_prob": np.min(self.probs),
+            "max_prob": np.max(self.probs)
+        }
+
+
+
+
+
+
+
+class SeedSmashTrainer(Checkpointable):
     def __init__(
             self,
             config: ConfigDict,
             restore=False,
     ):
         self.config = config
-        self.worker_set = WorkerSet(
+        self.worker_set = SpotlightWorkerSet(
             config
         )
 
         # Init environment
         self.env = PolarisEnv.make(self.config.env, env_index=-1, **self.config.env_config)
 
-        # We can extend to multiple policy types if really needed, but won't be memory efficient
-        policy_params = [
-            PolicyParams(**ConfigDict(pi_params)) for pi_params in self.config.policy_params
-        ]
 
-        PolicylCls = getattr(importlib.import_module(self.config.policy_path), self.config.policy_class)
-        self.policy_map: Dict[str, Policy] = {
-            policy_param.name: PolicylCls(
-                name=policy_param.name,
-                action_space=self.env.action_space,
-                observation_space=self.env.observation_space,
-                config=self.config,
-                policy_config=policy_param.config,
-                options=policy_param.options,
-                # For any algo that needs to track either we have the online model
-                is_online=True,
-            )
-            for policy_param in policy_params
-        }
+        self.discarded_policies = []
 
-        self.params_map = ParamsMap(**{
-            name: p.get_params() for name, p in self.policy_map.items()
-        })
+        self.PolicylCls = getattr(importlib.import_module(self.config.policy_path), self.config.policy_class)
+        self.policy_map: Dict[str, Policy] = {}
 
-        self.experience_queue: Dict[str, ExperienceQueue] = {
-            policy_name: ExperienceQueue(self.config)
-            for policy_name in self.policy_map
-        }
+        self.params_map = ParamsMap()
+
+        self.experience_queue: Dict[str, ExperienceQueue] = {}
 
         self.matchmaking = SeedSmashMatchmaking(
             agent_ids=self.env.get_agent_ids(),
@@ -79,6 +127,8 @@ class AsyncTrainer(Checkpointable):
             report_freq=self.config.report_freq
         )
         self.metrics = self.metricbank.metrics
+
+        self.action_state_values: Dict[str, ActionStateValues] = {}
 
         # self.grad_thread = GradientThread(
         #     env=self.env,
@@ -95,6 +145,8 @@ class AsyncTrainer(Checkpointable):
                 "config": self.config,
                 "params_map": self.params_map,
                 "metrics": self.metrics,
+                "action_state_values": self.action_state_values,
+                "discarded_policies": self.discarded_policies,
             }
         )
 
@@ -114,6 +166,37 @@ class AsyncTrainer(Checkpointable):
             for policy_name, policy in self.policy_map.items():
                 policy.setup(self.params_map[policy_name])
 
+        self.inject_bot_configs()
+        GlobalTimer["inject_new_bots_timer"] = time.time()
+
+
+    def inject_bot_configs(self):
+
+        _, _, bot_configs = next(os.walk("bot_configs"))
+        for bot_config_txt in bot_configs:
+            pid = bot_config_txt.rstrip(".txt")
+            if pid not in self.policy_map and pid not in self.discarded_policies:
+                bot_config = load_filled_form("bot_configs/"+bot_config_txt)
+                if bot_config.tag == pid:
+                    policy_config = copy.deepcopy(self.config.default_policy_config)
+                    inject_botconfig(policy_config, bot_config)
+
+                    self.policy_map[pid] = self.PolicylCls(
+                        name=pid,
+                        action_space=self.env.action_space,
+                        observation_space=self.env.observation_space,
+                        config=self.config,
+                        policy_config=policy_config,
+                        options=bot_config,
+                        stats={"rank": 100, "rating": 1000, "games_played": 0, "winrate": 0},
+                        # For any algo that needs to track either we have the online model
+                        is_online=True,
+                    )
+                    self.params_map[pid] = self.policy_map[pid].get_params()
+                    self.experience_queue[pid] = ExperienceQueue(self.config)
+                    self.action_state_values[pid] = ActionStateValues(self.policy_map[pid].policy_config)
+
+
     def training_step(self):
         """
         Executes one iteration of the trainer.
@@ -130,7 +213,7 @@ class AsyncTrainer(Checkpointable):
         jobs = [self.matchmaking.next(self.params_map) for _ in range(n_jobs)]
         t.append(time.time())
 
-        self.runnning_jobs += self.worker_set.push_jobs(jobs)
+        self.runnning_jobs += self.worker_set.push_jobs(jobs, self.policy_map)
         experience_metrics = []
         t.append(time.time())
         frames = 0
@@ -139,16 +222,26 @@ class AsyncTrainer(Checkpointable):
         experience = self.worker_set.wait(self.runnning_jobs)
         enqueue_time_start = time.time()
         num_batch = 0
+
         for exp_batch in experience:
             if isinstance(exp_batch, EpisodeMetrics):
-                experience_metrics.append(exp_batch)
-                env_steps += exp_batch.length
+
+                try:
+                    # If this fails, it means the episode exited early
+                    pid1, pid2 = exp_batch.policy_metrics.keys()
+                    outcome = (exp_batch.custom_metrics[f"{pid1}/win_rewards"] + 1)/2
+                    self.matchmaking.update(
+                        pid1, pid2, outcome
+                    )
+                    experience_metrics.append(exp_batch)
+                    env_steps += exp_batch.length
+                except Exception as e:
+                    print(e, exp_batch)
+
             else: # Experience batch
                 num_batch +=1
                 owner = self.policy_map[exp_batch.get_owner()]
                 exp_batch[SampleBatch.SEQ_LENS] = np.array(exp_batch[SampleBatch.SEQ_LENS])
-                if owner.is_recurrent:
-                    exp_batch = exp_batch.pad_and_split_to_sequences()
                 self.experience_queue[owner.name].push([exp_batch])
                 GlobalCounter.incr("batch_count")
                 frames += exp_batch.size()
@@ -160,20 +253,31 @@ class AsyncTrainer(Checkpointable):
         else:
             enqueue_time_ms = None
 
+        n_experience_metrics = len(experience_metrics)
         GlobalCounter[GlobalCounter.ENV_STEPS] += env_steps
-        GlobalCounter[GlobalCounter.NUM_EPISODES] += len(experience_metrics)
+
+        if n_experience_metrics > 0:
+            GlobalCounter[GlobalCounter.NUM_EPISODES] += n_experience_metrics
+
+            # TODO: clean globaltimer
+            if (time.time()-GlobalTimer.startup_time) - GlobalTimer["update_ladder_timer"] > self.config.update_ladder_freq_s:
+                GlobalTimer["update_ladder_timer"] = time.time()
+                self.matchmaking.update_policy_stats(self.policy_map)
+
+
+
 
         t.append(time.time())
         training_metrics = {}
         for policy_name, policy_queue in self.experience_queue.items():
             if policy_queue.is_ready():
                 train_results = self.policy_map[policy_name].train(
-                    policy_queue.pull(self.config.train_batch_size)
+                    policy_queue.pull(self.config.train_batch_size),
+                    self.action_state_values[policy_name]
                 )
                 training_metrics[f"{policy_name}"] = train_results
                 GlobalCounter.incr(GlobalCounter.STEP)
                 self.params_map[policy_name] = self.policy_map[policy_name].get_params()
-
         #grad_thread_out = self.grad_thread.get_metrics()
 
         # training_metrics = []
@@ -239,10 +343,8 @@ class AsyncTrainer(Checkpointable):
 
         self.metricbank.update(
             self.matchmaking.metrics(),
-            prefix="matchmaking", smoothing=0.9
+            prefix="matchmaking/", smoothing=0.9
         )
-
-
 
         # We should call those only at the report freq...
         self.metricbank.update(
@@ -252,12 +354,11 @@ class AsyncTrainer(Checkpointable):
         #     tree.flatten_with_path(GlobalCounter), prefix="timers/", smoothing=0.9
         # )
 
-        t.append(time.time())
 
-        #print(np.diff(t))
-
-        #print(GlobalCounter.dict)
-
+        if (time.time() - GlobalTimer.startup_time) - GlobalTimer[
+            "inject_new_bots_timer"] > self.config.inject_new_bots_freq_s:
+            GlobalTimer["inject_new_bots_timer"] = time.time()
+            self.inject_bot_configs()
 
     def run(self):
         try:

@@ -288,7 +288,7 @@ def create_smash_player_card(bot_config: "BotConfig", stats, now_time):
     draw.text((int(width*0.1) + 72, int(height*0.145) - 5), str(rank), fill_color, font=big)
 
     draw.text((int(width*0.1), int(height*0.143) + 30), "Rating", (255, 255, 255), font=medium)
-    draw.text((int(width*0.1) + 88, int(height*0.145) + 30), str(rating), (150, 150, 150), font=medium)
+    draw.text((int(width*0.1) + 88, int(height*0.145) + 30), str(round(rating)), (150, 150, 150), font=medium)
 
     draw.text((int(width * 0.1), int(height * 0.145) + 66), "Winrate", (255, 255, 255), font=medium)
     draw.text((int(width * 0.1) + 99, int(height * 0.145) + 66), f"{round(winrate*100)}%", (150, 150, 150), font=medium)

@@ -14,7 +14,7 @@ import numpy as np
 from polaris.models.utils import CategoricalDistribution
 
 
-class RNN(BaseModel):
+class RNNRE(BaseModel):
     is_recurrent = True
 
     def initialise(self):
@@ -52,15 +52,14 @@ class RNN(BaseModel):
             action_space: Discrete,
             config,
     ):
-        super(RNN, self).__init__(
-            name="RNN",
+        super(RNNRE, self).__init__(
+            name="RNNRE",
             observation_space=observation_space,
             action_space=action_space,
             config=config,
         )
 
         self.num_outputs = action_space.n
-        self.size = 264
         self.character_embedding_size = 5
         self.action_state_embedding_size = 32
         self.joint_embedding_size = 64
@@ -82,7 +81,7 @@ class RNN(BaseModel):
             name="MLP"
         )
 
-        self._lstm = snt.LSTM(256, name="lstm")
+        self._lstm = snt.LSTM(self.config.lstm_dim, name="lstm")
 
         self._pi_out = snt.Linear(
             output_size=self.num_outputs,
@@ -91,6 +90,21 @@ class RNN(BaseModel):
         self._value_out = snt.Linear(
             output_size=1,
             name="values"
+        )
+
+        self.random_embedding = snt.nets.MLP(
+            output_sizes=self.config.random_embedding_dims,
+            activate_final=True,
+            name="random_embedding",
+            activation=tf.math.sigmoid,
+            w_init=snt.initializers.RandomNormal(stddev=0.7),
+            b_init=snt.initializers.RandomNormal(stddev=0.7),
+        )
+        self._goal_vector = tf.Variable(
+            np.zeros((1, 1, self.config.random_embedding_dims[-1])),
+            trainable=False,
+            dtype=tf.float32,
+            name='goal_vector'
         )
 
         self.n_chars = int(observation_space["categorical"]["character1"].high) + 1
@@ -120,8 +134,11 @@ class RNN(BaseModel):
         #     densify_gradients=True,
         #     name="opp_char_state_joint_embed"
         # )
-        self.lstm_input_concat = tf.keras.layers.Concatenate(axis=-1, name="lstm_input_concat")
+
         self.post_embedding_concat = tf.keras.layers.Concatenate(axis=-1, name="post_embedding_concat")
+
+        self._values = None
+        self._random_embeddings = None
 
     def forward(self,
             *,
@@ -168,6 +185,8 @@ class RNN(BaseModel):
 
             state = [tf.expand_dims(s, axis=0) for s in state]
 
+            goal_vector = self._goal_vector[0]
+
         else:
 
             continuous_inputs = [v for k, v in obs["continuous"].items()]
@@ -195,23 +214,36 @@ class RNN(BaseModel):
             #     tf.cast(action_state_opp + self.n_action_states * opp_char_input, tf.int32))[:, :, 0]
             # opp_char_embedding = self.opp_char_embed(tf.cast(opp_char_input, tf.int32))[:, :, 0]
 
+            shape = tf.shape(prev_action)
+            goal_vector = tf.repeat(tf.repeat(self._goal_vector, repeats=shape[0], axis=0), repeats=shape[1], axis=1)
+
+
 
         obs_input_post_embedding = self.post_embedding_concat(
             continuous_inputs + binary_inputs + categorical_one_hots
+            +
+            [
+                #last_action_embedding, action_state_embedding, opp_char_state_joint_embedding, opp_char_embedding,
+                tf.tanh(tf.expand_dims(tf.cast(prev_reward, dtype=tf.float32), axis=-1) / 5.),  last_action_one_hot,
+
+                goal_vector
+            ]
+
         )
 
         x = self._mlp(obs_input_post_embedding)
-
-        lstm_input = self.lstm_input_concat(
-            [x, tf.tanh(tf.expand_dims(tf.cast(prev_reward, dtype=tf.float32), axis=-1) / 5.),  last_action_one_hot]
-        )
+        #hidden, cell = tf.split(state, 2)
 
         if single_obs:
-            lstm_input = (tf.expand_dims(lstm_input, axis=0))
+            x = (tf.expand_dims(x, axis=0))
+        else:
+            self._random_embeddings = self.random_embedding(obs_input_post_embedding)
+
+
 
         lstm_out, states_out = snt.static_unroll(
             self._lstm,
-            input_sequence=lstm_input,
+            input_sequence=x,
             initial_state=snt.LSTMState(
                 hidden=state[0],
                 cell=state[1]

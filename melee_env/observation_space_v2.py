@@ -12,34 +12,6 @@ from melee_env.enums import PlayerType
 from melee_env.make_data import FrameData as FastFrameData
 from melee_env.ssbm_config import SSBMConfig, SSBM_OBS_Config
 
-all_stages_to_used = {
-    Stage.YOSHIS_STORY: 0,
-    Stage.BATTLEFIELD: 1,
-    Stage.FINAL_DESTINATION: 2,
-    Stage.POKEMON_STADIUM: 3,
-    Stage.DREAMLAND: 4,
-    Stage.FOUNTAIN_OF_DREAMS: 5
-}
-all_chars_to_used = {
-    Character.MARIO: 0,
-    Character.DOC: 1,
-    Character.LINK: 2,
-    Character.YLINK: 3,
-    Character.MARTH: 4,
-    Character.ROY: 5,
-    Character.FALCO: 6,
-    Character.FOX: 7,
-    Character.CPTFALCON: 8,
-    Character.GANONDORF: 9,
-    Character.JIGGLYPUFF: 10,
-    Character.LUIGI: 11,
-}
-
-# print(used_character_idx)
-
-n_characters = len(all_chars_to_used)
-n_stages = len(all_stages_to_used)
-
 action_idx = {
     s: i for i, s in enumerate(Action)
 }
@@ -141,7 +113,7 @@ class StateDataInfo:
 class ObsBuilder:
     FRAME_SCALE = 0.01
     SPEED_SCALE = 0.2
-    POS_SCALE = 0.01
+    POS_SCALE = 0.005
     HITBOX_SCALE = 0.1
     PERCENT_SCALE = 0.009
     FD = FrameData()
@@ -182,12 +154,22 @@ class ObsBuilder:
         self.config = config
         self.name2idx = None
 
+        all_stages_to_used = {
+            s: i
+            for i, s in enumerate(config["stages"])
+        }
+        all_chars_to_used = {
+            s: i
+            for i, s in enumerate(config["chars"])
+        }
+
+        n_characters = len(all_chars_to_used)
+        n_stages = len(all_stages_to_used)
+
         # TODO online port assignement
 
         self.bot_ports = [i + 1 for i, p in enumerate(player_types) if p == PlayerType.BOT]
-        # self.player_state_idxs = None if len(self.bot_ports) < 2 else {
-        #     p: None for p in range(1, 5)
-        # }
+
 
         self.num_players = len(self.config["players"])
 
@@ -612,15 +594,16 @@ class ObsBuilder:
         for feature in self.features:
             feature.advance()
 
-    def build(self):
+    def build(self, curr_ports):
         obs_dict = {}
         for port in self.bot_ports:
-            obs_dict[port] = {
+            curr_port = curr_ports[port]
+            obs_dict[curr_port] = {
                 StateDataInfo.BINARY: {},
                 StateDataInfo.CATEGORICAL: {},
                 StateDataInfo.CONTINUOUS: {},
             }
-            self.build_for(port, obs_dict[port])
+            self.build_for(port, obs_dict[curr_port])
         return obs_dict
 
     def build_for(self, player_idx, obs):
@@ -657,7 +640,6 @@ class ObsBuilder:
             v.character = Character.FOX
 
         self.update(game_state)
-        self.build()
 
         # self.name2idx = {}
         #

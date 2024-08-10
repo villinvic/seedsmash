@@ -73,7 +73,9 @@ class MatchMakingWindow(pyglet.window.Window):
     def __init__(self, *args, **kwargs):
         self.ICON_SIZE = 24
         self.SPACING = 400
-        self.SCREEN_WIDTH = 400
+        self.LEFT_MARGIN = 780
+        self.ANIMATION_WIDTH = 400
+        self.SCREEN_WIDTH = self.ANIMATION_WIDTH + self.LEFT_MARGIN
         self.SCREEN_HEIGHT = 760
         super().__init__(*args, **kwargs)
         self.batch = pyglet.graphics.Batch()
@@ -85,17 +87,17 @@ class MatchMakingWindow(pyglet.window.Window):
         font = pyglet.font.load("A-OTF Folk Pro", 30, bold=True)
 
         self.sprites = {}
-        self.rating_labels = {}
+        self.nametags = []
+        self.nametags_bg = []
         self.player_name_labels = {}
-        self.ranking_labels = {}
         self.bg_rects = {}
         self.icons = {}
 
         self.selected = None
 
         self.data = [
-            self.sprites, self.ranking_labels, self.player_name_labels, self.rating_labels, self.bg_rects,
-            self.icons,
+            self.sprites, self.bg_rects,
+            self.icons, self.player_name_labels
         ]
 
         headfont = 15
@@ -114,17 +116,32 @@ class MatchMakingWindow(pyglet.window.Window):
         self.icons[player_name] = pyglet.image.load(main_character_img_path)
 
         self.sprites[player_name] = pyglet.sprite.Sprite(self.icons[player_name], x=-500, batch=self.batch)
-        self.player_name_labels[player_name] = pyglet.text.Label(player_name, font_name='A-OTF-FolkPro-Bold', font_size=11,
-                                              color=(255,255,255,255), bold=True,
-                                              x=-500, anchor_x='left', anchor_y="bottom", batch=self.batch)
+
         self.bg_rects[player_name] = pyglet.shapes.Rectangle(-500, 0, 60, 24, color=(40, 10, 10, 255),
                                                              batch=self.batch)
+        self.player_name_labels[player_name] = pyglet.text.Label(player_name, font_name='A-OTF Folk Pro',
+                                                                 font_size=11,
+                                                                 color=(255, 255, 255, 255), bold=True,
+                                                                 x=-500, anchor_x='left', anchor_y="bottom",
+                                                                 batch=self.batch)
 
         vs_icon = assets_path / "ui/versus_red.png"
         img = pyglet.image.load(vs_icon)
         self.vs_icon = pyglet.sprite.Sprite(img, batch=self.batch)
         self.vs_icon.opacity = 0
         self.vs_icon.scale = 0.7
+
+        self.nametags = [pyglet.text.Label("", font_name='A-OTF Folk Pro',
+                                                                 font_size=12,
+                                                                 color=(255, 255, 255, 255), bold=True,
+                                                                 x=91 + i*196, y=50, anchor_x='center', anchor_y="bottom",
+                                                                 batch=self.batch)
+                                   for i in range(2)]
+        self.nametags_bg = [pyglet.shapes.Rectangle(-500, 48, 84, 26, color=(100, 100, 100, 255),
+                                                             batch=self.batch)
+                         for i in range(2)]
+        for c in self.nametags + self.nametags_bg:
+            c.opacity = 0
 
         self.cards = []
 
@@ -188,11 +205,21 @@ class MatchMakingWindow(pyglet.window.Window):
         right_positions = np.zeros((k2,))
         right_arange = np.arange(k2)
 
+        for p_label, bg, pid in zip(self.nametags, self.nametags_bg, selected):
+            p_label.opacity = 0
+            p_label.text = pid
+
+            bg.opacity = 0
+            bg.width = p_label.content_width + 12
+            bg.x = p_label.x - bg.width//2
+
+
         selected = [policy_params[selected[0]], policy_params[selected[1]]]
         now = datetime.datetime.now()
         self.SPACING = 380 * ((k + k2) / 25)
-        print(left_list)
-        print(right_list)
+
+
+
         for frame in range(frames+1):
             if frame <= 200:
                 t = frame / 200
@@ -228,7 +255,6 @@ class MatchMakingWindow(pyglet.window.Window):
 
 
     def scroll(self, t, left_players, left_positions, right_list, right_positions):
-        x = 80
 
         fadein = 0
         fadeout = 0
@@ -239,7 +265,7 @@ class MatchMakingWindow(pyglet.window.Window):
 
 
         self.vs_icon.opacity = round(255 * (1-fadein))
-        self.vs_icon.x = self.SCREEN_WIDTH //2 - self.vs_icon.width * 0.5
+        self.vs_icon.x = self.LEFT_MARGIN + self.ANIMATION_WIDTH //2 - self.vs_icon.width * 0.5
         self.vs_icon.y = self.SCREEN_HEIGHT //2 - self.vs_icon.height * 0.5
         self.vs_icon.scale = 0.7
 
@@ -254,18 +280,18 @@ class MatchMakingWindow(pyglet.window.Window):
             d_middle = 1 - np.minimum(np.abs(0.5-lpos) **0.33 * 1.3 , 1)
             self.sprites[lplayer.name].opacity = round(d_middle * 255 * (1-fading))
             self.sprites[lplayer.name].y = self.SCREEN_HEIGHT//2 + y - self.sprites[lplayer.name].height//2
-            self.sprites[lplayer.name].x = self.SCREEN_WIDTH//2 - 30 - self.sprites[lplayer.name].width//2
+            self.sprites[lplayer.name].x = self.LEFT_MARGIN + self.ANIMATION_WIDTH //2 - 30 - self.sprites[lplayer.name].width//2
 
             self.player_name_labels[lplayer.name].y = (self.SCREEN_HEIGHT//2 + y -
                                                        self.player_name_labels[lplayer.name].content_height//2)
-            self.player_name_labels[lplayer.name].x = (self.SCREEN_WIDTH//2 - 50 -
+            self.player_name_labels[lplayer.name].x = (self.LEFT_MARGIN + self.ANIMATION_WIDTH //2 - 50 -
                                                        self.player_name_labels[lplayer.name].content_width)
             self.player_name_labels[lplayer.name].opacity = round(d_middle * 255 * (1-fading))
 
             self.bg_rects[lplayer.name].width = self.player_name_labels[lplayer.name].content_width + 38
             self.bg_rects[lplayer.name].y = (self.SCREEN_HEIGHT//2 + y -
                                                        self.player_name_labels[lplayer.name].content_height//2 - 3)
-            self.bg_rects[lplayer.name].x = (self.SCREEN_WIDTH//2 - 53 -
+            self.bg_rects[lplayer.name].x = (self.LEFT_MARGIN + self.ANIMATION_WIDTH //2 - 53 -
                                                        self.player_name_labels[lplayer.name].content_width)
             self.bg_rects[lplayer.name].opacity = round(d_middle * 255 * (1-fading))
 
@@ -278,17 +304,17 @@ class MatchMakingWindow(pyglet.window.Window):
 
             self.sprites[rplayer.name].opacity = round(d_middle * 255 * (1-fading) )
             self.sprites[rplayer.name].y = self.SCREEN_HEIGHT//2 + y - self.sprites[rplayer.name].height//2
-            self.sprites[rplayer.name].x = self.SCREEN_WIDTH//2 + 30 - self.sprites[rplayer.name].width//2
+            self.sprites[rplayer.name].x = self.LEFT_MARGIN + self.ANIMATION_WIDTH //2 + 30 - self.sprites[rplayer.name].width//2
 
             self.player_name_labels[rplayer.name].y = (self.SCREEN_HEIGHT//2 + y -
                                                        self.player_name_labels[rplayer.name].content_height//2)
-            self.player_name_labels[rplayer.name].x = (self.SCREEN_WIDTH//2 + 50)
+            self.player_name_labels[rplayer.name].x = (self.LEFT_MARGIN + self.ANIMATION_WIDTH //2 + 50)
             self.player_name_labels[rplayer.name].opacity = round(d_middle * 255 * (1-fading))
 
             self.bg_rects[rplayer.name].width = self.player_name_labels[rplayer.name].content_width + 38
             self.bg_rects[rplayer.name].y = (self.SCREEN_HEIGHT//2 + y -
                                                        self.player_name_labels[rplayer.name].content_height//2 - 3)
-            self.bg_rects[rplayer.name].x = (self.SCREEN_WIDTH//2 + 18)
+            self.bg_rects[rplayer.name].x = (self.LEFT_MARGIN + self.ANIMATION_WIDTH //2 + 18)
             self.bg_rects[rplayer.name].opacity = round(d_middle * 255 * (1-fading))
 
     def show_cards(self, t):
@@ -307,8 +333,11 @@ class MatchMakingWindow(pyglet.window.Window):
 
 
         self.vs_icon.scale = 0.7 + easing * 0.5
-        self.vs_icon.x = self.SCREEN_WIDTH //2 - self.vs_icon.width * 0.5
+        self.vs_icon.x = self.LEFT_MARGIN + self.ANIMATION_WIDTH //2 - self.vs_icon.width * 0.5
         self.vs_icon.y = self.SCREEN_HEIGHT//2 - self.vs_icon.height * 0.5
+
+        for p_label in self.nametags + self.nametags_bg:
+            p_label.opacity = round(255*easing)
 
         for i, card in enumerate(self.cards):
             card.opacity = round(easing * 255)
@@ -318,8 +347,8 @@ class MatchMakingWindow(pyglet.window.Window):
             if i == 1:
                 dy = -dy
 
-            card.x = round(112 + x - card.width * 0.5)
-            card.y = round(4 + 408 * i + dy)
+            card.x = self.LEFT_MARGIN + self.ANIMATION_WIDTH //2 - card.width * 0.5
+            card.y = round(4 + 408 * (1-i) + dy)
 
 
 
@@ -366,7 +395,7 @@ if __name__ == '__main__':
         window.animate_matchmaking(selected, policies)
         # Draw the players' positions based on ELO scores
 
-    pyglet.clock.schedule_interval(update, 8)
+    pyglet.clock.schedule_interval(update, 12)
 
     pyglet.app.run()
 

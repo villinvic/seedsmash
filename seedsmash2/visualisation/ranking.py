@@ -63,7 +63,7 @@ class RankingWindow(pyglet.window.Window):
 
 
 
-    def __init__(self, players, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         self.ICON_SIZE = 24
         self.SPACING = 35
         self.SCREEN_WIDTH = 400
@@ -130,7 +130,7 @@ class RankingWindow(pyglet.window.Window):
 
         rgb, font_size = get_font_for_rank(self.previous_stats[player.name]["rank"])
 
-        self.rating_labels[player_name] = pyglet.text.Label(str(int(self.previous_stats[player.name]["rating"])), font_name='A-OTF Folk Pro', font_size=12,
+        self.rating_labels[player_name] = pyglet.text.Label(str(round(self.previous_stats[player.name]["rating"])), font_name='A-OTF Folk Pro', font_size=12,
                                       color=(255,255,255,255), bold=True,
                                       x=x+250 , y=y, anchor_x='left', anchor_y='bottom', batch=self.batch)
 
@@ -234,7 +234,7 @@ class RankingWindow(pyglet.window.Window):
 
             rgb, font_size = get_font_for_rank(self.previous_stats[player.name]["rank"])
 
-            self.rating_labels[player_name].text = str(int(self.previous_stats[player.name]["rating"]))
+            self.rating_labels[player_name].text = str(round(self.previous_stats[player.name]["rating"]))
             self.rating_labels[player_name].y = y
             self.rating_labels[player_name].x = x + 250
 

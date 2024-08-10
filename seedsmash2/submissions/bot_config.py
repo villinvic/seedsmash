@@ -225,8 +225,15 @@ whether your bot wins or loses.
 
         # validate inputs
         # raise an error if one input is wrong, or switch to default.
+
+
         def validation_message(value, field, default):
             print(f"({self.tag} BotConfig) The value {value} for parameter {field} is invalid, using default {default} instead.")
+
+        if not 3 <= len(self.username) <= 16:
+            raise ValueError(f"Username {self.username} is too short/long.")
+        if not 3 <= len(self.tag) <= 16:
+            raise ValueError(f"Username {self.tag} is too short/long.")
 
         try:
             self.character = char_to_enum[self.character]
@@ -251,11 +258,11 @@ whether your bot wins or loses.
             validation_message(self.character, "preferred_stage", default_config.preferred_stage)
             self.preferred_stage = default_config.preferred_stage
 
-        try:
-            self.random_action_chance = np.float32(self.random_action_chance)
-        except Exception:
-            validation_message(self.random_action_chance, "random_action_chance", default_config.random_action_chance)
-            self.random_action_chance = default_config.random_action_chance
+        # try:
+        #     self.random_action_chance = np.float32(self.random_action_chance)
+        # except Exception:
+        #     validation_message(self.random_action_chance, "random_action_chance", default_config.random_action_chance)
+        #     self.random_action_chance = default_config.random_action_chance
 
         for field in self.__characterisation_fields__:
             try:
@@ -282,6 +289,15 @@ whether your bot wins or loses.
         "combo_game",
         "combo_breaker"
     ])
+
+    username: str = "username"
+    __field_docs__["username"] = """Your username
+
+        Username length should be between 3 and 16 characters.
+    Special characters may end up be removed.
+    For now, if your username is taken, a number will be added at the end of the tag. 
+        """
+
 
     tag: str = "your_bot_name"
     __field_docs__["tag"] = """Bot tag
@@ -317,7 +333,7 @@ Note: An extreme configuration will certainly lead to poor results. Experiment a
     """
 
     preferred_stage: Union[str, Stage] = "BATTLEFIELD"
-    __field_docs__["character"] = """Stage preferred by your bot.
+    __field_docs__["preferred_stage"] = """Stage preferred by your bot.
 
 Your bot picks this stage with a higher chance.
 
@@ -329,21 +345,21 @@ FOUNTAIN_OF_DREAMS, YOSHIS_STORY
 
     # We should control entropy on our side, in order to ensure no bot collapses mid training
 
-    random_action_chance: float = 1
-    __field_docs__["random_action_chance"] = """Random action chance.
-Valid range: [0, 10]
-
-
-Percentage of actions to be picked completely randomly.
-As your bot progress throughout learning, its certainty about its actions will grow, sometimes stopping exploration 
-entirely in specific situations. 
-A value higher than 0 should ensure that your bot keeps considering every action and constant exploration.
-Nevertheless, this gives your bot a chance to make some very bad decisions.
-This offers a constant tradeoff between performance and strategy exploration.
-
-Ex: since bots take 20 actions per second, with 1%, your bot will pick 1 random action every 5 seconds. 
-By default, this is set to 1.
-        """
+    #random_action_chance: float = 1
+    #__field_docs__["random_action_chance"] = """Random action chance.
+# Valid range: [0, 10]
+#
+#
+# Percentage of actions to be picked completely randomly.
+# As your bot progress throughout learning, its certainty about its actions will grow, sometimes stopping exploration
+# entirely in specific situations.
+# A value higher than 0 should ensure that your bot keeps considering every action and constant exploration.
+# Nevertheless, this gives your bot a chance to make some very bad decisions.
+# This offers a constant tradeoff between performance and strategy exploration.
+#
+# Ex: since bots take 20 actions per second, with 1%, your bot will pick 1 random action every 5 seconds.
+# By default, this is set to 1.
+#         """
 
     reflexion: float = 50
     __field_docs__["reflexion"] = """(Play-style) Reflexion.

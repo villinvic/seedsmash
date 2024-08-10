@@ -2,7 +2,7 @@ import inspect
 from dataclasses import fields
 from typing import Type
 
-from bot_config import BotConfig
+from seedsmash2.submissions.bot_config import BotConfig
 
 def generate_file_template(cls):
     """
@@ -42,6 +42,8 @@ def load_filled_form(filename):
     obj = BotConfig()
     with open(filename, 'r') as f:
         lines = f.readlines()
+
+    field_values = {}
     for line in lines:
         line = line.strip()
         if line.startswith("[INPUT] "):
@@ -55,11 +57,10 @@ def load_filled_form(filename):
 
             if hasattr(obj, attribute):
                 # TODO: take care of types
-                setattr(obj, attribute, value)
-    return obj
+                field_values[attribute] = value
+
+    return BotConfig(**field_values)
 
 if __name__ == "__main__":
     template_content = generate_file_template(BotConfig)
     write_template_to_file("your_bot_name.txt", template_content)
-
-    #print(load_filled_form("your_bot_name.txt"))

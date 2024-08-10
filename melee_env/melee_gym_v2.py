@@ -1,4 +1,5 @@
 import atexit
+import time
 from collections import defaultdict
 from socket import socket
 from time import sleep
@@ -20,6 +21,7 @@ from melee.enums import ControllerType, Character, Stage
 from melee_env.enums import PlayerType
 from melee_env.action_space import ActionSpace, ComboPad, ActionSpaceStick, ActionSpaceCStick, ControllerStateCombo, \
     SimpleActionSpace, InputQueue, ActionControllerInterface, SSBMActionSpace
+from melee_env.make_data import BadCombinations
 from melee_env.observation_space_v2 import ObsBuilder
 from melee_env.rewards import RewardFunction, DeltaFrame, StepRewards
 import gc
@@ -32,119 +34,122 @@ from seedsmash2.submissions.bot_config import BotConfig
 class SSBM(PolarisEnv):
     env_id = "SSBM"
 
-    before_game_stuck_combs = [
-            (Character.FOX, Character.ROY, Stage.POKEMON_STADIUM),
-            (Character.FALCO, Character.CPTFALCON, Stage.YOSHIS_STORY),
-            (Character.FALCO, Character.GANONDORF, Stage.YOSHIS_STORY),
-            (Character.FALCO, Character.JIGGLYPUFF, Stage.YOSHIS_STORY),
-            (Character.MARIO, Character.FALCO, Stage.YOSHIS_STORY),
-            (Character.MARIO, Character.MARTH, Stage.YOSHIS_STORY),
-            (Character.MARTH, Character.LUIGI, Stage.POKEMON_STADIUM),
-            (Character.MARTH, Character.DOC, Stage.POKEMON_STADIUM), # ?
-            (Character.MARTH, Character.FOX, Stage.POKEMON_STADIUM), # ?
-            (Character.MARTH, Character.FALCO,Stage.POKEMON_STADIUM), # ?
-            (Character.MARTH, Character.MARIO, Stage.POKEMON_STADIUM), # ?
-            (Character.MARTH, Character.MARTH, Stage.POKEMON_STADIUM), # ?
-            (Character.MARTH, Character.ROY, Stage.POKEMON_STADIUM), # ?
-            (Character.MARTH, Character.JIGGLYPUFF, Stage.POKEMON_STADIUM), # ?
-            (Character.MARTH, Character.LINK, Stage.POKEMON_STADIUM), # ?
-            (Character.MARTH, Character.YLINK, Stage.POKEMON_STADIUM), # ?
-            (Character.ROY, Character.FOX, Stage.BATTLEFIELD), # ?
-            (Character.ROY, Character.FALCO, Stage.BATTLEFIELD), # ?
-            (Character.ROY, Character.MARIO, Stage.BATTLEFIELD), # ?
-            (Character.ROY,Character.DOC, Stage.BATTLEFIELD), # ?
-            (Character.ROY, Character.MARTH, Stage.BATTLEFIELD), # ?
-            (Character.ROY, Character.ROY, Stage.BATTLEFIELD),
-            (Character.ROY, Character.CPTFALCON, Stage.BATTLEFIELD),
-            (Character.ROY, Character.GANONDORF, Stage.BATTLEFIELD),
-            (Character.ROY,Character.JIGGLYPUFF, Stage.BATTLEFIELD),
-            (Character.ROY, Character.LINK, Stage.BATTLEFIELD),
-            (Character.ROY, Character.LUIGI, Stage.BATTLEFIELD),
-            (Character.ROY, Character.YLINK, Stage.BATTLEFIELD),
-            (Character.CPTFALCON, Character.LUIGI, Stage.YOSHIS_STORY),
-            (Character.CPTFALCON, Character.ROY, Stage.POKEMON_STADIUM),
-            (Character.CPTFALCON, Character.JIGGLYPUFF, Stage.FINAL_DESTINATION),
-            (Character.CPTFALCON, Character.LINK, Stage.DREAMLAND),
-            (Character.JIGGLYPUFF, Character.CPTFALCON, Stage.BATTLEFIELD),
-            (Character.JIGGLYPUFF, Character.LINK, Stage.DREAMLAND),
-            (Character.LINK, Character.FOX, Stage.YOSHIS_STORY),
-            (Character.LINK, Character.FALCO, Stage.YOSHIS_STORY),
-            (Character.LINK, Character.DOC, Stage.YOSHIS_STORY),
-            (Character.LINK, Character.MARIO, Stage.YOSHIS_STORY),
-            (Character.LINK, Character.MARTH, Stage.YOSHIS_STORY),
-            (Character.LINK, Character.ROY, Stage.YOSHIS_STORY),
-            (Character.LINK, Character.CPTFALCON, Stage.YOSHIS_STORY),
-            (Character.LINK, Character.GANONDORF, Stage.YOSHIS_STORY),
-            (Character.LINK, Character.JIGGLYPUFF, Stage.YOSHIS_STORY),
-            (Character.LINK, Character.LINK, Stage.YOSHIS_STORY),
-            (Character.LINK, Character.LUIGI, Stage.YOSHIS_STORY),
-            (Character.LINK, Character.YLINK, Stage.YOSHIS_STORY),
-            (Character.LINK, Character.YLINK, Stage.POKEMON_STADIUM),
-            (Character.LUIGI, Character.CPTFALCON, Stage.YOSHIS_STORY),
-            (Character.YLINK, Character.FOX, Stage.YOSHIS_STORY),
-            (Character.YLINK, Character.FOX, Stage.POKEMON_STADIUM),
-            (Character.YLINK, Character.FALCO, Stage.YOSHIS_STORY),
-            (Character.YLINK, Character.MARIO, Stage.YOSHIS_STORY),
-            (Character.YLINK, Character.DOC, Stage.YOSHIS_STORY),
-            (Character.YLINK, Character.MARTH, Stage.YOSHIS_STORY),
-            (Character.YLINK, Character.ROY, Stage.YOSHIS_STORY),
-            (Character.YLINK, Character.CPTFALCON, Stage.YOSHIS_STORY),
-            (Character.YLINK, Character.CPTFALCON, Stage.POKEMON_STADIUM),
-            (Character.YLINK, Character.GANONDORF, Stage.YOSHIS_STORY),
-            (Character.YLINK, Character.YLINK, Stage.YOSHIS_STORY),
-            (Character.YLINK, Character.LINK, Stage.YOSHIS_STORY),
-            (Character.YLINK, Character.JIGGLYPUFF, Stage.YOSHIS_STORY),
-            (Character.YLINK, Character.CPTFALCON, Stage.BATTLEFIELD),
-            (Character.YLINK, Character.CPTFALCON, Stage.DREAMLAND),
-            (Character.YLINK, Character.LINK, Stage.POKEMON_STADIUM),
-            (Character.YLINK, Character.LUIGI, Stage.POKEMON_STADIUM),
-            (Character.YLINK, Character.LUIGI, Stage.YOSHIS_STORY),
-            (Character.MARIO, Character.ROY, Stage.FINAL_DESTINATION),
-            (Character.JIGGLYPUFF, Character.ROY, Stage.YOSHIS_STORY),
-            (Character.CPTFALCON, Character.GANONDORF, Stage.YOSHIS_STORY),
-            (Character.CPTFALCON, Character.JIGGLYPUFF, Stage.YOSHIS_STORY),
-            (Character.CPTFALCON, Character.MARIO, Stage.YOSHIS_STORY),
-            (Character.DOC, Character.CPTFALCON, Stage.POKEMON_STADIUM),
-            (Character.LINK, Character.LINK, Stage.DREAMLAND),
-            (Character.DOC, Character.GANONDORF, Stage.BATTLEFIELD),
-            (Character.CPTFALCON, Character.YLINK, Stage.YOSHIS_STORY),
-            (Character.CPTFALCON, Character.FOX, Stage.YOSHIS_STORY),
-            (Character.DOC, Character.FOX, Stage.POKEMON_STADIUM),
-            (Character.FALCO, Character.ROY, Stage.DREAMLAND),
-            (Character.JIGGLYPUFF, Character.GANONDORF, Stage.POKEMON_STADIUM),
-            (Character.CPTFALCON, Character.LINK, Stage.YOSHIS_STORY),
-            (Character.YLINK, Character.LINK, Stage.FINAL_DESTINATION),
-            (Character.CPTFALCON, Character.MARTH, Stage.YOSHIS_STORY),
-            (Character.CPTFALCON, Character.ROY, Stage.YOSHIS_STORY),
-            (Character.JIGGLYPUFF, Character.MARIO, Stage.YOSHIS_STORY),
-            (Character.CPTFALCON, Character.FALCO, Stage.YOSHIS_STORY),
-            (Character.JIGGLYPUFF, Character.GANONDORF, Stage.FINAL_DESTINATION),
-            (Character.MARTH, Character.FALCO, Stage.BATTLEFIELD),
-            (Character.CPTFALCON, Character.DOC, Stage.YOSHIS_STORY),
-            (Character.JIGGLYPUFF, Character.LINK, Stage.POKEMON_STADIUM),
-            (Character.MARTH, Character.LINK, Stage.BATTLEFIELD),
-            (Character.CPTFALCON, Character.FALCO, Stage.FINAL_DESTINATION),
-            (Character.FOX, Character.MARTH, Stage.BATTLEFIELD),
-            (Character.CPTFALCON, Character.MARTH, Stage.FINAL_DESTINATION),
+    # before_game_stuck_combs = [
+    #         (Character.FOX, Character.ROY, Stage.POKEMON_STADIUM),
+    #         (Character.FALCO, Character.CPTFALCON, Stage.YOSHIS_STORY),
+    #         (Character.FALCO, Character.GANONDORF, Stage.YOSHIS_STORY),
+    #         (Character.FALCO, Character.JIGGLYPUFF, Stage.YOSHIS_STORY),
+    #         (Character.MARIO, Character.FALCO, Stage.YOSHIS_STORY),
+    #         (Character.MARIO, Character.MARTH, Stage.YOSHIS_STORY),
+    #         (Character.MARTH, Character.LUIGI, Stage.POKEMON_STADIUM),
+    #         (Character.MARTH, Character.DOC, Stage.POKEMON_STADIUM), # ?
+    #         (Character.MARTH, Character.FOX, Stage.POKEMON_STADIUM), # ?
+    #         (Character.MARTH, Character.FALCO,Stage.POKEMON_STADIUM), # ?
+    #         (Character.MARTH, Character.MARIO, Stage.POKEMON_STADIUM), # ?
+    #         (Character.MARTH, Character.MARTH, Stage.POKEMON_STADIUM), # ?
+    #         (Character.MARTH, Character.ROY, Stage.POKEMON_STADIUM), # ?
+    #         (Character.MARTH, Character.JIGGLYPUFF, Stage.POKEMON_STADIUM), # ?
+    #         (Character.MARTH, Character.LINK, Stage.POKEMON_STADIUM), # ?
+    #         (Character.MARTH, Character.YLINK, Stage.POKEMON_STADIUM), # ?
+    #         (Character.ROY, Character.FOX, Stage.BATTLEFIELD), # ?
+    #         (Character.ROY, Character.FALCO, Stage.BATTLEFIELD), # ?
+    #         (Character.ROY, Character.MARIO, Stage.BATTLEFIELD), # ?
+    #         (Character.ROY,Character.DOC, Stage.BATTLEFIELD), # ?
+    #         (Character.ROY, Character.MARTH, Stage.BATTLEFIELD), # ?
+    #         (Character.ROY, Character.ROY, Stage.BATTLEFIELD),
+    #         (Character.ROY, Character.CPTFALCON, Stage.BATTLEFIELD),
+    #         (Character.ROY, Character.GANONDORF, Stage.BATTLEFIELD),
+    #         (Character.ROY,Character.JIGGLYPUFF, Stage.BATTLEFIELD),
+    #         (Character.ROY, Character.LINK, Stage.BATTLEFIELD),
+    #         (Character.ROY, Character.LUIGI, Stage.BATTLEFIELD),
+    #         (Character.ROY, Character.YLINK, Stage.BATTLEFIELD),
+    #         (Character.CPTFALCON, Character.LUIGI, Stage.YOSHIS_STORY),
+    #         (Character.CPTFALCON, Character.ROY, Stage.POKEMON_STADIUM),
+    #         (Character.CPTFALCON, Character.JIGGLYPUFF, Stage.FINAL_DESTINATION),
+    #         (Character.CPTFALCON, Character.LINK, Stage.DREAMLAND),
+    #         (Character.JIGGLYPUFF, Character.CPTFALCON, Stage.BATTLEFIELD),
+    #         (Character.JIGGLYPUFF, Character.LINK, Stage.DREAMLAND),
+    #         (Character.LINK, Character.FOX, Stage.YOSHIS_STORY),
+    #         (Character.LINK, Character.FALCO, Stage.YOSHIS_STORY),
+    #         (Character.LINK, Character.DOC, Stage.YOSHIS_STORY),
+    #         (Character.LINK, Character.MARIO, Stage.YOSHIS_STORY),
+    #         (Character.LINK, Character.MARTH, Stage.YOSHIS_STORY),
+    #         (Character.LINK, Character.ROY, Stage.YOSHIS_STORY),
+    #         (Character.LINK, Character.CPTFALCON, Stage.YOSHIS_STORY),
+    #         (Character.LINK, Character.GANONDORF, Stage.YOSHIS_STORY),
+    #         (Character.LINK, Character.JIGGLYPUFF, Stage.YOSHIS_STORY),
+    #         (Character.LINK, Character.LINK, Stage.YOSHIS_STORY),
+    #         (Character.LINK, Character.LUIGI, Stage.YOSHIS_STORY),
+    #         (Character.LINK, Character.YLINK, Stage.YOSHIS_STORY),
+    #         (Character.LINK, Character.YLINK, Stage.POKEMON_STADIUM),
+    #         (Character.LUIGI, Character.CPTFALCON, Stage.YOSHIS_STORY),
+    #         (Character.YLINK, Character.FOX, Stage.YOSHIS_STORY),
+    #         (Character.YLINK, Character.FOX, Stage.POKEMON_STADIUM),
+    #         (Character.YLINK, Character.FALCO, Stage.YOSHIS_STORY),
+    #         (Character.YLINK, Character.MARIO, Stage.YOSHIS_STORY),
+    #         (Character.YLINK, Character.DOC, Stage.YOSHIS_STORY),
+    #         (Character.YLINK, Character.MARTH, Stage.YOSHIS_STORY),
+    #         (Character.YLINK, Character.ROY, Stage.YOSHIS_STORY),
+    #         (Character.YLINK, Character.CPTFALCON, Stage.YOSHIS_STORY),
+    #         (Character.YLINK, Character.CPTFALCON, Stage.POKEMON_STADIUM),
+    #         (Character.YLINK, Character.GANONDORF, Stage.YOSHIS_STORY),
+    #         (Character.YLINK, Character.YLINK, Stage.YOSHIS_STORY),
+    #         (Character.YLINK, Character.LINK, Stage.YOSHIS_STORY),
+    #         (Character.YLINK, Character.JIGGLYPUFF, Stage.YOSHIS_STORY),
+    #         (Character.YLINK, Character.CPTFALCON, Stage.BATTLEFIELD),
+    #         (Character.YLINK, Character.CPTFALCON, Stage.DREAMLAND),
+    #         (Character.YLINK, Character.LINK, Stage.POKEMON_STADIUM),
+    #         (Character.YLINK, Character.LUIGI, Stage.POKEMON_STADIUM),
+    #         (Character.YLINK, Character.LUIGI, Stage.YOSHIS_STORY),
+    #         (Character.MARIO, Character.ROY, Stage.FINAL_DESTINATION),
+    #         (Character.JIGGLYPUFF, Character.ROY, Stage.YOSHIS_STORY),
+    #         (Character.CPTFALCON, Character.GANONDORF, Stage.YOSHIS_STORY),
+    #         (Character.CPTFALCON, Character.JIGGLYPUFF, Stage.YOSHIS_STORY),
+    #         (Character.CPTFALCON, Character.MARIO, Stage.YOSHIS_STORY),
+    #         (Character.DOC, Character.CPTFALCON, Stage.POKEMON_STADIUM),
+    #         (Character.LINK, Character.LINK, Stage.DREAMLAND),
+    #         (Character.DOC, Character.GANONDORF, Stage.BATTLEFIELD),
+    #         (Character.CPTFALCON, Character.YLINK, Stage.YOSHIS_STORY),
+    #         (Character.CPTFALCON, Character.FOX, Stage.YOSHIS_STORY),
+    #         (Character.DOC, Character.FOX, Stage.POKEMON_STADIUM),
+    #         (Character.FALCO, Character.ROY, Stage.DREAMLAND),
+    #         (Character.JIGGLYPUFF, Character.GANONDORF, Stage.POKEMON_STADIUM),
+    #         (Character.CPTFALCON, Character.LINK, Stage.YOSHIS_STORY),
+    #         (Character.YLINK, Character.LINK, Stage.FINAL_DESTINATION),
+    #         (Character.CPTFALCON, Character.MARTH, Stage.YOSHIS_STORY),
+    #         (Character.CPTFALCON, Character.ROY, Stage.YOSHIS_STORY),
+    #         (Character.JIGGLYPUFF, Character.MARIO, Stage.YOSHIS_STORY),
+    #         (Character.CPTFALCON, Character.FALCO, Stage.YOSHIS_STORY),
+    #         (Character.JIGGLYPUFF, Character.GANONDORF, Stage.FINAL_DESTINATION),
+    #         (Character.MARTH, Character.FALCO, Stage.BATTLEFIELD),
+    #         (Character.CPTFALCON, Character.DOC, Stage.YOSHIS_STORY),
+    #         (Character.JIGGLYPUFF, Character.LINK, Stage.POKEMON_STADIUM),
+    #         (Character.MARTH, Character.LINK, Stage.BATTLEFIELD),
+    #         (Character.CPTFALCON, Character.FALCO, Stage.FINAL_DESTINATION),
+    #         (Character.FOX, Character.MARTH, Stage.BATTLEFIELD),
+    #         (Character.CPTFALCON, Character.MARTH, Stage.FINAL_DESTINATION),
+    #         (Character.YLINK, Character.JIGGLYPUFF, Stage.FINAL_DESTINATION),
+    #         (Character.YLINK, Character.LUIGI, Stage.FINAL_DESTINATION),
+    #
+    #     # TODO : fix those combinations where p2 is stuck (apparently ?)
+    #         #       the game still goes on, but p2 cannot die, I see controller states and position updating though
+    #         (Character.CPTFALCON, Character.CPTFALCON, Stage.FINAL_DESTINATION),
+    #         (Character.CPTFALCON, Character.CPTFALCON, Stage.YOSHIS_STORY),
+    #         (Character.CPTFALCON, Character.FOX, Stage.FINAL_DESTINATION)
+    #
+    #     #(Character.CPTFALCON,  Character.FOX, Stage.YOSHIS_STORY),
+    #
+    # ]
+    #
+    # ingame_stuck_combs = [
+    #     (Character.DOC, Character.JIGGLYPUFF, Stage.FINAL_DESTINATION),
+    #     (Character.FALCO, Character.LINK, Stage.YOSHIS_STORY),
+    #     (Character.FALCO, Character.YLINK, Stage.YOSHIS_STORY),
+    #     (Character.JIGGLYPUFF, Character.FOX, Stage.POKEMON_STADIUM),
+    #     (Character.DOC, Character.ROY, Stage.POKEMON_STADIUM), # ?
+    #     (Character.DOC, Character.LINK, Stage.POKEMON_STADIUM), # ?
+    # ]
 
-        # TODO : fix those combinations where p2 is stuck (apparently ?)
-            #       the game still goes on, but p2 cannot die, I see controller states and position updating though
-            (Character.CPTFALCON, Character.CPTFALCON, Stage.FINAL_DESTINATION),
-            (Character.CPTFALCON, Character.CPTFALCON, Stage.YOSHIS_STORY),
-            (Character.CPTFALCON, Character.FOX, Stage.FINAL_DESTINATION)
-
-        #(Character.CPTFALCON,  Character.FOX, Stage.YOSHIS_STORY),
-
-    ]
-
-    ingame_stuck_combs = [
-        (Character.DOC, Character.JIGGLYPUFF, Stage.FINAL_DESTINATION),
-        (Character.FALCO, Character.LINK, Stage.YOSHIS_STORY),
-        (Character.FALCO, Character.YLINK, Stage.YOSHIS_STORY),
-        (Character.JIGGLYPUFF, Character.FOX, Stage.POKEMON_STADIUM),
-        (Character.DOC, Character.ROY, Stage.POKEMON_STADIUM), # ?
-        (Character.DOC, Character.LINK, Stage.POKEMON_STADIUM), # ?
-    ]
 
     PAD_INTERFACE = ActionControllerInterface
 
@@ -172,6 +177,7 @@ class SSBM(PolarisEnv):
         self.console = None
         self.controllers = None
         self.previously_crashed = False
+        self.bad_combinations: BadCombinations = None
         self.ingame_stuck_frozen_counter = 0
 
         self.pad_at_end = self.config["obs"]["delay"]
@@ -215,13 +221,17 @@ class SSBM(PolarisEnv):
 
         self.episode_reward = 0
         self.current_matchup = None
+        self.current_aids = {
+            1: 1,
+            2: 2
+        }
         self.action_queues: Dict_T[int, InputQueue] = None
         self.reward_functions : Dict_T[int, RewardFunction] = None
         self.delta_frame: DeltaFrame = None
 
         atexit.register(self.close)
 
-    def step_nones(self, reset_if_stuck=False) -> Union[GameState, None]:
+    def step_nones(self) -> Union[GameState, None]:
         max_w = 2000000
         c = 0
         state = None
@@ -233,11 +243,9 @@ class SSBM(PolarisEnv):
                 break
             c += 1
             if c > max_w:
-                ## This causes full crash
-                print("we are stuck")
                 break
-        if state is None and reset_if_stuck:
-            raise ResetNeeded(f"Dolphin {self.env_index} crashed with {self.current_matchup}[error:3]")
+        if state is None:
+            self.dump_bad_combination_and_raise_error(1)
 
         return state
 
@@ -306,6 +314,9 @@ class SSBM(PolarisEnv):
     ):
         gc.collect()
 
+        self.bad_combinations = BadCombinations()
+        self.bad_combinations.load_combinations()
+
         if self.render:
             print(options)
 
@@ -315,16 +326,10 @@ class SSBM(PolarisEnv):
                 sleep(2)
                 self.previously_crashed = False
 
-
         if self.console is None:
-            #print("SETUP")
             self.setup()
-        else:
-            pass
-            #print("no setup needed")
 
-        #print("INIT")
-        state = self.step_nones(reset_if_stuck=True)
+        state = self.step_nones()
 
         # Reset some attributes
         self.delta_frame = DeltaFrame()
@@ -342,87 +347,101 @@ class SSBM(PolarisEnv):
         }
         self.action_queues = {port: InputQueue() for port in self._agent_ids | self._debug_port}
         self.episode_reward = 0.
-        # self.om.__init__(self.config) # resets fast obs reader , so no
 
-        combination_crash_checking = not self.render
+        bad_combination_checking = not self.render
 
-        # For now we do random stages
-        stage = np.random.choice(self.config["stages"]) #if (options is None or "stage" not in options) else options["stage"]
+        self.current_aids = {
+            1: 1,
+            2: 2
+        }
+        reversed_ports = False
+
         if options is None:
+            stage = np.random.choice(
+                self.config["stages"])  # if (options is None or "stage" not in options) else options["stage"]
             chars = np.random.choice(self.config["chars"], len(self.config["players"]))
+            while bad_combination_checking and (*chars, stage) in self.bad_combinations:
+                stage = np.random.choice(self.config["stages"])
+                chars = np.random.choice(self.config["chars"], len(self.config["players"]))
         else:
             chars = ()
-            for port, _ in enumerate(self.players, 1):
+            p = {s: 1. for s in self.config["stages"]}
+            for port in self.get_agent_ids():
                 if port in options:
                     chars = chars + (options[port].character,)
+                    p[options[port].preferred_stage] += 1.
                 else:
                     chars = chars + (np.random.choice(self.config["chars"]),)
 
-        # TODO fair randomization, some chars will be sampled less as a result
-        #print((*chars, stage), "?", (*chars, stage) in SSBM.before_game_stuck_combs + SSBM.ingame_stuck_combs)
-        if options is not None:
-            while combination_crash_checking and (*chars, stage) in SSBM.before_game_stuck_combs + SSBM.ingame_stuck_combs:
-                # TODO : make it swap player ports.
-                #print("Tried playing as", (*chars, stage), "but this combination does not work")
-                stage = np.random.choice(self.config["stages"])
+            p = np.array(list(p.values()))
+            p /= p.sum()
 
-        else:
-            while combination_crash_checking and (*chars, stage) in SSBM.before_game_stuck_combs + SSBM.ingame_stuck_combs:
-                stage = np.random.choice(self.config["stages"])
-                chars = np.random.choice(self.config["chars"], len(self.config["players"]))
+            stage = np.random.choice(self.config["stages"], p=p)
+            tries = 0
+            while bad_combination_checking and (*chars, stage) in self.bad_combinations:
+                if (*reversed(chars), stage) not in self.bad_combinations:
+                    self.current_aids = {
+                        1: 2,
+                        2: 1
+                    }
+                    chars = tuple(reversed(chars))
+                    reversed_ports = True
+                    break
+                stage = np.random.choice(self.config["stages"], p=p)
+                tries += 1
+                if tries > 100:
+                    print(f"Can't find fitting stage for {chars}!")
+                    return
 
-        n_start = 70
+
         counter = 0
         self.current_matchup = tuple(chars) + (stage,)
+        print(self.current_matchup, reversed_ports)
 
         while state.menu_state in [melee.Menu.IN_GAME, melee.Menu.SUDDEN_DEATH, None]:
-            state = self.step_nones(reset_if_stuck=True)
-            if state is None:
-                return None
+            state = self.step_nones()
 
         lvl = 9  # TODO: # np.random.randint(1, 10)
         ready = [True for _ in range(4)]
         press_start = False
+        if self.env_index == 0:
+            # Wait for the matchmaking animation to end
+            time.sleep(7)
+
         while state.menu_state not in [melee.Menu.IN_GAME, melee.Menu.SUDDEN_DEATH]:
             for port, controller in self.controllers.items():
+                curr_port = self.current_aids[port]
                 if controller._type != PlayerType.HUMAN:
-                    cpu_level = lvl if self.players[port-1] == PlayerType.CPU else 0
-                    ready[port-1] = melee.MenuHelper.menu_helper_simple(
+                    cpu_level = lvl if self.players[curr_port-1] == PlayerType.CPU else 0
+                    ready[curr_port-1] = melee.MenuHelper.menu_helper_simple(
                         state,
                         controller,
-                        chars[port-1],
+                        chars[port-1], # we reverse chars when needed
                         stage,
-                        costume=0 if port not in options else options[port].costume,
+                        costume=0 if curr_port not in options else options[curr_port].costume,
                         autostart=press_start,
                         cpu_level=cpu_level
                     )
             press_start = all(ready)
 
-            state = self.step_nones(reset_if_stuck=True)
-            if state is None:
-                # Probably selection screen ?
-                # seems to depend on the chars
-                print("stuck at selection screen", self.current_matchup)
-                return None
+            state = self.step_nones()
 
             counter += 1
             if counter > 3800:
                 if counter > 3900:
                     self.previously_crashed = True
                     return self.reset(options=options)
-                print("STUCK", state.menu_state, state.frame, state.stage_select_cursor_x, state.stage_select_cursor_y, self.current_matchup)
+                print("STUCK (todo)", state.menu_state, state.frame, state.players[1].cursor.x, state.players[1].cursor.y, self.current_matchup)
 
 
-        init_frames = 77 # 77
+        init_frames = 77
         for _ in range(init_frames):
-            state = self.step_nones(reset_if_stuck=True)
-            if state is None:
-                return None
+            state = self.step_nones()
 
         self.om.update(state)
         self.game_frame = 0
 
-        return self.om.build(), {i: {} for i in self.om.bot_ports}
+        return self.om.build(self.current_aids), {i: {} for i in self.om.bot_ports}
 
     def get_next_state_reward(self, every=3) \
             -> Tuple_T[Union[GameState, None], Dict_T[int, StepRewards], bool]:
@@ -468,9 +487,8 @@ class SSBM(PolarisEnv):
                                     and
                             old_state.players[port].action_frame - next_state.players[port].action_frame == 0):
                                 self.ingame_stuck_frozen_counter += 1
-                                if self.ingame_stuck_frozen_counter > 100:
-                                    print(f"TODO: port {port} is frozen ingame with {self.current_matchup} for"
-                                        f"{self.ingame_stuck_frozen_counter} frames", old_state.players[port].action_frame)
+                                if self.ingame_stuck_frozen_counter > 200:
+                                    self.dump_bad_combination_and_raise_error(2)
                             else:
                                 self.ingame_stuck_frozen_counter = 0
 
@@ -481,8 +499,7 @@ class SSBM(PolarisEnv):
                     # Weird state
                     print(f"Stuck here?, crashed with {self.current_matchup}")
                     # force full reset here
-                    raise ResetNeeded(f"Dolphin {self.env_index} crashed with {self.current_matchup} [error:2]")
-                    #return {}, {}, {"__all__": True}, {"__all__": True}, {}
+                    self.dump_bad_combination_and_raise_error(3)
                 else:
                     # Put in our custom frame counter
                     self.game_frame += 1
@@ -509,8 +526,9 @@ class SSBM(PolarisEnv):
 
     def step(self, action_dict):
         for port, chosen_input_sequence_index in action_dict.items():
-            action = self.discrete_controllers[port][chosen_input_sequence_index]
-            self.action_queues[port].push(action)
+            curr_port = self.current_aids[port]
+            action = self.discrete_controllers[curr_port][chosen_input_sequence_index]
+            self.action_queues[curr_port].push(action)
         for port in self._debug_port:
             action = None
             while action is None:
@@ -527,15 +545,16 @@ class SSBM(PolarisEnv):
             self.action_queues[port].push(action)
 
         state, rewards, game_finished = self.get_next_state_reward()
-
+        done = False
+        obs = None
         if state is None:
             # We crashed, return dummy stuff
-            raise ResetNeeded(f"Dolphin {self.env_index} crashed with {self.current_matchup} [error:1]")
-            #return {}, {}, {"__all__": True}, {"__all__": True}, {}
+            # Should not be going there
+            self.dump_bad_combination_and_raise_error(4)
 
         elif state.menu_state not in [melee.Menu.IN_GAME, melee.Menu.SUDDEN_DEATH]:
             # Might have happened if we reached time limit ?
-            print("We are here, so this happens sometimes ?")
+            print("We are here, so this happens sometimes ? This appears to happen with a timeout")
 
             # Pad if we have delay
             done = self.pad_at_end <= 0
@@ -544,7 +563,7 @@ class SSBM(PolarisEnv):
             # Do not give the new state, because it looks weird right now
             # Just update the game frame
             self.om.update(state, game_frame=True)
-            obs = self.om.build()
+            obs = self.om.build(self.current_aids)
 
         elif game_finished:
             done = self.pad_at_end <= 0
@@ -555,16 +574,11 @@ class SSBM(PolarisEnv):
             else:
                 self.om.update(state)
             self.reached_end = True
-            obs = self.om.build()
+            obs = self.om.build(self.current_aids)
         else:
             done = False
             self.om.update(state)
-            obs = self.om.build()
-
-        # Punish for overtime
-        # if self.game_frame > 8 * 60 * 60 + 63:
-        #     print(self.game_frame)
-        #     punish_all += 0 # 5
+            obs = self.om.build(self.current_aids)
 
         dones = {
             i: done for i in self._agent_ids
@@ -576,23 +590,21 @@ class SSBM(PolarisEnv):
 
         total_rewards = {}
         for port in self.get_agent_ids():
+            curr_port = self.current_aids[port]
             other_port = 1 + (port % 2)
-            other_combo_count = 0 if other_port not in self.reward_functions else self.reward_functions[other_port].int_combo_counter
-            total_rewards[port] = self.reward_functions[port].compute(rewards[port], other_combo_count)
+            other_combo_count = 0 if other_port not in self.reward_functions\
+                else self.reward_functions[other_port].int_combo_counter
+            total_rewards[curr_port] = self.reward_functions[port].compute(rewards[port], other_combo_count)
             for rid, r in rewards[port].to_dict().items():
-                self.episode_metrics[f"{port}/{rid}"] += r
+                self.episode_metrics[f"{curr_port}/{rid}"] += r
 
-        #if self.env_index == 0:
-         #   print(self.state[1]["continuous"]["position1"])
         return obs, total_rewards, dones, dones, {}
 
     def close(self):
-        print(self.env_index,
-              "STOPING=================================================================================================")
 
         if self.env_index == 1:
             # Flush updated frame data to csv
-            self.om.FFD.override()
+            self.om.FFD.save()
 
         self.to_close = True
         if self.console is not None:
@@ -616,7 +628,6 @@ class SSBM(PolarisEnv):
             self.controllers = None
             self.console = None
 
-
     def get_gamestate(self) -> GameState:
         if self.console is None:
             return None
@@ -625,3 +636,8 @@ class SSBM(PolarisEnv):
 
     def get_episode_metrics(self):
         return self.episode_metrics
+
+    def dump_bad_combination_and_raise_error(self, errnum):
+        self.bad_combinations.dump_on_error(*self.current_matchup, errnum)
+        raise ResetNeeded(f"Dolphin {self.env_index} crashed with {self.current_matchup} [error:{errnum}]")
+

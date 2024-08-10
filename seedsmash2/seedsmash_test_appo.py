@@ -14,7 +14,7 @@ from ml_collections import ConfigDict
 
 from seedsmash2.submissions.bot_config import BotConfig
 
-exp_name = 'lstm_model_test_appo'
+exp_name = 'seedsmash_test_appo'
 exp_path = "experiments/" + exp_name
 ex = Experiment(exp_name)
 
@@ -113,10 +113,10 @@ def my_config():
     del env_obj
     env_config = dict(env_conf)
 
-    num_workers = 64
-    policy_path = 'polaris.policies.APPO'
+    num_workers = 62
+    policy_path = 'policies.APPOActionStates'
     model_path = 'models.rnn'
-    policy_class = 'APPO'
+    policy_class = 'APPOAS'
     model_class = 'RNN'
     trajectory_length = 32
     max_seq_len = 32
@@ -126,81 +126,43 @@ def my_config():
     default_policy_config = {
         'discount': 0.996,  # 0.997
         'gae_lambda': 1.,
-        'entropy_cost': 5e-4, # 1e-3 with impala, or around " 0.3, 0.4
+        'entropy_cost': 7e-4, # 1e-3 with impala, or around " 0.3, 0.4
         'popart_std_clip': 1e-2,
         'popart_lr': 2e-2,
         'grad_clip': 4.,
         'lr': 5e-4,
         'rms_prop_rho': 0.99,
         'rms_prop_epsilon': 1e-5,
-        'fc_dims': [128, 128],
+        'fc_dims': [256, 256],
+        'lstm_dim': 256,
+
         'random_action_chance': 1.5e-2,
 
         # APPO
-
         'ppo_clip': 0.4,
         'ppo_kl_coeff': 0.1,
-        'target_update_freq': 16,
+        'target_update_freq': 10,
         'baseline_coeff': 0.5,
 
+        # random goal exploration
+        # 'random_goal_weight': 2e-2,
+        # 'goal_randomisation_freq': 16*4,
+        # 'random_embedding_dims': [64, 64],
+
+        # Action state rewards
         }
 
     # TODO: swap matchups if they do not work first, then swap stage
-
-    policy_params = [dict(
-        name="FALCO",
-        config=default_policy_config,
-        options=BotConfig(
-            tag="FALCO",
-            character="FALCO",
-            costume=1,
-            preferred_stage="FINAL_DESTINATION"
-        )),
-        dict(
-            name="LUIGI",
-            config=default_policy_config,
-            options=BotConfig(
-                tag="LUIGI",
-                character="LUIGI",
-                costume=1,
-                preferred_stage="YOSHIS_STORY"
-            )),
-        dict(
-            name="DOC",
-            config=default_policy_config,
-            options=BotConfig(
-                tag="DOC",
-                character="DOC",
-                costume=1,
-                preferred_stage="POKEMON_STADIUM"
-            )),
-        dict(
-            name="JIGGLYPUFF",
-            config=default_policy_config,
-            options=BotConfig(
-                tag="JIGGLYPUFF",
-                character="JIGGLYPUFF",
-                costume=1,
-                preferred_stage="BATTLEFIELD"
-            )),
-        dict(
-            name="YLINK",
-            config=default_policy_config,
-            options=BotConfig(
-                tag="YLINK",
-                character="YLINK",
-                costume=1,
-                preferred_stage="DREAMLAND"
-            )),
-        ]
 
     tensorboard_logdir = 'debugging'
     report_freq = 20
     episode_metrics_smoothing = 0.95
     training_metrics_smoothing = 0.9
+    update_ladder_freq_s = 29
+    inject_new_bots_freq_s = 60
 
     checkpoint_config = dict(
-        checkpoint_frequency=1000,
+        checkpoint_frequency=5000,
         checkpoint_path=exp_path,
         stopping_condition={"environment_steps": 1e9},
         keep=3,
@@ -208,7 +170,7 @@ def my_config():
 
     episode_callback_class = partial(
     SSBMCallbacks,
-    negative_reward_scale=0.95
+    negative_reward_scale=0.8
 )
 
 # Define a simple main function that will use the configuration
@@ -219,7 +181,7 @@ def main(_config):
     gpus = tf.config.experimental.list_physical_devices('GPU')
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
-    from polaris.trainers import AsyncTrainer
+    from seedsmash2.seedsmash_trainer import SeedSmashTrainer
 
 
     # TODO: seeding
@@ -227,7 +189,7 @@ def main(_config):
     c = ConfigDict(_config)
     print("Experiment Configuration:")
     print(c)
-    trainer = AsyncTrainer(c, restore=False)
+    trainer = SeedSmashTrainer(c, restore=False)
     trainer.run()
 
 

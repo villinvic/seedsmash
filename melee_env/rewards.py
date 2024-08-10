@@ -126,8 +126,12 @@ class DeltaFrame:
                 dx_now = np.abs(frame.players[port].position.x - self.last_frame.players[other_port].position.x)
                 dy_now = np.abs(frame.players[port].position.y - self.last_frame.players[other_port].position.y)
 
-                ddist = (dx_before - dx_now) + (dy_before - dy_now) * 0.15
-                self.ddist[port] = np.clip(np.minimum(ddist, 0) * 0.2 + np.maximum(ddist, 0), -4, 4)
+                ddist = (dx_before - dx_now) + (dy_before - dy_now) * 0.05
+                if frame.players[port] in [Action.ROLL_FORWARD, Action.ROLL_BACKWARD]:
+                    self.ddist[port] = np.clip(np.minimum(ddist, 0)*1., -1, 1)
+                else:
+                    self.ddist[port] = np.clip(np.minimum(ddist, 0)*1. + np.maximum(ddist, 0), -1, 1)
+
 
                 self.action[port] = frame.players[port].action
 
@@ -147,13 +151,13 @@ class RewardFunction:
         self.bot_config = bot_config
 
         agressivity_p = self.bot_config.agressivity / 100
-        self.damage_inflicted_scale = 0.07 * agressivity_p
-        self.damage_received_scale = 0.07 * (1 - agressivity_p)
+        self.damage_inflicted_scale = 0.09 * agressivity_p
+        self.damage_received_scale = 0.09 * (1 - agressivity_p)
         self.kill_reward_scale = 10. * agressivity_p
         self.death_reward_scale = 10. * (1 - agressivity_p)
         self.time_cost = 2 * 0.00010416 * self.bot_config.patience / 100
-        self.distance_reward_scale = 1e-4
-        self.energy_cost_scale = 1e-4
+        self.distance_reward_scale = 1.e-3
+        self.energy_cost_scale = 2.e-4
 
         self.combo_counter = 0.
         self.int_combo_counter = 0
@@ -207,8 +211,8 @@ class RewardFunction:
 
     def compute(self, rewards: StepRewards, opponent_combo_count):
 
-        combo_gaming_bonus = (1 + 0.1 * self.int_combo_counter * self.bot_config.combo_game)
-        combo_breaking_bonus = (1 + 0.1 * opponent_combo_count * self.bot_config.combo_breaker)
+        combo_gaming_bonus = (1 + 1e-3 * self.int_combo_counter * self.bot_config.combo_game)
+        combo_breaking_bonus = (1 + 1e-3 * opponent_combo_count * self.bot_config.combo_breaker)
 
         return (
                 rewards.kill_rewards * self.kill_reward_scale
