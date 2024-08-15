@@ -20,6 +20,7 @@ from polaris.environments.polaris_env import PolarisEnv
 from polaris.policies.policy import Policy, PolicyParams, ParamsMap
 from polaris.experience.matchmaking import RandomMatchmaking
 from polaris.experience.sampling import ExperienceQueue, SampleBatch
+from polaris.experience.matchmaking import MatchMaking
 from polaris.utils.metrics import MetricBank, GlobalCounter, GlobalTimer, average_dict
 
 import psutil
@@ -31,14 +32,43 @@ from seedsmash2.submissions.generate_form import load_filled_form
 from seedsmash2.utils import ActionStateValues, inject_botconfig
 
 
-class SeedSmashTrainer(Checkpointable):
+class FictitiousMatchmaking(MatchMaking):
+
+    def __init__(self, agent_ids, trainable_policies):
+        super().__init__(agent_ids=agent_ids)
+        self.trainable_policies = trainable_policies
+
+
+    def next(
+            self,
+            params_map: Dict[str, "PolicyParams"],
+            **kwargs,
+    ) -> Dict[str, "PolicyParams"]:
+
+        p1 = np.random.choice(self.trainable_policies)
+        other = list(params_map.keys())
+        if len(other)>1:
+            other.remove(p1)
+        p2 = np.random.choice(other)
+
+        sampled_policies = [p1, p2]
+        #np.random.shuffle(sampled_policies)
+
+        r = {
+            aid: params_map[pid] for pid, aid in zip(sampled_policies, self.agent_ids)
+        }
+        return r
+
+
+
+class FictitiousTrainer(Checkpointable):
     def __init__(
             self,
             config: ConfigDict,
             restore=False,
     ):
         self.config = config
-        self.worker_set = SpotlightWorkerSet(
+        self.worker_set = WorkerSet(
             config
         )
 
@@ -47,6 +77,8 @@ class SeedSmashTrainer(Checkpointable):
 
 
         self.discarded_policies = []
+        self.trainable_policies = []
+        self.old_policies = defaultdict(list)
 
         self.PolicylCls = getattr(importlib.import_module(self.config.policy_path), self.config.policy_class)
         self.policy_map: Dict[str, Policy] = {}
@@ -54,10 +86,6 @@ class SeedSmashTrainer(Checkpointable):
         self.params_map = ParamsMap()
 
         self.experience_queue: Dict[str, ExperienceQueue] = {}
-
-        self.matchmaking = SeedSmashMatchmaking(
-            agent_ids=self.env.get_agent_ids(),
-        )
 
         self.runnning_jobs = []
 
@@ -77,6 +105,11 @@ class SeedSmashTrainer(Checkpointable):
         # self.grad_lock = self.grad_thread.lock
         # self.grad_thread.start()
 
+        self.matchmaking = FictitiousMatchmaking(
+            agent_ids=self.env.get_agent_ids(),
+            trainable_policies=self.trainable_policies
+        )
+
         super().__init__(
             checkpoint_config = config.checkpoint_config,
 
@@ -87,6 +120,8 @@ class SeedSmashTrainer(Checkpointable):
                 "metrics": self.metrics,
                 "action_state_values": self.action_state_values,
                 "discarded_policies": self.discarded_policies,
+                "old_policies": self.old_policies,
+                "trainable_policies": self.trainable_policies
             }
         )
 
@@ -102,12 +137,29 @@ class SeedSmashTrainer(Checkpointable):
             env_step_counter = "counters/" + GlobalCounter.ENV_STEPS
             if env_step_counter in self.metrics:
                 GlobalCounter[GlobalCounter.ENV_STEPS] = self.metrics["counters/" + GlobalCounter.ENV_STEPS].get()
+            self.trainable_policies = ["luigi_player"]
+            for policy_name, params in self.params_map.items():
+                if policy_name in self.trainable_policies:
 
-            for policy_name, policy in self.policy_map.items():
-                policy.setup(self.params_map[policy_name])
+                    self.policy_map[policy_name] = self.PolicylCls(
+                        name=policy_name,
+                        action_space=self.env.action_space,
+                        observation_space=self.env.observation_space,
+                        config=self.config,
+                        policy_config=params.config,
+                        options=params.options,
+                        stats=params.stats,
+                        # For any algo that needs to track either we have the online model
+                        is_online=True,
+                    )
+                    self.policy_map[policy_name].setup(params)
+                    self.experience_queue[policy_name] = ExperienceQueue(self.config)
+
+            self.matchmaking.trainable_policies = self.trainable_policies
 
         self.inject_bot_configs()
         GlobalTimer["inject_new_bots_timer"] = time.time()
+
 
 
     def inject_bot_configs(self):
@@ -135,6 +187,7 @@ class SeedSmashTrainer(Checkpointable):
                     self.params_map[pid] = self.policy_map[pid].get_params()
                     self.experience_queue[pid] = ExperienceQueue(self.config)
                     self.action_state_values[pid] = ActionStateValues(self.policy_map[pid].policy_config)
+                    self.trainable_policies.append(pid)
 
 
     def training_step(self):
@@ -153,7 +206,7 @@ class SeedSmashTrainer(Checkpointable):
         jobs = [self.matchmaking.next(self.params_map) for _ in range(n_jobs)]
         t.append(time.time())
 
-        self.runnning_jobs += self.worker_set.push_jobs(jobs, self.policy_map)
+        self.runnning_jobs += self.worker_set.push_jobs(jobs)
         experience_metrics = []
         t.append(time.time())
         frames = 0
@@ -166,25 +219,17 @@ class SeedSmashTrainer(Checkpointable):
         for exp_batch in experience:
             if isinstance(exp_batch, EpisodeMetrics):
 
-                try:
-                    # If this fails, it means the episode exited early
-                    pid1, pid2 = exp_batch.policy_metrics.keys()
-                    outcome = (exp_batch.custom_metrics[f"{pid1}/win_rewards"] + 1)/2
-                    self.matchmaking.update(
-                        pid1, pid2, outcome
-                    )
-                    experience_metrics.append(exp_batch)
-                    env_steps += exp_batch.length
-                except Exception as e:
-                    print(e, exp_batch)
+                experience_metrics.append(exp_batch)
+                env_steps += exp_batch.length
 
             else: # Experience batch
                 num_batch +=1
-                owner = self.policy_map[exp_batch.get_owner()]
-                exp_batch[SampleBatch.SEQ_LENS] = np.array(exp_batch[SampleBatch.SEQ_LENS])
-                self.experience_queue[owner.name].push([exp_batch])
-                GlobalCounter.incr("batch_count")
-                frames += exp_batch.size()
+                batch_pid = exp_batch.get_owner()
+                if batch_pid in self.trainable_policies:
+                    exp_batch[SampleBatch.SEQ_LENS] = np.array(exp_batch[SampleBatch.SEQ_LENS])
+                    self.experience_queue[batch_pid].push([exp_batch])
+                    GlobalCounter.incr("batch_count")
+                    frames += exp_batch.size()
         if frames > 0:
             GlobalTimer[GlobalTimer.PREV_FRAMES] = time.time()
             prev_frames_dt = GlobalTimer.dt(GlobalTimer.PREV_FRAMES)
@@ -199,25 +244,42 @@ class SeedSmashTrainer(Checkpointable):
         if n_experience_metrics > 0:
             GlobalCounter[GlobalCounter.NUM_EPISODES] += n_experience_metrics
 
-            # TODO: clean globaltimer
-            if (time.time()-GlobalTimer.startup_time) - GlobalTimer["update_ladder_timer"] > self.config.update_ladder_freq_s:
-                GlobalTimer["update_ladder_timer"] = time.time()
-                self.matchmaking.update_policy_stats(self.policy_map)
-
-
-
-
         t.append(time.time())
         training_metrics = {}
         for policy_name, policy_queue in self.experience_queue.items():
             if policy_queue.is_ready():
+
                 train_results = self.policy_map[policy_name].train(
                     policy_queue.pull(self.config.train_batch_size),
                     self.action_state_values[policy_name]
                 )
                 training_metrics[f"{policy_name}"] = train_results
                 GlobalCounter.incr(GlobalCounter.STEP)
-                self.params_map[policy_name] = self.policy_map[policy_name].get_params()
+                self.params_map[policy_name] =  self.policy_map[policy_name].get_params()
+
+                params = self.policy_map[policy_name].get_params(online=True)
+                if params.version % self.config.update_policy_history_freq == 0:
+                    pid = f"{policy_name}_version_{params.version}"
+                    new_params = PolicyParams(
+                        name=pid,
+                        weights=params.weights,
+                        config=params.config,
+                        options=params.options,
+                        stats=params.stats,
+                        version=params.version,
+                        policy_type=params.policy_type
+                    )
+                    self.params_map[pid] = new_params
+                    self.old_policies[policy_name].append(pid)
+                    print("added policy:", pid)
+                    if len(self.old_policies[policy_name]) > self.config.policy_history_length:
+                        removed = self.old_policies[policy_name].pop(0)
+                        del self.params_map[removed]
+                        self.discarded_policies.append(removed)
+                        print("removed policy:", removed)
+
+
+
         #grad_thread_out = self.grad_thread.get_metrics()
 
         # training_metrics = []
@@ -299,6 +361,7 @@ class SeedSmashTrainer(Checkpointable):
             "inject_new_bots_timer"] > self.config.inject_new_bots_freq_s:
             GlobalTimer["inject_new_bots_timer"] = time.time()
             self.inject_bot_configs()
+
 
     def run(self):
         try:

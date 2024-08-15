@@ -220,6 +220,7 @@ class SSBM(PolarisEnv):
         self.action_space = self.discrete_controllers[list(self.get_agent_ids())[0]].gym_spec
 
         self.episode_reward = 0
+        self.episode_length = 1
         self.current_matchup = None
         self.current_aids = {
             1: 1,
@@ -341,6 +342,7 @@ class SSBM(PolarisEnv):
         self.pad_at_end = self.config["obs"]["delay"] + 1
         self.reached_end = False
         self.ingame_stuck_frozen_counter = 0
+        self.episode_length = 1
         # For now, with this corny implementation, we need to re-instantiate to reset the pads reliably
         self.discrete_controllers = {
             p: SSBMActionSpace() for p in self._agent_ids | self._debug_port
@@ -433,13 +435,14 @@ class SSBM(PolarisEnv):
                     return self.reset(options=options)
                 print("STUCK (todo)", state.menu_state, state.frame, state.players[1].cursor.x, state.players[1].cursor.y, self.current_matchup)
 
-
         init_frames = 77
         for _ in range(init_frames):
             state = self.step_nones()
 
-        self.om.update(state)
         self.game_frame = 0
+
+        self.om.reset()
+        self.om.update(state)
 
         return self.om.build(self.current_aids), {i: {} for i in self.om.bot_ports}
 
@@ -597,6 +600,13 @@ class SSBM(PolarisEnv):
             total_rewards[curr_port] = self.reward_functions[port].compute(rewards[port], other_combo_count)
             for rid, r in rewards[port].to_dict().items():
                 self.episode_metrics[f"{curr_port}/{rid}"] += r
+                if done:
+                    self.episode_metrics[f"{curr_port}/{rid}"] /= self.episode_length
+
+        self.episode_length += 1
+
+        # print(self.episode_length, obs[1]["categorical"])
+        # print(self.episode_length, obs[2]["categorical"])
 
         return obs, total_rewards, dones, dones, {}
 

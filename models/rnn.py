@@ -29,7 +29,9 @@ class RNN(BaseModel):
         dummy_actions = np.zeros((T, B), dtype=np.int32)
 
         dummy_state = self.get_initial_state()
-        states = [np.zeros_like(dummy_state, shape=(B,) + d.shape) for d in dummy_state]
+        states = tree.map_structure(
+            lambda v: np.repeat(v, B, axis=0), dummy_state
+        )
         seq_lens = np.ones((B,), dtype=np.int32) * T
 
         @tf.function
@@ -60,7 +62,6 @@ class RNN(BaseModel):
         )
 
         self.num_outputs = action_space.n
-        self.size = 264
         self.character_embedding_size = 5
         self.action_state_embedding_size = 32
         self.joint_embedding_size = 64
@@ -82,7 +83,7 @@ class RNN(BaseModel):
             name="MLP"
         )
 
-        self._lstm = snt.LSTM(256, name="lstm")
+        self._lstm = snt.LSTM(self.config.lstm_dim, name="lstm")
 
         self._pi_out = snt.Linear(
             output_size=self.num_outputs,
@@ -96,24 +97,45 @@ class RNN(BaseModel):
         self.n_chars = int(observation_space["categorical"]["character1"].high) + 1
         self.n_action_states = int(observation_space["categorical"]["action1"].high) + 1
 
-        # self.last_action_embed = snt.Embed(
-        #     vocab_size=self.num_outputs,
-        #     embed_dim=self.last_action_embedding_size,
-        #     densify_gradients=True,
-        #     name="last_action_embed"
-        # )
-        # self.action_state_embed = snt.Embed(
-        #     vocab_size=self.n_action_states,
-        #     embed_dim=self.action_state_embedding_size,
-        #     densify_gradients=True,
-        #     name="action_state_embed"
-        # )
-        # self.opp_char_embed = snt.Embed(
-        #     vocab_size=self.n_chars,
-        #     embed_dim=self.character_embedding_size,
-        #     densify_gradients=True,
-        #     name = "opp_char_embed"
-        # )
+
+        # Have a large common action_state embedding
+        # have a small self action_state embedding
+        # have a small joint char/action_state embedding
+
+        self.last_action_embed = snt.Embed(
+            vocab_size=self.num_outputs,
+            embed_dim=self.last_action_embedding_size,
+            densify_gradients=True,
+            name="last_action_embed"
+        )
+        self.common_action_state_embed = snt.Embed(
+            vocab_size=self.n_action_states,
+            embed_dim=128,
+            densify_gradients=True,
+            name="common_action_state_embed"
+        )
+
+        self.self_action_state_embed = snt.Embed(
+            vocab_size=self.n_action_states,
+            embed_dim=16,
+            densify_gradients=True,
+            name="self_action_state_embed"
+        )
+
+        self.opp_joint_char_action_state_embed = snt.Embed(
+            vocab_size=self.n_action_states*self.n_chars,
+            embed_dim=16,
+            densify_gradients=True,
+            name="opp_joint_char_action_state_embed"
+        )
+
+        self.opp_char_embed = snt.Embed(
+            vocab_size=self.n_chars,
+            embed_dim=8,
+            densify_gradients=True,
+            name="opp_char_embed"
+        )
+
         # self.opp_char_state_joint_embed = snt.Embed(
         #     vocab_size=self.n_chars * self.n_action_states,
         #     embed_dim=self.joint_embedding_size,
@@ -134,76 +156,84 @@ class RNN(BaseModel):
             **kwargs
 
     ):
+        categorical_inputs = obs["categorical"]
+        continuous_inputs = obs["continuous"]
+        binary_inputs = obs["binary"]
 
         if single_obs:
 
-            continuous_inputs = [tf.expand_dims(v, axis=0) for k, v in obs["continuous"].items()]
 
-            binary_inputs = [tf.cast(tf.expand_dims(v, axis=0), dtype=tf.float32, name=k) for k, v in
-                             obs["binary"].items()]
+            continuous_inputs = [tf.expand_dims(continuous_inputs[k], axis=0, name=k) for k in self.observation_space["continuous"]]
 
-            categorical_inputs = obs["categorical"]
+            binary_inputs = [tf.cast(tf.expand_dims(binary_inputs[k], axis=0), dtype=tf.float32, name=k) for k in
+                             self.observation_space["binary"]]
 
             categorical_one_hots = [
-                tf.one_hot(tf.cast(tensor, tf.int32), depth=tf.cast(space.high[0], tf.int32) + 1, dtype=tf.float32,
-                           name=name)
-                for tensor, (name, space) in
-                zip(categorical_inputs.values(), self.observation_space["categorical"].items())
-                if name not in ["character1"]]  # "action1", "action2", "character2"
+                tf.one_hot(tf.cast(categorical_inputs[k], tf.int32), depth=tf.cast(space.high[0], tf.int32) + 1, dtype=tf.float32,
+                           name=k)
+                for k, space in self.observation_space["categorical"].items()
+                if k not in ["character1", "character2", "action1", "action2"]]  # "action1", "action2", "character2"
 
-            last_action_one_hot = tf.one_hot(tf.cast(tf.expand_dims(prev_action, axis=0), tf.int32),
-                                             depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
+            # last_action_one_hot = tf.one_hot(tf.cast(tf.expand_dims(prev_action, axis=0), tf.int32),
+            #                                  depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
 
-            # action_state_self = categorical_inputs["action1"]
-            # action_state_opp = categorical_inputs["action2"]
-            # opp_char_input = categorical_inputs["character2"]
+            action_state_self = categorical_inputs["action1"]
+            action_state_opp = categorical_inputs["action2"]
+            opp_char_input = categorical_inputs["character2"]
 
 
-            # last_action_embedding = self.last_action_embed(tf.expand_dims(prev_action, axis=0))
-            # action_state_embedding = self.action_state_embed(tf.cast(action_state_self, tf.int32))
-            # opp_char_state_joint_embedding = self.opp_char_state_joint_embed(
-            #     tf.cast(action_state_opp + self.n_action_states * opp_char_input, tf.int32))
-            # opp_char_embedding = self.opp_char_embed(tf.cast(opp_char_input, tf.int32))
+            last_action_embedding = self.last_action_embed(tf.expand_dims(prev_action, axis=0))
+            action_state_self_common_embed = self.common_action_state_embed(tf.cast(action_state_self, tf.int32))
+            action_state_opp_common_embed = self.common_action_state_embed(tf.cast(action_state_opp, tf.int32))
+
+            action_state_self_embed = self.self_action_state_embed(tf.cast(action_state_self, tf.int32))
+            joint_char_action_state_opp_embed = self.opp_joint_char_action_state_embed(
+                tf.cast(action_state_opp + self.n_action_states * opp_char_input, tf.int32))
+            char_embedding_opp = self.opp_char_embed(tf.cast(opp_char_input, tf.int32))
+
             prev_reward = tf.expand_dims(prev_reward, axis=0)
 
-            state = [tf.expand_dims(s, axis=0) for s in state]
-
         else:
+            continuous_inputs = [continuous_inputs[k] for k in self.observation_space["continuous"]]
 
-            continuous_inputs = [v for k, v in obs["continuous"].items()]
-
-            binary_inputs = [tf.cast(v, dtype=tf.float32, name=k) for k, v in obs["binary"].items()]
-
-            categorical_inputs = obs["categorical"]
+            binary_inputs = [tf.cast(binary_inputs[k], dtype=tf.float32, name=k) for k in self.observation_space["binary"]]
 
             categorical_one_hots = [
-                tf.one_hot(tf.cast(tensor, tf.int32), depth=tf.cast(space.high[0], tf.int32) + 1, dtype=tf.float32,
-                           name=name)[:, :, 0]
-                for tensor, (name, space) in
-                zip(categorical_inputs.values(), self.observation_space["categorical"].items())
-                if name not in ["character1"]]  # "action1", "action2", "character2"
+                tf.one_hot(tf.cast(categorical_inputs[k], tf.int32), depth=tf.cast(space.high[0], tf.int32) + 1, dtype=tf.float32,
+                           name=k)[:, :, 0]
+                for k, space in self.observation_space["categorical"].items()
+                if k not in ["character1", "character2", "action1", "action2"]]  # "action1", "action2", "character2"
 
-            # action_state_self = categorical_inputs["action1"]
-            # action_state_opp = categorical_inputs["action2"]
-            # opp_char_input = categorical_inputs["character2"]
+            action_state_self = categorical_inputs["action1"]
+            action_state_opp = categorical_inputs["action2"]
+            opp_char_input = categorical_inputs["character2"]
 
-            last_action_one_hot = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
+            #last_action_one_hot = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
 
-            # last_action_embedding = self.last_action_embed(prev_action)
-            # action_state_embedding = self.action_state_embed(tf.cast(action_state_self, tf.int32))[:, :, 0]
-            # opp_char_state_joint_embedding = self.opp_char_state_joint_embed(
-            #     tf.cast(action_state_opp + self.n_action_states * opp_char_input, tf.int32))[:, :, 0]
-            # opp_char_embedding = self.opp_char_embed(tf.cast(opp_char_input, tf.int32))[:, :, 0]
+            last_action_embedding = self.last_action_embed(prev_action)
+
+            action_state_self_common_embed = self.common_action_state_embed(tf.cast(action_state_self, tf.int32))[:, :, 0]
+            action_state_opp_common_embed = self.common_action_state_embed(tf.cast(action_state_opp, tf.int32))[:, :, 0]
+
+            action_state_self_embed = self.self_action_state_embed(tf.cast(action_state_self, tf.int32))[:, :, 0]
+            joint_char_action_state_opp_embed = self.opp_joint_char_action_state_embed(
+                tf.cast(action_state_opp + self.n_action_states * opp_char_input, tf.int32))[:, :, 0]
+            char_embedding_opp = self.opp_char_embed(tf.cast(opp_char_input, tf.int32))[:, :, 0]
 
 
         obs_input_post_embedding = self.post_embedding_concat(
             continuous_inputs + binary_inputs + categorical_one_hots
+            + [action_state_self_common_embed, action_state_opp_common_embed,
+               action_state_self_embed, joint_char_action_state_opp_embed, char_embedding_opp]
         )
+
+        # print(single_obs, [t.shape for t in continuous_inputs + binary_inputs + categorical_one_hots],
+        #       obs_input_post_embedding.shape)
 
         x = self._mlp(obs_input_post_embedding)
 
         lstm_input = self.lstm_input_concat(
-            [x, tf.tanh(tf.expand_dims(tf.cast(prev_reward, dtype=tf.float32), axis=-1) / 5.),  last_action_one_hot]
+            [x, tf.tanh(tf.expand_dims(tf.cast(prev_reward, dtype=tf.float32), axis=-1) / 5.),  last_action_embedding]
         )
 
         if single_obs:
@@ -212,10 +242,7 @@ class RNN(BaseModel):
         lstm_out, states_out = snt.static_unroll(
             self._lstm,
             input_sequence=lstm_input,
-            initial_state=snt.LSTMState(
-                hidden=state[0],
-                cell=state[1]
-            ),
+            initial_state=state,
             sequence_length=seq_lens,
         )
 
@@ -223,14 +250,16 @@ class RNN(BaseModel):
         self._values = tf.squeeze(self._value_out(lstm_out))
 
         if single_obs:
-            return (pi_out, [states_out.hidden[0], states_out.cell[0]]), self._values
+            return (pi_out, states_out), self._values
 
-
-        return (pi_out, [states_out.hidden, states_out.cell]), self._values
+        return (pi_out, states_out), self._values
 
 
     def get_initial_state(self):
-        return [np.zeros((256,), dtype=np.float32) for _ in range(2)]
+        return snt.LSTMState(
+                hidden=np.zeros((1, self.config.lstm_dim,), dtype=np.float32),
+                cell=np.zeros((1, self.config.lstm_dim,), dtype=np.float32),
+            )
 
 
 

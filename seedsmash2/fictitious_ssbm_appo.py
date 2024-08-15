@@ -26,7 +26,7 @@ obs_config = (
     .stage()
     .max_projectiles(4)  # one falco can generate more than 3 projectiles apparently ?
     #.controller_state()
-    .delay(3) # 4 (* 3)
+    .delay(0) # 4 (* 3)
 )
 
 
@@ -52,32 +52,32 @@ obs_config = (
 env_conf = (
     SSBMConfig()
     .chars([
-        Character.MARIO,
+        # Character.MARIO,
         Character.FOX,
-        Character.CPTFALCON,
-        Character.DK,
-        #Character.KIRBY,
-        Character.BOWSER,
-        Character.LINK,
-        #Character.SHEIK,
-        Character.NESS,
-        Character.PEACH,
-        #Character.POPO,
-        Character.PIKACHU,
-        Character.SAMUS,
-        Character.YOSHI,
-        Character.JIGGLYPUFF,
-        Character.MEWTWO,
+        # Character.CPTFALCON,
+        # Character.DK,
+        # #Character.KIRBY,
+        # Character.BOWSER,
+        # Character.LINK,
+        # #Character.SHEIK,
+        # Character.NESS,
+        # Character.PEACH,
+        # #Character.POPO,
+        # Character.PIKACHU,
+        # Character.SAMUS,
+        # Character.YOSHI,
+        # Character.JIGGLYPUFF,
+        # Character.MEWTWO,
         Character.LUIGI,
-        Character.MARTH,
-        #Character.ZELDA,
-        Character.YLINK,
-        Character.DOC,
-        Character.FALCO,
-        Character.PICHU,
-        Character.GAMEANDWATCH,
-        Character.GANONDORF,
-        Character.ROY
+        # Character.MARTH,
+        # #Character.ZELDA,
+        # Character.YLINK,
+        # Character.DOC,
+        # Character.FALCO,
+        # Character.PICHU,
+        # Character.GAMEANDWATCH,
+        # Character.GANONDORF,
+        # Character.ROY
     ])
     .stages([
         Stage.FINAL_DESTINATION,
@@ -85,7 +85,7 @@ env_conf = (
         Stage.POKEMON_STADIUM,
         Stage.BATTLEFIELD,
         Stage.DREAMLAND,
-
+        #
         Stage.FOUNTAIN_OF_DREAMS  # TODO support FOD
         # falcon falco, jiggs falco, marth falcon, jigs falcon, falcon falcon, falcon fox, marth falcon, falco falco,
         # marth falco, jigs marth
@@ -102,7 +102,7 @@ env_conf = (
 dummy_ssbm = SSBM(**dict(env_conf))
 
 
-# TODO: add option for workers to return and update models every batch, or every episode.
+# TODO: Put back state action rewards !
 
 
 @ex.config
@@ -113,27 +113,27 @@ def my_config():
     del env_obj
     env_config = dict(env_conf)
 
-    num_workers = 62
+    num_workers = 64
     policy_path = 'policies.APPOActionStates'
     model_path = 'models.rnn'
     policy_class = 'APPOAS'
     model_class = 'RNN'
     trajectory_length = 32
     max_seq_len = 32
-    train_batch_size = 2048
+    train_batch_size = 2048*2
     max_queue_size = train_batch_size * 10
 
     default_policy_config = {
         'discount': 0.996,  # 0.997
-        'gae_lambda': 1.,
-        'entropy_cost': 1e-3, # 1e-3 with impala, or around " 0.3, 0.4
+        'gae_lambda': 0.99,
+        'entropy_cost': 1e-3, # 1e-3 with impala
         'popart_std_clip': 1e-2,
         'popart_lr': 5e-2,
         'grad_clip': 4.,
         'lr': 5e-4,
         'rms_prop_rho': 0.99,
         'rms_prop_epsilon': 1e-5,
-        'fc_dims': [128+32, 128+32],
+        'fc_dims': [128, 128],
         'lstm_dim': 256,
 
         #'random_action_chance': 1.5e-2,
@@ -160,6 +160,8 @@ def my_config():
     training_metrics_smoothing = 0.9
     update_ladder_freq_s = 29
     inject_new_bots_freq_s = 60
+    update_policy_history_freq = 200 #100
+    policy_history_length = 8 # 8
 
     checkpoint_config = dict(
         checkpoint_frequency=5000,
@@ -170,7 +172,7 @@ def my_config():
 
     episode_callback_class = partial(
     SSBMCallbacks,
-    negative_reward_scale=0.8
+    negative_reward_scale=0.9
 )
 
 # Define a simple main function that will use the configuration
@@ -181,7 +183,7 @@ def main(_config):
     gpus = tf.config.experimental.list_physical_devices('GPU')
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
-    from seedsmash2.seedsmash_trainer import SeedSmashTrainer
+    from seedsmash2.fictitious_play_trainer import FictitiousTrainer
 
 
     # TODO: seeding
@@ -189,7 +191,7 @@ def main(_config):
     c = ConfigDict(_config)
     print("Experiment Configuration:")
     print(c)
-    trainer = SeedSmashTrainer(c, restore=False)
+    trainer = FictitiousTrainer(c, restore=False)
     trainer.run()
 
 

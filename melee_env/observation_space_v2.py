@@ -1,5 +1,5 @@
 from collections import defaultdict
-
+from sortedcontainers import SortedDict
 from gymnasium.spaces.dict import Dict
 from melee import Stage, PlayerState, Character, Action, stages, enums, Projectile, GameState, AttackState
 
@@ -66,7 +66,7 @@ class StateDataInfo:
         if self.nature == StateDataInfo.CONTINUOUS:
             dtype = np.float32
         elif self.nature in (StateDataInfo.BINARY, StateDataInfo.CATEGORICAL):
-            dtype = np.float32
+            dtype = np.int32
         else:
             dtype = np.float32
         #dtype = np.float32 if self.nature in (StateDataInfo.CONTINUOUS, StateDataInfo.CATEGORICAL) else np.int8
@@ -85,7 +85,12 @@ class StateDataInfo:
 
         if self.nature == StateDataInfo.CONTINUOUS:
             return np.clip(self.value[observed] * self.scale, *StateDataInfo.HARD_BOUNDS)
+
         return self.value[observed]
+
+    def reset(self):
+        self.value[:] = 0
+        self.delay_idx = 0
 
     def get_gym_space(self):
         if self.nature == StateDataInfo.CONTINUOUS:
@@ -246,11 +251,11 @@ class ObsBuilder:
                                         scale=ObsBuilder.POS_SCALE,
                                         config=self.config,
                                         ),
-            edge_ground_position=StateDataInfo(lambda s: stages.EDGE_GROUND_POSITION[s.stage],
-                                               StateDataInfo.CONTINUOUS,
-                                               scale=ObsBuilder.POS_SCALE,
-                                               config=self.config,
-                                               ),
+            # edge_ground_position=StateDataInfo(lambda s: stages.EDGE_GROUND_POSITION[s.stage],
+            #                                    StateDataInfo.CONTINUOUS,
+            #                                    scale=ObsBuilder.POS_SCALE,
+            #                                    config=self.config,
+            #                                    ),
             # tweaked side_platfrom and top_platform functions to return 0s instead of Nones
             platform_position=StateDataInfo(lambda s: (stages.top_platform_position(s)
                                                        + stages.side_platform_position(right_platform=True,
@@ -456,7 +461,7 @@ class ObsBuilder:
                                           config=self.config),
                 jumps_left=StateDataInfo(lambda s: s.players[port].jumps_left,
                                          StateDataInfo.CONTINUOUS,
-                                         scale=0.14,
+                                         scale=0.4, # 0.14
                                          player_port=port,
                                          config=self.config),
                 button_a=StateDataInfo(lambda s:
@@ -594,14 +599,18 @@ class ObsBuilder:
         for feature in self.features:
             feature.advance()
 
+    def reset(self):
+        for feature in self.features:
+            feature.reset()
+
     def build(self, curr_ports):
         obs_dict = {}
         for port in self.bot_ports:
             curr_port = curr_ports[port]
             obs_dict[curr_port] = {
-                StateDataInfo.BINARY: {},
-                StateDataInfo.CATEGORICAL: {},
-                StateDataInfo.CONTINUOUS: {},
+                StateDataInfo.BINARY: SortedDict(),
+                StateDataInfo.CATEGORICAL: SortedDict(),
+                StateDataInfo.CONTINUOUS: SortedDict(),
             }
             self.build_for(port, obs_dict[curr_port])
         return obs_dict
@@ -613,7 +622,6 @@ class ObsBuilder:
                 p = feature.player
 
                 obs_slot = feature.base_name + ObsBuilder.player_permuts[player_idx][p]
-
 
                 obs[feature.nature][obs_slot] = feature.observe(undelay=p == player_idx)
             else:

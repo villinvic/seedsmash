@@ -306,7 +306,8 @@ def create_smash_player_card(bot_config: "BotConfig", stats, now_time):
 
     # Format the date and time
     formatted_time = now_time.strftime(format_string)
-    draw.text((int(width*0.14), int(height*0.315)), formatted_time, (150, 150, 150), font=medium)
+    #draw.text((int(width*0.14), int(height*0.315)), formatted_time, (150, 150, 150), font=medium)
+    draw.text((int(width * 0.14), int(height * 0.315)), f"@{bot_config.username}", (150, 150, 150), font=medium)
 
     # borders
     borders = np.zeros(tuple(reversed(card.size)) + (4,), dtype=np.uint8)

@@ -68,7 +68,7 @@ def get_font_for_rank(rank):
 class MatchMakingWindow(pyglet.window.Window):
     WHITE = np.array([255, 255, 255, 255])
     BLACK = np.array([0, 0, 0, 255])
-    BACKGROUND_COLOR = BLACK
+    BACKGROUND_COLOR = WHITE
 
     def __init__(self, *args, **kwargs):
         self.ICON_SIZE = 24
@@ -108,6 +108,7 @@ class MatchMakingWindow(pyglet.window.Window):
 
         self.init = True
 
+        self.bg_rect_color = (80, 10, 10, 255)
 
     def instanciate_for_player(self, player):
 
@@ -117,7 +118,7 @@ class MatchMakingWindow(pyglet.window.Window):
 
         self.sprites[player_name] = pyglet.sprite.Sprite(self.icons[player_name], x=-500, batch=self.batch)
 
-        self.bg_rects[player_name] = pyglet.shapes.Rectangle(-500, 0, 60, 24, color=(40, 10, 10, 255),
+        self.bg_rects[player_name] = pyglet.shapes.Rectangle(-500, 0, 60, 24, color=self.bg_rect_color,
                                                              batch=self.batch)
         self.player_name_labels[player_name] = pyglet.text.Label(player_name, font_name='A-OTF Folk Pro',
                                                                  font_size=11,
@@ -265,7 +266,7 @@ class MatchMakingWindow(pyglet.window.Window):
 
 
         self.vs_icon.opacity = round(255 * (1-fadein))
-        self.vs_icon.x = self.LEFT_MARGIN + self.ANIMATION_WIDTH //2 - self.vs_icon.width * 0.5
+        self.vs_icon.x = self.LEFT_MARGIN//3 + self.ANIMATION_WIDTH //2 - self.vs_icon.width * 0.5
         self.vs_icon.y = self.SCREEN_HEIGHT //2 - self.vs_icon.height * 0.5
         self.vs_icon.scale = 0.7
 
@@ -276,47 +277,51 @@ class MatchMakingWindow(pyglet.window.Window):
         for lplayer, lpos in zip(left_players, left_positions):
 
             y = round((lpos-0.5) * self.SPACING)
-
             d_middle = 1 - np.minimum(np.abs(0.5-lpos) **0.33 * 1.3 , 1)
+            c = d_middle * (1 - fading)
+
             self.sprites[lplayer.name].opacity = round(d_middle * 255 * (1-fading))
-            self.sprites[lplayer.name].y = self.SCREEN_HEIGHT//2 + y - self.sprites[lplayer.name].height//2
-            self.sprites[lplayer.name].x = self.LEFT_MARGIN + self.ANIMATION_WIDTH //2 - 30 - self.sprites[lplayer.name].width//2
+            self.sprites[lplayer.name].y = self.SCREEN_HEIGHT//2 + y - self.sprites[lplayer.name].height//2 + 1
+            self.sprites[lplayer.name].x = self.LEFT_MARGIN//3 + self.ANIMATION_WIDTH //2 - 30 - self.sprites[lplayer.name].width//2
 
             self.player_name_labels[lplayer.name].y = (self.SCREEN_HEIGHT//2 + y -
                                                        self.player_name_labels[lplayer.name].content_height//2)
-            self.player_name_labels[lplayer.name].x = (self.LEFT_MARGIN + self.ANIMATION_WIDTH //2 - 50 -
+            self.player_name_labels[lplayer.name].x = (self.LEFT_MARGIN//3 + self.ANIMATION_WIDTH //2 - 50 -
                                                        self.player_name_labels[lplayer.name].content_width)
-            self.player_name_labels[lplayer.name].opacity = round(d_middle * 255 * (1-fading))
+            self.player_name_labels[lplayer.name].color = (round(255*c), round(255*c), round(255*c), 255)
 
             self.bg_rects[lplayer.name].width = self.player_name_labels[lplayer.name].content_width + 38
             self.bg_rects[lplayer.name].y = (self.SCREEN_HEIGHT//2 + y -
-                                                       self.player_name_labels[lplayer.name].content_height//2 - 3)
-            self.bg_rects[lplayer.name].x = (self.LEFT_MARGIN + self.ANIMATION_WIDTH //2 - 53 -
+                                                       self.player_name_labels[lplayer.name].content_height//2 - 4)
+            self.bg_rects[lplayer.name].x = (self.LEFT_MARGIN//3 + self.ANIMATION_WIDTH //2 - 53 -
                                                        self.player_name_labels[lplayer.name].content_width)
-            self.bg_rects[lplayer.name].opacity = round(d_middle * 255 * (1-fading))
+
+            c = d_middle * (1-fading)
+            self.bg_rects[lplayer.name].color = (round(80*c), round(10*c), round(10*c), 255)
 
 
         for rplayer, rpos in zip(right_list, right_positions):
 
             y = round((rpos-0.5) * self.SPACING)
-
             d_middle = 1 - np.minimum(np.abs(0.5-rpos) **0.33 * 1.3 , 1)
+            c = d_middle * (1 - fading)
 
-            self.sprites[rplayer.name].opacity = round(d_middle * 255 * (1-fading) )
-            self.sprites[rplayer.name].y = self.SCREEN_HEIGHT//2 + y - self.sprites[rplayer.name].height//2
-            self.sprites[rplayer.name].x = self.LEFT_MARGIN + self.ANIMATION_WIDTH //2 + 30 - self.sprites[rplayer.name].width//2
+
+            self.sprites[rplayer.name].opacity = round(d_middle * 255 * (1-fading))
+            self.sprites[rplayer.name].y = self.SCREEN_HEIGHT//2 + y - self.sprites[rplayer.name].height//2 + 1
+            self.sprites[rplayer.name].x = self.LEFT_MARGIN//3 + self.ANIMATION_WIDTH //2 + 30 - self.sprites[rplayer.name].width//2
 
             self.player_name_labels[rplayer.name].y = (self.SCREEN_HEIGHT//2 + y -
                                                        self.player_name_labels[rplayer.name].content_height//2)
-            self.player_name_labels[rplayer.name].x = (self.LEFT_MARGIN + self.ANIMATION_WIDTH //2 + 50)
-            self.player_name_labels[rplayer.name].opacity = round(d_middle * 255 * (1-fading))
+            self.player_name_labels[rplayer.name].x = (self.LEFT_MARGIN//3 + self.ANIMATION_WIDTH //2 + 50)
+            self.player_name_labels[rplayer.name].color = (round(255*c), round(255*c), round(255*c), 255)
 
             self.bg_rects[rplayer.name].width = self.player_name_labels[rplayer.name].content_width + 38
             self.bg_rects[rplayer.name].y = (self.SCREEN_HEIGHT//2 + y -
-                                                       self.player_name_labels[rplayer.name].content_height//2 - 3)
-            self.bg_rects[rplayer.name].x = (self.LEFT_MARGIN + self.ANIMATION_WIDTH //2 + 18)
-            self.bg_rects[rplayer.name].opacity = round(d_middle * 255 * (1-fading))
+                                                       self.player_name_labels[rplayer.name].content_height//2 - 4)
+            self.bg_rects[rplayer.name].x = (self.LEFT_MARGIN//3 + self.ANIMATION_WIDTH //2 + 18)
 
+            self.bg_rects[rplayer.name].color = (round(80*c), round(10*c), round(10*c), 255)
     def show_cards(self, t):
         x = 80
         if t <= 0.02:
@@ -333,7 +338,7 @@ class MatchMakingWindow(pyglet.window.Window):
 
 
         self.vs_icon.scale = 0.7 + easing * 0.5
-        self.vs_icon.x = self.LEFT_MARGIN + self.ANIMATION_WIDTH //2 - self.vs_icon.width * 0.5
+        self.vs_icon.x = (self.LEFT_MARGIN * easing2 + (1-easing2) * self.LEFT_MARGIN//3) + self.ANIMATION_WIDTH //2 - self.vs_icon.width * 0.5
         self.vs_icon.y = self.SCREEN_HEIGHT//2 - self.vs_icon.height * 0.5
 
         for p_label in self.nametags + self.nametags_bg:
@@ -368,6 +373,7 @@ class MatchMakingWindow(pyglet.window.Window):
         self.location = self.default_screen.width // 2 - self.SCREEN_WIDTH // 2, self.default_screen.height // 2 - self.SCREEN_HEIGHT // 2
         self.set_location(self.location[0], self.location[1])
         self.set_caption("SeedSmash matchmaking")
+        #pyglet.gl.glClearColor(0, 1, 0, 1)  # Note that these are values 0.0 - 1.0 and not (0-255).
         self.set_fullscreen(False)
 
 

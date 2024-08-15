@@ -56,8 +56,9 @@ class APPOAS(ParametrisedPolicy):
             # set weights to offline policy
             self.update_offline_model()
         else:
+            pass
             # TODO: add epsilon param, add vmpo config toggle
-            self.model.action_dist = partial(EpsilonCategorical, epsilon=self.policy_config.random_action_chance)
+            #self.model.action_dist = partial(EpsilonCategorical, epsilon=self.policy_config.random_action_chance)
 
 
     def get_params(self, online=False):
@@ -110,21 +111,36 @@ class APPOAS(ParametrisedPolicy):
             return np.concatenate([v1, v2[-1:]], axis=0)
 
 
+        # def get_samples(v):
+        #     return v[:, :4]
+        #
+        # print(tree.map_structure(get_samples, time_major_batch[SampleBatch.OBS]))
+
         time_major_batch[SampleBatch.OBS] = tree.map_structure(
             add_last_timestep,
             time_major_batch[SampleBatch.OBS], time_major_batch[SampleBatch.NEXT_OBS]
         )
 
+        # print(tree.map_structure(get_samples, time_major_batch[SampleBatch.OBS]))
+        #
+        # print(time_major_batch[SampleBatch.AGENT_ID])
+
+
         time_major_batch[SampleBatch.PREV_REWARD] = np.concatenate([time_major_batch[SampleBatch.PREV_REWARD], time_major_batch[SampleBatch.REWARD][-1:]], axis=0)
         time_major_batch[SampleBatch.PREV_ACTION] = np.concatenate([time_major_batch[SampleBatch.PREV_ACTION], time_major_batch[SampleBatch.ACTION][-1:]], axis=0)
         time_major_batch[SampleBatch.SEQ_LENS] = seq_lens
-        time_major_batch[SampleBatch.STATE] = [s[0] for s in time_major_batch[SampleBatch.STATE]]
+        time_major_batch[SampleBatch.STATE] = tree.map_structure(lambda v: v[0], time_major_batch[SampleBatch.STATE])
+
 
         # Sequence is one step longer if we are not done at timestep T
         time_major_batch[SampleBatch.SEQ_LENS][
             np.logical_and(seq_lens == self.config.max_seq_len,
                            np.logical_not(time_major_batch[SampleBatch.DONE][-1])
                            )] += 1
+
+
+
+
 
 
         nn_train_time = time.time()
