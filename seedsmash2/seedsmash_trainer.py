@@ -103,8 +103,20 @@ class SeedSmashTrainer(Checkpointable):
             if env_step_counter in self.metrics:
                 GlobalCounter[GlobalCounter.ENV_STEPS] = self.metrics["counters/" + GlobalCounter.ENV_STEPS].get()
 
-            for policy_name, policy in self.policy_map.items():
-                policy.setup(self.params_map[policy_name])
+            for policy_name, params in self.params_map.items():
+                self.policy_map[policy_name] = self.PolicylCls(
+                    name=policy_name,
+                    action_space=self.env.action_space,
+                    observation_space=self.env.observation_space,
+                    config=self.config,
+                    policy_config=params.config,
+                    options=params.options,
+                    stats={"rank": 100, "rating": 1000, "games_played": 0, "winrate": 0},
+                    # For any algo that needs to track either we have the online model
+                    is_online=True,
+                )
+                self.policy_map[policy_name].setup(params)
+                self.experience_queue[policy_name] = ExperienceQueue(self.config)
 
         self.inject_bot_configs()
         GlobalTimer["inject_new_bots_timer"] = time.time()
@@ -170,6 +182,7 @@ class SeedSmashTrainer(Checkpointable):
                     # If this fails, it means the episode exited early
                     pid1, pid2 = exp_batch.policy_metrics.keys()
                     outcome = (exp_batch.custom_metrics[f"{pid1}/win_rewards"] + 1)/2
+                    print()
                     self.matchmaking.update(
                         pid1, pid2, outcome
                     )
@@ -213,7 +226,9 @@ class SeedSmashTrainer(Checkpointable):
             if policy_queue.is_ready():
                 train_results = self.policy_map[policy_name].train(
                     policy_queue.pull(self.config.train_batch_size),
-                    self.action_state_values[policy_name]
+                    self.action_state_values[policy_name],
+                    coaching_model=None if self.policy_map[policy_name].options.coaching_bot is None
+                    else self.policy_map[self.policy_map[policy_name].options.coaching_bot].model
                 )
                 training_metrics[f"{policy_name}"] = train_results
                 GlobalCounter.incr(GlobalCounter.STEP)

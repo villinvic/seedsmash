@@ -172,7 +172,7 @@ def my_config():
 
     episode_callback_class = partial(
     SSBMCallbacks,
-    negative_reward_scale=0.9
+    negative_reward_scale=0.82
 )
 
 # Define a simple main function that will use the configuration

@@ -4,7 +4,7 @@ from enum import Enum, IntEnum
 from typing import Sequence, List, Union, Deque, Dict, Tuple, Any
 
 from gymnasium.spaces import Discrete
-from melee import ControllerState, enums, Controller, Console, PlayerState
+from melee import ControllerState, enums, Controller, Console, PlayerState, stages
 from melee.enums import Button, Character, Action
 from functools import partial
 import itertools
@@ -354,7 +354,7 @@ class StickPosition(Enum):
 class ControllerInput:
     def __init__(self, buttons: Union[Button, Tuple[Button, Button]] = (), stick=StickPosition.NEUTRAL,
                  c_stick=StickPosition.NEUTRAL, analog_press=False, duration=3,
-                 test_func=lambda char_state, curr_action: True,
+                 test_func=lambda game_state, char_state, curr_action: True,
                  energy_cost=1.):
         self.buttons = {buttons} if isinstance(buttons, Button) else set(buttons)
         self.stick = stick
@@ -545,9 +545,9 @@ class ActionControllerInterface:
         pass
 
     @staticmethod
-    def send_controller(action: ControllerInput, pad: ComboPad, current_state, current_action_sequence):
+    def send_controller(action: ControllerInput, pad: ComboPad, game_state, char_state, current_action_sequence):
 
-        if action.test_func(current_state, current_action_sequence):
+        if action.test_func(game_state, char_state, current_action_sequence):
 
             to_release = pad.previous_state.buttons - action.buttons
             press_new = action.buttons - pad.previous_state.buttons
@@ -571,40 +571,47 @@ class ActionControllerInterface:
             pad.previous_state = action
 
 
-def disable_on_ground(char_state: PlayerState, curr_action: InputSequence):
+def disable_on_ground(game_state, char_state: PlayerState, curr_action: InputSequence):
     allow = not char_state.on_ground
     if not allow:
         curr_action.terminate()
     return allow
 
 
-def disable_in_air(char_state: PlayerState, curr_action: InputSequence):
+def disable_in_air(game_state, char_state: PlayerState, curr_action: InputSequence):
     allow = char_state.on_ground
     if not allow:
         curr_action.terminate()
     return allow
 
 
-def check_kneebend(char_state: PlayerState, curr_action: InputSequence):
+def check_kneebend(game_state, char_state: PlayerState, curr_action: InputSequence):
     allow = char_state.action == Action.KNEE_BEND
     if not allow:
         curr_action.terminate()
     return allow
 
-def allow_shield_drop1(char_state: PlayerState, curr_action: InputSequence):
+def allow_shield_drop1(game_state, char_state: PlayerState, curr_action: InputSequence):
     allow = char_state.on_ground and char_state.y > 16
     if not allow:
         curr_action.terminate()
     return allow
 
-def allow_shield_drop(char_state: PlayerState, curr_action: InputSequence):
-    allow = char_state.action in (Action.SHIELD_START, Action.SHIELD, Action.SHIELD_REFLECT) and char_state.y > 16
+def allow_shield_drop(game_state, char_state: PlayerState, curr_action: InputSequence):
+    allow = char_state.action in (Action.SHIELD_START, Action.SHIELD, Action.SHIELD_REFLECT) and char_state.y > 8
     if not allow:
         curr_action.terminate()
     return allow
 
-def allow_waveland(char_state: PlayerState, curr_action: InputSequence):
-    allow = char_state.y > 1 and (not char_state.on_ground)
+def allow_waveland(game_state, char_state: PlayerState, curr_action: InputSequence):
+    allow = not char_state.on_ground
+    if not allow:
+        curr_action.terminate()
+    return allow
+
+def allow_wavedash(game_state, char_state: PlayerState, curr_action: InputSequence):
+    dist_from_ledge = abs(abs(char_state.position.x)-stages.EDGE_GROUND_POSITION[game_state.stage])
+    allow = char_state.action == Action.KNEE_BEND and (dist_from_ledge > 4)
     if not allow:
         curr_action.terminate()
     return allow
@@ -619,22 +626,20 @@ TORNARDO_FRAMES = 37
 # check if still in tornado, else terminate
 # intuitively set to not be costly, because the action is long
 # free stick pos after 3 frames
-def allow_tornado(char_state: PlayerState, curr_action: InputSequence):
-    allow = (char_state.action == Action.SWORD_DANCE_2_HIGH)
+def allow_tornado(game_state, char_state: PlayerState, curr_action: InputSequence):
+    allow = (char_state.action == Action.SWORD_DANCE_2_HIGH) and char_state.off_stage
     if not allow:
         curr_action.terminate()
     return allow
 
-
-def allow_tornado_init(char_state: PlayerState, curr_action: InputSequence):
-    return True
+def allow_tornado_init(game_state, char_state: PlayerState, curr_action: InputSequence):
     allow = char_state.off_stage or (char_state.character == Character.LUIGI)
     if not allow:
         curr_action.terminate()
     return allow
 
 
-def debug(char_state: PlayerState, curr_action: InputSequence):
+def debug(game_state, char_state: PlayerState, curr_action: InputSequence):
     print("debuging action", char_state.action, char_state.on_ground)
     return True
 
@@ -799,7 +804,7 @@ class SSBMActionSpace:
                 ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+1, stick=StickPosition.WAVE_LEFT,
                                 test_func=disable_in_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.WAVE_LEFT,
-                                test_func=check_kneebend, energy_cost=0.),
+                                test_func=allow_wavedash, energy_cost=0.),
             ], free_stick_at_frame=short_hop_frames + 2, name=character)
             for character, short_hop_frames in char2kneebend.items()
         }
@@ -810,7 +815,7 @@ class SSBMActionSpace:
                 ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+1, stick=StickPosition.WAVE_RIGHT,
                                 test_func=disable_in_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.WAVE_RIGHT,
-                                test_func=check_kneebend, energy_cost=0.),
+                                test_func=allow_wavedash, energy_cost=0.),
             ], free_stick_at_frame=short_hop_frames + 2, name=character)
             for character, short_hop_frames in char2kneebend.items()
         }
@@ -832,7 +837,7 @@ class SSBMActionSpace:
                 ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+1, stick=StickPosition.DOWN_LEFT,
                                 test_func=disable_in_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.DOWN_LEFT,
-                                test_func=check_kneebend, energy_cost=0.),
+                                test_func=allow_wavedash, energy_cost=0.),
             ], free_stick_at_frame=short_hop_frames + 2, name=character)
             for character, short_hop_frames in char2kneebend.items()
         }
@@ -843,7 +848,7 @@ class SSBMActionSpace:
                 ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+1, stick=StickPosition.DOWN_RIGHT,
                                 test_func=disable_in_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.DOWN_RIGHT,
-                                test_func=check_kneebend, energy_cost=0.),
+                                test_func=allow_wavedash, energy_cost=0.),
             ], free_stick_at_frame=short_hop_frames + 2, name=character)
             for character, short_hop_frames in char2kneebend.items()
         }
@@ -854,9 +859,11 @@ class SSBMActionSpace:
         character: InputSequence(MARIO_TORNADO, free_stick_at_frame=3, name=character) if character in (
             Character.MARIO, Character.LUIGI, Character.DOC)
         else
-        # Casually tapping B once
-        InputSequence([ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.DOWN, duration=2),
-                       ControllerInput(duration=1)], name=character)
+        # TODO: char specific move: gentleman, charged neutral b, etc.
+        # for now, down b (no other action for down b)
+        InputSequence([ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.DOWN, duration=1),
+                       ControllerInput(duration=2),
+                       ], name=character)
 
         for character in Character
     })

@@ -69,19 +69,19 @@ def attribute_color(bot_id):
         ])
         return converge_probs
 
-    np.random.seed(normalized_hash)
-    origin_color = np.random.choice(
+    rng = np.random.default_rng(normalized_hash)
+    origin_color = rng.choice(
             color_names, p=get_weights()
         )
 
     if origin_color in ["red", "blue", "green"]:
-        deviation_color = np.random.randint(0, 255, 3)
+        deviation_color = rng.integers(0, 255, 3)
         dev_w = 0.45
     elif origin_color == "white":
-        deviation_color = np.random.randint(0, 255, 3)
+        deviation_color = rng.integers(0, 255, 3)
         dev_w = 0.1
     elif origin_color == "wild_card":
-        deviation_color = np.random.randint(20, 240, 3)
+        deviation_color = rng.integers(20, 240, 3)
 
         while max([color_distance(deviation_color, color)
                    for color in colors.values()]) < 0.2:
@@ -89,13 +89,13 @@ def attribute_color(bot_id):
         dev_w = 1.0
 
     elif origin_color == "gold":
-        deviation_color = np.random.randint(0, 255, 3)
+        deviation_color = rng.integers(0, 255, 3)
         dev_w = 0.05
     elif origin_color == "black": # monochronic colors
-        deviation_color = np.random.randint(0, 255)
+        deviation_color = rng.integers(0, 255)
         dev_w = 0.1
     else:
-        deviation_color = np.random.randint(0, 255)
+        deviation_color = rng.integers(0, 255)
         dev_w = 0.2
 
     obtained_color = (1-dev_w) * colors[origin_color] + dev_w * deviation_color
@@ -121,7 +121,7 @@ def create_diagonal_gradient_blend(card, stage):
     card.paste(stage, (int(-0.3*card.width), int(card.height*0.5-stage.height*0.5)), mask=Image.fromarray(gradient))
 
 def blit_logo(image, bot_color):
-    w = 150
+    w = 175
     logo = inbue_with_bot_color(Image.open(assets_path / "assets/logo_alpha.png").resize((w, w)), bot_color,
                                 0.85,
                                 apply_black_power=5)
@@ -240,22 +240,23 @@ def create_smash_player_card(bot_config: "BotConfig", stats, now_time):
     # Add nametag
     big = ImageFont.truetype(str(assets_path / "assets/fonts/A-OTF-FolkPro-Heavy.otf"), 30)
     draw.text((int(width*0.6), int(height*0.1)), nametag, (255, 255, 255), font=big, anchor="ms")
-    medium = ImageFont.truetype(str(assets_path / "assets/fonts/A-OTF-FolkPro-Heavy.otf"), 22)
-    small = ImageFont.truetype(str(assets_path / "assets/fonts/A-OTF-FolkPro-Heavy.otf"), 18)
-    tiny = ImageFont.truetype(str(assets_path / "assets/fonts/A-OTF-FolkPro-Heavy.otf"), 14)
+    medium_big = ImageFont.truetype(str(assets_path / "assets/fonts/A-OTF-FolkPro-Heavy.otf"), 25)
+
+    medium = ImageFont.truetype(str(assets_path / "assets/fonts/A-OTF-FolkPro-Heavy.otf"), 23)
+    small = ImageFont.truetype(str(assets_path / "assets/fonts/A-OTF-FolkPro-Heavy.otf"), 20)
 
     # specialties
     x = int(width*0.05)
-    y = int(height*0.75)
-    target_value = np.array([250, 150, 26], dtype=np.float32)
+    y = int(height*0.67)
+    target_value = np.array([250, 175, 26], dtype=np.float32)
     initial_value = np.array([100, 100, 255], dtype=np.float32)
     for i, (stat_name, value) in enumerate(specialties.items()):
 
         ratio = value / 100
         fill_color = initial_value * (1-ratio) + target_value * ratio
 
-        draw.text((x, y + i * 20), stat_name, tuple(np.uint8(fill_color)), font=small)
-        draw.text((x + 260, y + i * 20), str(round(value)), tuple(np.uint8(fill_color)), font=small)
+        draw.text((x, y + i * 27), stat_name, tuple(np.uint8(fill_color)), font=small)
+        draw.text((x + 280, y + i * 27), str(round(value)), tuple(np.uint8(fill_color)), font=small)
 
         slide_colored = np.float32(slide)
         slide_colored[:,:, :3] = fill_color[np.newaxis, np.newaxis]
@@ -263,10 +264,10 @@ def create_smash_player_card(bot_config: "BotConfig", stats, now_time):
         slider_colored[:, :, :3] = fill_color[np.newaxis, np.newaxis]
 
         #slide
-        card.paste(Image.fromarray(np.uint8(slide_colored)), (x + 160, y + i * 20), slide)
+        card.paste(Image.fromarray(np.uint8(slide_colored)), (x + 180, y + i * 27), slide)
         #slider
         dx = int(ratio * 65)
-        card.paste(Image.fromarray(np.uint8(slider_colored)), (x + 160 + dx, y + i * 20), slider)
+        card.paste(Image.fromarray(np.uint8(slider_colored)), (x + 180 + dx, y + i * 27), slider)
 
     # stats
     # main
@@ -287,17 +288,23 @@ def create_smash_player_card(bot_config: "BotConfig", stats, now_time):
     draw.text((int(width*0.1), int(height*0.145)), "Rank", (255, 255, 255), font=medium)
     draw.text((int(width*0.1) + 72, int(height*0.145) - 5), str(rank), fill_color, font=big)
 
-    draw.text((int(width*0.1), int(height*0.143) + 30), "Rating", (255, 255, 255), font=medium)
-    draw.text((int(width*0.1) + 88, int(height*0.145) + 30), str(round(rating)), (150, 150, 150), font=medium)
+    draw.text((int(width*0.1), int(height*0.145) + 30), "Rating", (255, 255, 255), font=medium)
+    draw.text((int(width*0.1) + 88, int(height*0.145) + 30), str(round(rating)), (175, 175, 175), font=medium)
 
-    draw.text((int(width * 0.1), int(height * 0.145) + 66), "Winrate", (255, 255, 255), font=medium)
-    draw.text((int(width * 0.1) + 99, int(height * 0.145) + 66), f"{round(winrate*100)}%", (150, 150, 150), font=medium)
+    draw.text((int(width * 0.1), int(height * 0.145) + 60), "Winrate", (255, 255, 255), font=medium)
+    draw.text((int(width * 0.1) + 99, int(height * 0.145) + 60), f"{round(winrate*100)}%", (175, 175, 175), font=medium)
 
     draw.text((int(width * 0.45), int(height * 0.145)), "Games played", (255, 255, 255), font=medium)
-    draw.text((int(width * 0.45) + 170, int(height * 0.145)), str(games_played), (150, 150, 150),font=medium)
+    draw.text((int(width * 0.45) + 180, int(height * 0.145)), str(games_played), (175, 175, 175),font=medium)
 
-    draw.text((int(width * 0.52), int(height * 0.145)+33), "Prefered stage", (255, 255, 255), font=medium)
-    draw.text((int(width * 0.67), int(height * 0.145)+86), stage.name.replace("_", " ").capitalize(), (150, 150, 150), font=medium, anchor="ms")
+    #draw.text((int(width * 0.52), int(height * 0.145)+33), "Prefered stage", (255, 255, 255), font=medium)
+    #draw.text((int(width * 0.67), int(height * 0.145)+86), stage.name.replace("_", " ").capitalize(), (175, 175, 175), font=medium, anchor="ms")
+    if bot_config.coaching_bot is not None:
+        font_color = np.uint8(BOT_COLOR * 0.4 + np.array([255,255,255]) * 0.6)
+        draw.text((int(width * 0.67), int(height * 0.145)+53), "Coached by:", tuple(font_color), font=medium, anchor="ms")
+        font_color =  np.uint8(BOT_COLOR * 0.6 + np.array([255,255,255]) * 0.4)
+        draw.text((int(width * 0.67), int(height * 0.145)+89), bot_config.coaching_bot, tuple(font_color), font=big, anchor="ms")
+
 
     # time
 
@@ -306,8 +313,9 @@ def create_smash_player_card(bot_config: "BotConfig", stats, now_time):
 
     # Format the date and time
     formatted_time = now_time.strftime(format_string)
-    #draw.text((int(width*0.14), int(height*0.315)), formatted_time, (150, 150, 150), font=medium)
-    draw.text((int(width * 0.14), int(height * 0.315)), f"@{bot_config.username}", (150, 150, 150), font=medium)
+    #draw.text((int(width*0.14), int(height*0.315)), formatted_time, (175, 175, 175), font=medium)
+    draw.text((int(width * 0.14), int(height * 0.315)), f"@{bot_config.username}", (175, 175, 175), font=medium_big)
+
 
     # borders
     borders = np.zeros(tuple(reversed(card.size)) + (4,), dtype=np.uint8)
@@ -353,10 +361,11 @@ if __name__ == '__main__':
     stats = {
         "winrate"     : 0.71,
         "games_played": 5568,
-        "elo"         : 1999,
+        "rating"         : 1999,
         "rank"        : 3,
     }
-    x = BotConfig(tag="PuffMain420", character="GAMEANDWATCH", costume=0, preferred_stage="BATTLEFIELD")
+    x = BotConfig(tag="PuffMain40", character="GAMEANDWATCH", costume=0, preferred_stage="BATTLEFIELD",
+                  coaching_bot="tekk")
 
     now = datetime.now()
 

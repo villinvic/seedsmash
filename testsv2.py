@@ -1,5 +1,6 @@
-from melee_env.action_space import SSBMActionSpace
 
-actions = SSBMActionSpace()
+import numpy as np
 
-print(actions)
+for i in range(100):
+    halflife = i / 100. * (18 - 5) + 5
+    print(i, halflife, np.exp(-np.log(2) / (halflife * 20)))

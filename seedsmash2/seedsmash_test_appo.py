@@ -102,7 +102,7 @@ env_conf = (
 dummy_ssbm = SSBM(**dict(env_conf))
 
 
-# TODO: add option for workers to return and update models every batch, or every episode.
+# TODO: remove r-1 input in lstm, increase pos scale
 
 
 @ex.config
@@ -113,19 +113,19 @@ def my_config():
     del env_obj
     env_config = dict(env_conf)
 
-    num_workers = 62
+    num_workers = 64
     policy_path = 'policies.APPOActionStates'
     model_path = 'models.rnn'
     policy_class = 'APPOAS'
     model_class = 'RNN'
     trajectory_length = 32
     max_seq_len = 32
-    train_batch_size = 2048
+    train_batch_size = 2048*2
     max_queue_size = train_batch_size * 10
 
     default_policy_config = {
         'discount': 0.996,  # 0.997
-        'gae_lambda': 1.,
+        'gae_lambda': 0.99,
         'entropy_cost': 1e-3, # 1e-3 with impala, or around " 0.3, 0.4
         'popart_std_clip': 1e-2,
         'popart_lr': 5e-2,
@@ -152,25 +152,26 @@ def my_config():
         # Action state rewards
         }
 
-    # TODO: swap matchups if they do not work first, then swap stage
-
     tensorboard_logdir = 'debugging'
-    report_freq = 20
+    report_freq = 10
     episode_metrics_smoothing = 0.95
     training_metrics_smoothing = 0.9
     update_ladder_freq_s = 29
     inject_new_bots_freq_s = 60
 
+    curriculum_max_version = 10_000
+    curriculum_num_updates = 50
+
     checkpoint_config = dict(
         checkpoint_frequency=5000,
         checkpoint_path=exp_path,
-        stopping_condition={"environment_steps": 1e9},
+        stopping_condition={"environment_steps": 1e10},
         keep=3,
     )
 
     episode_callback_class = partial(
     SSBMCallbacks,
-    negative_reward_scale=0.8
+    negative_reward_scale=0.95
 )
 
 # Define a simple main function that will use the configuration

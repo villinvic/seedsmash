@@ -55,12 +55,15 @@ class StepRewards(
     """
     off_stage_percents_inflicted: np.float32 = 0.
 
+    """
+    Penalty incurred for staying far away from opponent
+    """
+    away_penalty: np.float32 = 0.
+
     # TODO: add a possibility to add a scaling between damage and stocks
 
-    """
-    Off-stage percents inflicted when both players are off-stage
-    """
     combo_length: np.float32 = 0.
+    distance: np.float32 = 0.
 
     def to_dict(self):
         d = asdict(self)
@@ -99,6 +102,9 @@ class DeltaFrame:
         self.ddist = {
             p: 0 for p in self.ports
         }
+        self.dist = {
+            p: 0 for p in self.ports
+        }
 
         self.action = {
             p: Action.KIRBY_BLADE_UP for p in self.ports
@@ -131,9 +137,10 @@ class DeltaFrame:
             dy2 = (self.last_frame.players[1].position.y - self.last_frame.players[2].position.y)**2
             dist_before = np.sqrt(dx2 + 0.1 * dy2)
 
+
             for port in self.ports:
                 other_port = 1 + (port % 2)
-
+                self.dist[port] = np.sqrt(dx2 + dy2)
                 # dx_now = np.abs(frame.players[port].position.x - self.last_frame.players[other_port].position.x)
                 # dy_now = np.abs(frame.players[port].position.y - self.last_frame.players[other_port].position.y)
                 dist_now = np.sqrt(
@@ -142,7 +149,7 @@ class DeltaFrame:
 
                 self.dstock[port] = np.clip(self.last_frame.players[port].stock - frame.players[port].stock, 0., 1.)
                 self.dpercent[port] = np.clip(frame.players[port].percent - self.last_frame.players[port].percent, 0., 50.)
-                if self.dpercent[port] > 0 and np.sqrt(dx2 + dy2) < 70:
+                if self.dpercent[port] > 0 and self.dist[port] < 70:
                     self.last_hit_frame[port] = frame.frame
 
                 # DISTANCE
@@ -176,22 +183,27 @@ class RewardFunction:
         self.bot_config = bot_config
 
         agressivity_p = self.bot_config.agressivity / 100
-        self.damage_inflicted_scale = 0.09 * agressivity_p
-        self.damage_received_scale = 0.09 * (1 - agressivity_p)
+        agressivity_p = 0.4 + agressivity_p * 0.2
+
+        self.damage_inflicted_scale = 0.05 * agressivity_p * self.bot_config._damage_reward_scale
+
+        self.damage_received_scale = 0.05 * (1 - agressivity_p) * self.bot_config._damage_penalty_scale
         self.kill_reward_scale = 10. * agressivity_p
         self.death_reward_scale = 10. * (1 - agressivity_p)
-        self.time_cost = 2 * 0.00010416 * self.bot_config.patience / 100
-        self.distance_reward_scale = 5.e-3
+        self.away_penalty_scale = 4 * 0.00010416 * (1-self.bot_config.patience / 100)
+        self.distance_reward_scale = 3.e-3 * self.bot_config._distance_reward_scale
         self.energy_cost_scale = 2.e-4
 
         self.combo_counter = 0.
         self.int_combo_counter = 0
 
         self.last_hit_action_state = Action.KIRBY_BLADE_UP
-        self.max_combo_score = 8
+        self.max_combo_score = 4
         self.linear_discount = 1/60
 
         self.total_kills = 0
+
+        self.previous_last_hit_frame = -120
 
     def discount_combo(self):
 
@@ -216,24 +228,35 @@ class RewardFunction:
                                  np.float32(delta_frame.last_frame.frame
                                             - delta_frame.last_hit_frame[other_port]
                                             <= delta_frame.FRAMES_BEFORE_SUICIDE))
+
+        # TODO: scale for when we are high percent and prevent bots from running away
+        # -> increase scale for damage inflicted ?
+
         rewards.kill_rewards += kill
         self.total_kills += kill
 
         rewards.death_rewards += delta_frame.dstock[port]
 
-        rewards.damage_inflicted_rewards += delta_frame.dpercent[other_port]
+        # we decay rewards as we have more percent
+        scale = 1.
+        if delta_frame.last_frame.players[other_port].percent > 75:
+            scale = np.maximum(0, 1-(delta_frame.last_frame.players[other_port].percent-75)/(135-85))
+
+        rewards.damage_inflicted_rewards += delta_frame.dpercent[other_port] * scale
         rewards.damage_received_rewards += delta_frame.dpercent[port]
 
         if delta_frame.off_stage:
             rewards.off_stage_percents_inflicted += delta_frame.dpercent[other_port]
 
-        rewards.distance_rewards += delta_frame.ddist[port]
+        rewards.distance_rewards += np.maximum(delta_frame.ddist[port], 0)
         rewards.energy_costs += current_action.energy_cost
 
         if delta_frame.dpercent[other_port] > 0:
-            bonus = 2
-            if self.last_hit_action_state == delta_frame.action[port]:
-                bonus = 0.1
+            bonus = 1
+
+            if self.last_hit_action_state == delta_frame.action[port]\
+                    or delta_frame.dpercent[other_port] <= 5 :
+                bonus = 0.05
 
             self.combo_counter = np.minimum(self.combo_counter + bonus, self.max_combo_score)
             self.last_hit_action_state = delta_frame.action[port]
@@ -243,7 +266,11 @@ class RewardFunction:
             self.int_combo_counter = 0
 
         rewards.combo_length = self.int_combo_counter
+        rewards.distance = delta_frame.dist[port]
+        rewards.away_penalty += np.float32(delta_frame.dist[port] > 75)
         self.discount_combo()
+
+
 
 
     def compute(self, rewards: StepRewards, opponent_combo_count):
@@ -267,16 +294,20 @@ class RewardFunction:
         #         rewards.damage_received_rewards * self.damage_received_scale * combo_breaking_bonus,
         #       combo_breaking_bonus,
         #         rewards.distance_rewards * self.distance_reward_scale)
+        win_rewards = np.float32(self.total_kills >= 1) * np.maximum(rewards.win_rewards, 0.) + np.minimum(rewards.win_rewards, 0.)
+
+        offstage_bonus_scale = self.bot_config.off_stage_plays
+        offstage_bonus_scale = 0.05 + offstage_bonus_scale * 0.95
 
         return (
                 rewards.kill_rewards * self.kill_reward_scale
                 - rewards.death_rewards * self.death_reward_scale
-                + rewards.win_rewards * self.bot_config.winning_desire * np.float32(self.total_kills>=3)
+                + win_rewards * self.bot_config.winning_desire * 10 * 0. # DISABLED
                 + (rewards.damage_inflicted_rewards +
-                   rewards.off_stage_percents_inflicted*self.bot_config.off_stage_plays/100)
+                   rewards.off_stage_percents_inflicted*offstage_bonus_scale)
                 * self.damage_inflicted_scale * combo_gaming_bonus
                 - rewards.damage_received_rewards * self.damage_received_scale * combo_breaking_bonus
                 + rewards.distance_rewards * self.distance_reward_scale
               #  - rewards.energy_costs * self.energy_cost_scale
-              #  - self.time_cost
+                - rewards.away_penalty * self.away_penalty_scale
         )

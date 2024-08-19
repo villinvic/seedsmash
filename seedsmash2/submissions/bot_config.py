@@ -1,3 +1,4 @@
+import hashlib
 from typing import NamedTuple, Union
 
 import numpy as np
@@ -219,64 +220,6 @@ whether your bot wins or loses.
 - the model used for the policy.
     """
 
-    def __post_init__(self):
-        self._id = np.random.randint(2**32)
-        default_config = BotConfig
-
-        # validate inputs
-        # raise an error if one input is wrong, or switch to default.
-
-
-        def validation_message(value, field, default):
-            print(f"({self.tag} BotConfig) The value {value} for parameter {field} is invalid, using default {default} instead.")
-
-        if not 3 <= len(self.username) <= 16:
-            raise ValueError(f"Username {self.username} is too short/long.")
-        if not 3 <= len(self.tag) <= 16:
-            raise ValueError(f"Username {self.tag} is too short/long.")
-
-        try:
-            self.character = char_to_enum[self.character]
-        except:
-            validation_message(self.character, "character", default_config.character)
-            self.character = char_to_enum[default_config.character]
-
-        try:
-            costume_id = int(self.costume)
-            self.costume = costume_id
-        except Exception:
-            try:
-                costume_color = self.costume.lower()
-                self.costume = color2index[self.character][costume_color]
-            except Exception:
-                validation_message(self.costume, "costume", default_config.costume)
-                self.costume = default_config.costume
-
-        try:
-            self.preferred_stage = stage_to_enum[self.preferred_stage]
-        except Exception:
-            validation_message(self.character, "preferred_stage", default_config.preferred_stage)
-            self.preferred_stage = default_config.preferred_stage
-
-        # try:
-        #     self.random_action_chance = np.float32(self.random_action_chance)
-        # except Exception:
-        #     validation_message(self.random_action_chance, "random_action_chance", default_config.random_action_chance)
-        #     self.random_action_chance = default_config.random_action_chance
-
-        for field in self.__characterisation_fields__:
-            try:
-                v =  np.float32(getattr(self, field))
-                if not (0<=v<=100):
-                    raise ValueError
-                else:
-                    setattr(self, field, v)
-            except Exception:
-                default_value = getattr(default_config, field)
-                validation_message(v, field,
-                                   default_value)
-                setattr(self, field, default_value)
-
 
     __field_docs__ = {}
     __characterisation_fields__ = sorted([
@@ -311,10 +254,11 @@ For now, if your tag is taken, a number will be added at the end of the tag.
     __field_docs__["character"] = """Character to be mained.
 
 Should be among the following:
-MARIO, FOX, CPTFALCON, LINK, JIGGLYPUFF, MARTH, YLINK, DOC, FALCO, GANONDORF, ROY
+MARIO, FOX, CPTFALCON, LINK, JIGGLYPUFF, MARTH, YLINK, DOC, FALCO, GANONDORF, ROY, DK, BOWSER, NESS, PEACH, PIKACHU,
+SAMUS, YOSHI, MEWTWO, LUIGI, PICHU, GAMEANDWATCH
 
 Yet unsupported characters:
-DK, KIRBY, BOWSER, NESS, PEACH, POPO, PIKACHU, SAMUS, YOSHI, MEWTWO, LUIGI, ZELDA, PICHU, GAMEANDWATCH
+KIRBY, POPO, ZELDA, SHEIK
     """
 
     costume: Union[int, str] = "default"
@@ -338,10 +282,16 @@ Note: An extreme configuration will certainly lead to poor results. Experiment a
 Your bot picks this stage with a higher chance.
 
 Should be among the following:
-FINAL_DESTINATION, BATTLEFIELD, POKEMON_STADIUM, DREAMLAND
-Yet unsupported stages (buggy):
-FOUNTAIN_OF_DREAMS, YOSHIS_STORY
+FINAL_DESTINATION, BATTLEFIELD, POKEMON_STADIUM, DREAMLAND, FOUNTAIN_OF_DREAMS, YOSHIS_STORY
         """
+
+    coaching_bot: Union[None, str] = None
+    __field_docs__["coaching_bot"] = """Coaching bot
+    
+Nametag of the bot to be coaching your bot for the first days of training.
+Your bot will (try to) learn from his own experience as well as from his coaching bot,
+even if it is playing another character !
+            """
 
     # We should control entropy on our side, in order to ensure no bot collapses mid training
 
@@ -457,5 +407,78 @@ Boosts exponentially the penalties received for each consecutive hit of the oppo
 This incentives your bot to avoid combos/break out of combos. 
 By default this is set to 0.
                             """
+
+    def __post_init__(self):
+        default_config = BotConfig
+
+        # validate inputs
+        # raise an error if one input is wrong, or switch to default.
+
+        def validation_message(value, field, default):
+            print(
+                f"({self.tag} BotConfig) The value {value} for parameter {field} is invalid, using default {default} instead.")
+
+        if not 3 <= len(self.username) <= 16:
+            raise ValueError(f"Username {self.username} is too short/long.")
+        if not 3 <= len(self.tag) <= 16:
+            raise ValueError(f"Username {self.tag} is too short/long.")
+
+        try:
+            self.character = char_to_enum[self.character]
+        except:
+            validation_message(self.character, "character", default_config.character)
+            self.character = char_to_enum[default_config.character]
+
+        try:
+            costume_id = int(self.costume)
+            self.costume = costume_id
+        except Exception:
+            try:
+                costume_color = self.costume.lower()
+                self.costume = color2index[self.character][costume_color]
+            except Exception:
+                validation_message(self.costume, "costume", default_config.costume)
+                self.costume = default_config.costume
+
+        try:
+            self.preferred_stage = stage_to_enum[self.preferred_stage]
+        except Exception:
+            validation_message(self.character, "preferred_stage", default_config.preferred_stage)
+            self.preferred_stage = default_config.preferred_stage
+
+        # try:
+        #     self.random_action_chance = np.float32(self.random_action_chance)
+        # except Exception:
+        #     validation_message(self.random_action_chance, "random_action_chance", default_config.random_action_chance)
+        #     self.random_action_chance = default_config.random_action_chance
+
+        for field in self.__characterisation_fields__:
+            try:
+                v = np.float32(getattr(self, field))
+                if not (0 <= v <= 100):
+                    raise ValueError
+                else:
+                    setattr(self, field, v)
+            except Exception:
+                default_value = getattr(default_config, field)
+                validation_message(v, field,
+                                   default_value)
+                setattr(self, field, default_value)
+
+        hash_object = hashlib.sha256(self.tag.encode())
+        hash_hex = hash_object.hexdigest()
+        hash_int = int(hash_hex, 16)
+        normalized_hash = (hash_int % (2 ** 32))
+        rng = np.random.default_rng(normalized_hash)
+        self._id = rng.integers(0, 2 ** 32)
+
+        # Curriculum
+        self._distance_reward_scale = 0.
+        self._damage_penalty_scale = 1.
+        self._damage_reward_scale = 1.
+        self._coaching_scale = 0.
+        self.__curriculum_fields__ = ["_distance_reward_scale", "_damage_penalty_scale", "_damage_reward_scale",
+                                      "_coaching_scale"]
+
 
 

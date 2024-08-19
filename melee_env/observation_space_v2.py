@@ -33,12 +33,13 @@ def randall_position(frame, stage):
 
     return y, x1, x2
 
+
 class StateDataInfo:
     CONTINUOUS = "continuous"
     BINARY = "binary"
     CATEGORICAL = "categorical"
 
-    HARD_BOUNDS = (-5., 5)
+    HARD_BOUNDS = (-7., 7)
 
     def __init__(
             self, extractor, nature, name="UNSET", scale=1., size=1, player_port=None, config={}
@@ -118,7 +119,7 @@ class StateDataInfo:
 class ObsBuilder:
     FRAME_SCALE = 0.01
     SPEED_SCALE = 0.2
-    POS_SCALE = 0.005
+    POS_SCALE = 0.01
     HITBOX_SCALE = 0.1
     PERCENT_SCALE = 0.009
     FD = FrameData()
@@ -246,11 +247,11 @@ class ObsBuilder:
                                     size=4,
                                     config=self.config,
                                     ),
-            edge_position=StateDataInfo(lambda s: stages.EDGE_POSITION[s.stage],
-                                        StateDataInfo.CONTINUOUS,
-                                        scale=ObsBuilder.POS_SCALE,
-                                        config=self.config,
-                                        ),
+            # edge_position=StateDataInfo(lambda s: stages.EDGE_POSITION[s.stage],
+            #                             StateDataInfo.CONTINUOUS,
+            #                             scale=ObsBuilder.POS_SCALE,
+            #                             config=self.config,
+            #                             ),
             # edge_ground_position=StateDataInfo(lambda s: stages.EDGE_GROUND_POSITION[s.stage],
             #                                    StateDataInfo.CONTINUOUS,
             #                                    scale=ObsBuilder.POS_SCALE,
@@ -369,6 +370,14 @@ class ObsBuilder:
                                            config=self.config)
                 for i, other_port in enumerate(range(1, self.num_players + 1)) if other_port != port
             }
+
+            def get_ledge_distance(s):
+                dr = s.players[port].position.x - stages.EDGE_POSITION[s.stage]
+                dl = - s.players[port].position.x - stages.EDGE_POSITION[s.stage]
+                if abs(dr) < abs(dl):
+                    return dr
+                else:
+                    return dl
 
             return dict(
                 percent=StateDataInfo(lambda s: s.players[port].percent,
@@ -521,6 +530,13 @@ class ObsBuilder:
                                        scale=ObsBuilder.POS_SCALE,
                                        player_port=port,
                                        config=self.config),
+                ledge_distance=StateDataInfo(get_ledge_distance,
+                                       StateDataInfo.CONTINUOUS,
+                                       size=1,
+                                       scale=ObsBuilder.POS_SCALE,
+                                       player_port=port,
+                                       config=self.config,
+                ),
                 character=StateDataInfo(lambda s: all_chars_to_used[s.players[port].character],
                                         StateDataInfo.CATEGORICAL,
                                         size=n_characters,

@@ -5,13 +5,15 @@ import tree
 from polaris.policies.parametrised import ParametrisedPolicy
 from polaris.experience import SampleBatch, get_epochs
 from polaris.models.utils import EpsilonCategorical
-from polaris.policies import VMPO
+from polaris.policies import VMPO, PolicyParams
 
 import numpy as np
 import tensorflow as tf
 
 from polaris.policies.utils.return_based_scaling import ReturnBasedScaling
 from polaris.policies.utils.popart import Popart
+
+from seedsmash2.curriculum import Curriculum
 
 tf.compat.v1.enable_eager_execution()
 
@@ -26,16 +28,34 @@ class APPOAS(ParametrisedPolicy):
             self,
             *args,
             is_online=False,
+            config=None,
+            policy_config=None,
+            options=None,
             **kwargs
     ):
+
         self.is_online = is_online
         if self.is_online:
-            self.offline_policy = APPOAS(*args, online=False, **kwargs)
+            self.curriculum_module = Curriculum(
+                config=config,
+                policy_config=policy_config,
+                bot_config=options
+            )
+            self.offline_policy = APPOAS(
+                *args,
+                config=config,
+                policy_config=policy_config,
+                options=options,
+                online=False,
+                **kwargs)
         else:
             self.offline_policy = None
 
         super().__init__(
             *args,
+            config=config,
+            policy_config=policy_config,
+            options=options,
             **kwargs
         )
 
@@ -47,6 +67,7 @@ class APPOAS(ParametrisedPolicy):
             learning_rate=self.policy_config.popart_lr,
             std_clip=self.policy_config.popart_std_clip
         )
+
 
     def init_model(self):
         super().init_model()
@@ -62,6 +83,16 @@ class APPOAS(ParametrisedPolicy):
 
 
     def get_params(self, online=False):
+        if online:
+            return PolicyParams(
+                name=self.name,
+                weights=self.get_weights(),
+                config=self.policy_config,
+                options=self.curriculum_module.current_config,
+                version=self.version,
+                stats=self.stats,
+                policy_type=self.policy_type
+            )
         if not online and self.is_online:
             return self.offline_policy.get_params()
         else:
@@ -80,6 +111,7 @@ class APPOAS(ParametrisedPolicy):
             self,
             input_batch: SampleBatch,
             action_state_values,
+            coaching_model = None,
     ):
         preprocess_start_time = time.time()
         res = super().train(input_batch)
@@ -140,9 +172,6 @@ class APPOAS(ParametrisedPolicy):
 
 
 
-
-
-
         nn_train_time = time.time()
 
         # TODO: use tf dataset, or see whats happening with the for loop inside the tf function
@@ -151,7 +180,8 @@ class APPOAS(ParametrisedPolicy):
 
 
         metrics = self._train(
-            input_batch=time_major_batch
+            input_batch=time_major_batch,
+            coaching_model=coaching_model
         )
 
         popart_update_time = time.time()
@@ -165,6 +195,12 @@ class APPOAS(ParametrisedPolicy):
 
         if self.version % self.policy_config.target_update_freq == 0:
             self.update_offline_model()
+
+        if self.version % self.curriculum_module.update_freq == 0:
+            self.curriculum_module.update(self.version)
+
+        metrics["curriculum"] = self.curriculum_module.get_metrics()
+
 
         metrics.update(**res,
                        preprocess_time_ms=(nn_train_time-preprocess_start_time)*1000.,
@@ -180,17 +216,22 @@ class APPOAS(ParametrisedPolicy):
     @tf.function
     def _train(
             self,
-            input_batch
+            input_batch,
+            coaching_model=None,
     ):
         #B, T = tf.shape(input_batch[SampleBatch.OBS])
-        with tf.GradientTape() as tape:
+        with (tf.GradientTape() as tape):
             with tf.device('/gpu:0'):
                 (action_logits, _), all_vf_preds = self.model(
                     input_batch
                 )
-                (offline_logits, _), _ = self.offline_policy.model(
-                    input_batch
-                )
+
+                if self.policy_config.target_update_freq == 1:
+                    offline_logits = action_logits
+                else:
+                    (offline_logits, _), _ = self.offline_policy.model(
+                        input_batch
+                    )
 
                 mask_all = tf.transpose(tf.sequence_mask(input_batch[SampleBatch.SEQ_LENS], maxlen=self.config.max_seq_len+1), [1, 0])
                 mask = mask_all[:-1]
@@ -214,7 +255,8 @@ class APPOAS(ParametrisedPolicy):
                 # no need to stop the gradient here
                 clipped_rhos= tf.stop_gradient(tf.minimum(1.0, rhos, name='cs'))
 
-                rewards = input_batch[SampleBatch.REWARD] + input_batch["action_state_rewards"]
+                rewards = input_batch[SampleBatch.REWARD] + (input_batch["action_state_rewards"] *
+                self.curriculum_module.train_config["action_state_reward_scale"])
 
                 with tf.device('/cpu:0'):
                     vtrace_returns = compute_vtrace(
@@ -222,7 +264,7 @@ class APPOAS(ParametrisedPolicy):
                     dones=input_batch[SampleBatch.DONE],
                     values=unnormalised_vf_pred,#vf_preds,
                     next_values=unnormalised_next_vf_pred,
-                    discount=self.policy_config.discount,
+                    discount=self.curriculum_module.train_config["discount"],
                     clipped_rhos=clipped_rhos,
                     bootstrap_v=unnormalised_bootstrap_v,
                     mask=mask,
@@ -268,6 +310,14 @@ class APPOAS(ParametrisedPolicy):
 
                 total_loss = critic_loss + policy_loss - mean_entropy * self.policy_config.entropy_cost + self.policy_config.ppo_kl_coeff * mean_kl
 
+                if coaching_model is not None:
+                    (coaching_logits, _), _ = coaching_model(
+                        input_batch
+                    )
+                    coaching_dist = self.model.action_dist(tf.stop_gradient(coaching_logits[:-1]))
+                    kl_coach_online = tf.boolean_mask(coaching_dist.kl(action_logits), mask)
+
+                    total_loss += kl_coach_online * self.curriculum_module.current_config._coaching_scale
 
 
         vars = self.model.trainable_variables

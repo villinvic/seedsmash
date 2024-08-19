@@ -410,6 +410,13 @@ class SSBM(PolarisEnv):
             # Wait for the matchmaking animation to end
             time.sleep(7)
 
+        costumes = [options[p].costume for p in self.get_agent_ids()]
+        if chars[0] == chars[1] and costumes[0] == costumes[1]:
+            l = [0,1,2,3]
+            if costumes[0] in l:
+                l.remove(costumes[0])
+            costumes[1] = np.random.choice(l)
+
         while state.menu_state not in [melee.Menu.IN_GAME, melee.Menu.SUDDEN_DEATH]:
             for port, controller in self.controllers.items():
                 curr_port = self.current_aids[port]
@@ -420,7 +427,7 @@ class SSBM(PolarisEnv):
                         controller,
                         chars[port-1], # we reverse chars when needed
                         stage,
-                        costume=0 if curr_port not in options else options[curr_port].costume,
+                        costume=0 if curr_port not in options else costumes[port-1],
                         autostart=press_start,
                         cpu_level=cpu_level
                     )
@@ -469,9 +476,11 @@ class SSBM(PolarisEnv):
                         )
                         if next_input:
                             active_actions[port], curr_sequence = next_input
+                            gs = self.get_gamestate()
+                            ps = gs.players[port]
                             SSBM.PAD_INTERFACE.send_controller(active_actions[port], self.controllers[port],
                                                                # Additionally pass some info to filter out dumb actions
-                                                               self.get_gamestate().players[port],
+                                                               gs, ps,
                                                                # If the action is dumb, we want to terminate the current
                                                                # sequence
                                                                curr_sequence)
@@ -601,7 +610,7 @@ class SSBM(PolarisEnv):
             for rid, r in rewards[port].to_dict().items():
                 self.episode_metrics[f"{curr_port}/{rid}"] += r
                 if done:
-                    self.episode_metrics[f"{curr_port}/{rid}"] /= self.episode_length
+                    self.episode_metrics[f"{curr_port}/per_frame/{rid}"] = self.episode_metrics[f"{curr_port}/{rid}"]/self.episode_length
 
         self.episode_length += 1
 
