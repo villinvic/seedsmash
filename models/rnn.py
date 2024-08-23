@@ -102,39 +102,39 @@ class RNN(BaseModel):
         # have a small self action_state embedding
         # have a small joint char/action_state embedding
 
-        self.last_action_embed = snt.Embed(
-            vocab_size=self.num_outputs,
-            embed_dim=self.last_action_embedding_size,
-            densify_gradients=True,
-            name="last_action_embed"
-        )
-        self.common_action_state_embed = snt.Embed(
-            vocab_size=self.n_action_states,
-            embed_dim=128,
-            densify_gradients=True,
-            name="common_action_state_embed"
-        )
-
-        self.self_action_state_embed = snt.Embed(
-            vocab_size=self.n_action_states,
-            embed_dim=16,
-            densify_gradients=True,
-            name="self_action_state_embed"
-        )
-
-        self.opp_joint_char_action_state_embed = snt.Embed(
-            vocab_size=self.n_action_states*self.n_chars,
-            embed_dim=16,
-            densify_gradients=True,
-            name="opp_joint_char_action_state_embed"
-        )
-
-        self.opp_char_embed = snt.Embed(
-            vocab_size=self.n_chars,
-            embed_dim=8,
-            densify_gradients=True,
-            name="opp_char_embed"
-        )
+        # self.last_action_embed = snt.Embed(
+        #     vocab_size=self.num_outputs,
+        #     embed_dim=self.last_action_embedding_size,
+        #     densify_gradients=True,
+        #     name="last_action_embed"
+        # )
+        # self.common_action_state_embed = snt.Embed(
+        #     vocab_size=self.n_action_states,
+        #     embed_dim=128,
+        #     densify_gradients=True,
+        #     name="common_action_state_embed"
+        # )
+        #
+        # self.self_action_state_embed = snt.Embed(
+        #     vocab_size=self.n_action_states,
+        #     embed_dim=16,
+        #     densify_gradients=True,
+        #     name="self_action_state_embed"
+        # )
+        #
+        # self.opp_joint_char_action_state_embed = snt.Embed(
+        #     vocab_size=self.n_action_states*self.n_chars,
+        #     embed_dim=16,
+        #     densify_gradients=True,
+        #     name="opp_joint_char_action_state_embed"
+        # )
+        #
+        # self.opp_char_embed = snt.Embed(
+        #     vocab_size=self.n_chars,
+        #     embed_dim=8,
+        #     densify_gradients=True,
+        #     name="opp_char_embed"
+        # )
 
         # self.opp_char_state_joint_embed = snt.Embed(
         #     vocab_size=self.n_chars * self.n_action_states,
@@ -233,7 +233,7 @@ class RNN(BaseModel):
         x = self._mlp(obs_input_post_embedding)
 
         lstm_input = self.lstm_input_concat(
-            [x, tf.tanh(tf.expand_dims(tf.cast(prev_reward, dtype=tf.float32), axis=-1) / 5.),  last_action_one_hot]
+            [x, last_action_one_hot]
         )
 
         if single_obs:

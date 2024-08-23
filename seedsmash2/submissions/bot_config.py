@@ -287,7 +287,8 @@ FINAL_DESTINATION, BATTLEFIELD, POKEMON_STADIUM, DREAMLAND, FOUNTAIN_OF_DREAMS, 
 
     coaching_bot: Union[None, str] = None
     __field_docs__["coaching_bot"] = """Coaching bot
-    
+
+Leave as None if you want the bot to learn by itself (slower initialisation).
 Nametag of the bot to be coaching your bot for the first days of training.
 Your bot will (try to) learn from his own experience as well as from his coaching bot,
 even if it is playing another character !
@@ -344,11 +345,11 @@ By default, this is set to 50.
 
     winning_desire: float = 0
     __field_docs__["winning_desire"] = """(Play-style) Winning desire.
+Valid range: [0, 100]
 
 Strength of the reward signal received by your bot when winning, on top of the reward received when your opponent 
 loses its last stock.
 
-A reasonable range for the signal is 0-10
 By default, this is set to 0.
                 """
 
@@ -451,6 +452,9 @@ By default this is set to 0.
         # except Exception:
         #     validation_message(self.random_action_chance, "random_action_chance", default_config.random_action_chance)
         #     self.random_action_chance = default_config.random_action_chance
+
+        if self.coaching_bot in ("None", "none", "null", "0", ""):
+            self.coaching_bot = None
 
         for field in self.__characterisation_fields__:
             try:

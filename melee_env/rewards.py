@@ -190,16 +190,16 @@ class RewardFunction:
         self.damage_received_scale = 0.05 * (1 - agressivity_p) * self.bot_config._damage_penalty_scale
         self.kill_reward_scale = 10. * agressivity_p
         self.death_reward_scale = 10. * (1 - agressivity_p)
-        self.away_penalty_scale = 4 * 0.00010416 * (1-self.bot_config.patience / 100)
+        self.time_cost = 0.002
         self.distance_reward_scale = 3.e-3 * self.bot_config._distance_reward_scale
-        self.energy_cost_scale = 2.e-4
+        self.energy_cost_scale = 0.003
 
         self.combo_counter = 0.
         self.int_combo_counter = 0
 
         self.last_hit_action_state = Action.KIRBY_BLADE_UP
-        self.max_combo_score = 4
-        self.linear_discount = 1/60
+        self.max_combo_score = 6
+        self.linear_discount = 1/70
 
         self.total_kills = 0
 
@@ -239,8 +239,8 @@ class RewardFunction:
 
         # we decay rewards as we have more percent
         scale = 1.
-        if delta_frame.last_frame.players[other_port].percent > 75:
-            scale = np.maximum(0, 1-(delta_frame.last_frame.players[other_port].percent-75)/(135-85))
+        if delta_frame.last_frame.players[other_port].percent > 85:
+            scale = np.maximum(0, 1-(delta_frame.last_frame.players[other_port].percent-85)/(135-85))
 
         rewards.damage_inflicted_rewards += delta_frame.dpercent[other_port] * scale
         rewards.damage_received_rewards += delta_frame.dpercent[port]
@@ -277,8 +277,8 @@ class RewardFunction:
 
         # TODO: use logspace for bot config !
 
-        combo_gaming_bonus = (1 + 5e-3 * self.int_combo_counter * self.bot_config.combo_game)
-        combo_breaking_bonus = (1 + 5e-3 * opponent_combo_count * self.bot_config.combo_breaker)
+        combo_gaming_bonus = (1 + 6e-3 * self.int_combo_counter * self.bot_config.combo_game)
+        combo_breaking_bonus = (1 + 6e-3 * opponent_combo_count * self.bot_config.combo_breaker)
 
         # input("ENTER")
         # print(
@@ -294,20 +294,20 @@ class RewardFunction:
         #         rewards.damage_received_rewards * self.damage_received_scale * combo_breaking_bonus,
         #       combo_breaking_bonus,
         #         rewards.distance_rewards * self.distance_reward_scale)
-        win_rewards = np.float32(self.total_kills >= 1) * np.maximum(rewards.win_rewards, 0.) + np.minimum(rewards.win_rewards, 0.)
+        win_rewards = np.float32(self.total_kills >= 3) * np.maximum(rewards.win_rewards, 0.) + np.minimum(rewards.win_rewards, 0.)
 
-        offstage_bonus_scale = self.bot_config.off_stage_plays
-        offstage_bonus_scale = 0.05 + offstage_bonus_scale * 0.95
+        offstage_bonus_scale = self.bot_config.off_stage_plays / 100
+        offstage_bonus_scale = 0.05 + offstage_bonus_scale * 3.
 
         return (
                 rewards.kill_rewards * self.kill_reward_scale
                 - rewards.death_rewards * self.death_reward_scale
-                + win_rewards * self.bot_config.winning_desire * 10 * 0. # DISABLED
+                + win_rewards * self.bot_config.winning_desire * 0.25
                 + (rewards.damage_inflicted_rewards +
                    rewards.off_stage_percents_inflicted*offstage_bonus_scale)
                 * self.damage_inflicted_scale * combo_gaming_bonus
                 - rewards.damage_received_rewards * self.damage_received_scale * combo_breaking_bonus
                 + rewards.distance_rewards * self.distance_reward_scale
-              #  - rewards.energy_costs * self.energy_cost_scale
-                - rewards.away_penalty * self.away_penalty_scale
+                - rewards.energy_costs * self.energy_cost_scale
+                - self.time_cost
         )

@@ -51,6 +51,7 @@ class SeedSmashTrainer(Checkpointable):
         self.PolicylCls = getattr(importlib.import_module(self.config.policy_path), self.config.policy_class)
         self.policy_map: Dict[str, Policy] = {}
 
+        self.curriculum_params_map = ParamsMap()
         self.params_map = ParamsMap()
 
         self.experience_queue: Dict[str, ExperienceQueue] = {}
@@ -104,6 +105,7 @@ class SeedSmashTrainer(Checkpointable):
                 GlobalCounter[GlobalCounter.ENV_STEPS] = self.metrics["counters/" + GlobalCounter.ENV_STEPS].get()
 
             for policy_name, params in self.params_map.items():
+                params.config["entropy_cost"] = 8e-4
                 self.policy_map[policy_name] = self.PolicylCls(
                     name=policy_name,
                     action_space=self.env.action_space,
@@ -116,9 +118,17 @@ class SeedSmashTrainer(Checkpointable):
                     is_online=True,
                 )
                 self.policy_map[policy_name].setup(params)
+                self.policy_map[policy_name].curriculum_module.update(params.version)
+                self.policy_map[policy_name].update_offline_model()
+
+                # We pass again with curriculum stuff
+                self.curriculum_params_map[policy_name] = self.policy_map[policy_name].get_params()
+
                 self.experience_queue[policy_name] = ExperienceQueue(self.config)
 
         self.inject_bot_configs()
+        self.worker_set.init_window()
+        self.matchmaking.init_window()
         GlobalTimer["inject_new_bots_timer"] = time.time()
 
 
@@ -132,6 +142,7 @@ class SeedSmashTrainer(Checkpointable):
                 if bot_config.tag == pid:
                     policy_config = copy.deepcopy(self.config.default_policy_config)
                     inject_botconfig(policy_config, bot_config)
+                    policy_config["entropy_cost"] = 8e-4
 
                     self.policy_map[pid] = self.PolicylCls(
                         name=pid,
@@ -144,7 +155,23 @@ class SeedSmashTrainer(Checkpointable):
                         # For any algo that needs to track either we have the online model
                         is_online=True,
                     )
-                    self.params_map[pid] = self.policy_map[pid].get_params()
+                    self.policy_map[pid].curriculum_module.update(0)
+                    self.policy_map[pid].update_offline_model()
+
+                    p = self.policy_map[pid].get_params()
+                    self.curriculum_params_map[pid] = p
+                    self.params_map[pid] = PolicyParams(
+                        name=p.name,
+                        weights=p.weights,
+                        config=p.config,
+                        options=self.policy_map[pid].options,
+                        stats=p.stats,
+                        version=p.version,
+                        policy_type=p.policy_type,
+                    )
+
+                    print(self.curriculum_params_map[pid].options, self.params_map[pid].options)
+
                     self.experience_queue[pid] = ExperienceQueue(self.config)
                     self.action_state_values[pid] = ActionStateValues(self.policy_map[pid].policy_config)
 
@@ -162,10 +189,10 @@ class SeedSmashTrainer(Checkpointable):
 
         t.append(time.time())
         n_jobs = self.worker_set.get_num_worker_available()
-        jobs = [self.matchmaking.next(self.params_map) for _ in range(n_jobs)]
+        jobs = [self.matchmaking.next(self.curriculum_params_map) for _ in range(n_jobs)]
         t.append(time.time())
 
-        self.runnning_jobs += self.worker_set.push_jobs(jobs, self.policy_map)
+        self.runnning_jobs += self.worker_set.push_jobs(jobs, self.curriculum_params_map)
         experience_metrics = []
         t.append(time.time())
         frames = 0
@@ -224,15 +251,44 @@ class SeedSmashTrainer(Checkpointable):
         training_metrics = {}
         for policy_name, policy_queue in self.experience_queue.items():
             if policy_queue.is_ready():
+                coaching_policy = None if self.policy_map[policy_name].options.coaching_bot is None\
+                    else self.policy_map.get(self.policy_map[policy_name].options.coaching_bot, None)
+                coaching_batch = None
+                if coaching_policy is not None:
+                    coaching_model = coaching_policy.model
+                    if self.experience_queue[self.policy_map[policy_name].options.coaching_bot].last_batch is None:
+                        # Wait for the batch to be initialised before imitation
+                        # TODO: check if problematic when the batch does not update at a low freq
+                        continue
+                    else:
+                        coaching_batch = self.experience_queue[self.policy_map[policy_name].options.coaching_bot].last_batch
+                else:
+                    coaching_model = None
+                    if coaching_model is None and not (self.policy_map[policy_name].options.coaching_bot is None):
+                        print(f"Missing coaching policy !: {self.policy_map[policy_name].options.coaching_bot}.")
+
                 train_results = self.policy_map[policy_name].train(
                     policy_queue.pull(self.config.train_batch_size),
                     self.action_state_values[policy_name],
-                    coaching_model=None if self.policy_map[policy_name].options.coaching_bot is None
-                    else self.policy_map[self.policy_map[policy_name].options.coaching_bot].model
+                    coaching_model=coaching_model,
+                    coaching_batch=coaching_batch
                 )
+
                 training_metrics[f"{policy_name}"] = train_results
                 GlobalCounter.incr(GlobalCounter.STEP)
-                self.params_map[policy_name] = self.policy_map[policy_name].get_params()
+
+                p = self.policy_map[policy_name].get_params()
+                self.curriculum_params_map[policy_name] = p
+                self.params_map[policy_name] = PolicyParams(
+                    name=p.name,
+                    weights=p.weights,
+                    config=p.config,
+                    options=self.policy_map[policy_name].options,
+                    stats=p.stats,
+                    version=p.version,
+                    policy_type=p.policy_type,
+                )
+
         #grad_thread_out = self.grad_thread.get_metrics()
 
         # training_metrics = []
@@ -327,7 +383,6 @@ class SeedSmashTrainer(Checkpointable):
         except Exception as e:
             print(e)
         #self.grad_thread.stop()
-
 
 class GradientThread(threading.Thread):
     def __init__(

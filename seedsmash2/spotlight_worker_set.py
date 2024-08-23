@@ -8,6 +8,7 @@ from polaris.policies.policy import PolicyParams
 import zmq
 import ray
 
+from seedsmash2.twitch_bot import TwitchBotPULL
 from seedsmash2.visualisation.matchmaking import MatchMakingWindow
 from seedsmash2.window_worker import WindowWorker
 
@@ -29,27 +30,42 @@ class SpotlightWorkerSet(WorkerSet):
             config: ConfigDict,
     ):
         super().__init__(config=config)
+        self.pipe_name = "matchmaking_pipe"
 
-        pipe_name = "matchmaking_pipe"
-        self.window = MatchMakingWindowWorker.remote(update_interval_s=1, pipe_name=pipe_name)
+    def init_window(self):
+        self.window = MatchMakingWindowWorker.remote(update_interval_s=1, pipe_name=self.pipe_name)
         context = zmq.Context()
         try:
-            os.unlink(pipe_name)
+            os.unlink(self.pipe_name)
         except:
             pass
         self.push_pipe = context.socket(zmq.PUSH)
-        self.push_pipe.bind(f"ipc://{pipe_name}")
+        self.push_pipe.bind(f"ipc://{self.pipe_name}")
+
+        self.twitch_requested_matchup_socket = TwitchBotPULL()
+
 
     def push_jobs(
             self,
             jobs: List,
-            policy_map,
+            params_map,
     ):
         job_refs = []
         hired_workers = set()
         for wid, job in zip(self.available_workers, jobs):
             if wid == 0:
                 # send matchmaking info to window:
+
+                requested_matchups = self.twitch_requested_matchup_socket.pull()
+                if len(requested_matchups)> 0:
+                    mu = requested_matchups[0]["requested_matchup"]
+                    if all([pid in params_map for pid in mu]):
+                        print("Playing requested matchup:", mu)
+                        job = {
+                            i: params_map[pid] for i, pid in enumerate(mu, 1)
+                        }
+                    else:
+                        print("Tried to play requested matchup:", mu)
 
                 self.push_pipe.send_pyobj(
                     {
@@ -61,11 +77,10 @@ class SpotlightWorkerSet(WorkerSet):
                             options=p.options,
                             stats=p.stats,
                         )
-                            for pid, p in policy_map.items()
+                            for pid, p in params_map.items()
                         }
                     }
                 )
-
 
             hired_workers.add(wid)
             job_refs.append(self.workers[wid].run_episode_for.remote(

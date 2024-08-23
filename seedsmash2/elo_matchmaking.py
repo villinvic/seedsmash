@@ -66,16 +66,18 @@ class SeedSmashMatchmaking(MatchMaking):
         self.win_rate_lr = win_rate_lr
         self.win_rates = defaultdict(lambda: 0.5)
 
-        pipe_name = "ratingdata_pipe"
+        self.pipe_name = "ratingdata_pipe"
+
+    def init_window(self):
         try:
-            os.remove(pipe_name)
+            os.remove(self.pipe_name)
         except Exception as e:
             print(e)
 
-        self.window = RankingWindowWorker.remote(update_interval_s=30, pipe_name=pipe_name)
+        self.window = RankingWindowWorker.remote(update_interval_s=30, pipe_name=self.pipe_name)
         context = zmq.Context()
         self.push_pipe = context.socket(zmq.PUSH)
-        self.push_pipe.bind(f"ipc://{pipe_name}")
+        self.push_pipe.bind(f"ipc://{self.pipe_name}")
 
     def next(
             self,
@@ -97,7 +99,7 @@ class SeedSmashMatchmaking(MatchMaking):
         rating_gaps = sampled_policy_rating - ratings
 
         winning_probs = self.expected_outcome(rating_gaps)
-        sigma_squared = (1/5)**2 #(1/6)**2 #
+        sigma_squared = (1/4)**2 #(1/6)**2 #
         probabilities = np.exp(-(winning_probs-0.5)**2/(2*sigma_squared)) / np.sqrt(2*np.pi*sigma_squared)
         probabilities /= probabilities.sum()
 

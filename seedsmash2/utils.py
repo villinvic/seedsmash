@@ -6,12 +6,12 @@ from seedsmash2.submissions.bot_config import BotConfig
 
 def inject_botconfig(policy_config, botconfig: BotConfig):
 
-    # patience of 0: half-life of 5 seconds
+    # patience of 0: half-life of 6 seconds
     # patience of 100: half-life of 18 seconds
     halflife = botconfig.reflexion / 100. * (18-5) + 5
     policy_config["discount"] = np.exp(-np.log(2)/(halflife*20))
 
-    creativity_coeff = np.exp((botconfig.creativity-50)/25)
+    creativity_coeff = np.exp((botconfig.creativity-50)/30)
     policy_config["action_state_reward_scale"] = creativity_coeff
 
 
@@ -24,7 +24,9 @@ class ActionStateValues:
         Action.EDGE_GETUP_QUICK, Action.EDGE_JUMP_1_QUICK, Action.EDGE_JUMP_2_QUICK,
         Action.EDGE_JUMP_1_SLOW, Action.EDGE_JUMP_2_SLOW, Action.EDGE_GETUP_SLOW,
         Action.EDGE_ROLL_QUICK, Action.EDGE_ROLL_SLOW, Action.DEAD_UP, Action.DEAD_FLY, Action.DEAD_FLY_SPLATTER,
-        Action.DEAD_DOWN, Action.DEAD_LEFT, Action.DEAD_RIGHT, Action.STANDING, Action.CROUCHING
+        Action.DEAD_DOWN, Action.DEAD_LEFT, Action.DEAD_RIGHT, Action.STANDING, Action.CROUCHING,
+        Action.LYING_GROUND_DOWN, Action.LYING_GROUND_UP, Action.LYING_GROUND_UP_HIT,
+        Action.SHIELD_BREAK_FLY, Action.SHIELD_BREAK_FALL, Action.SHIELD_BREAK_TEETER
     ]])
     wall_tech_states = np.array([a.value for a in [
         Action.WALL_TECH, Action.WALL_TECH_JUMP
@@ -38,7 +40,7 @@ class ActionStateValues:
         self.discarded_action_states = np.ones((self.n_action_states,), dtype=np.float32)
         self.discarded_action_states[self.discarded_states] = 0.
 
-        self.underused_prob = 1 / (60*self.n_action_states)
+        self.underused_prob = 5e-5
         self.overused_prob = 0.33
 
     def push_samples(self, action_states):
@@ -50,13 +52,21 @@ class ActionStateValues:
         np.clip(self.probs, 1e-6, 1., out=self.probs)
 
     def get_rewards(self, action_states):
-        underused_mask =  (self.probs < self.underused_prob)[action_states]
-        overused_mask = (self.probs > self.overused_prob)[action_states]
+        # underused_mask =  (self.probs < self.underused_prob)[action_states]
+        # overused_mask = (self.probs > self.overused_prob)[action_states]
         discarded_mask = self.discarded_action_states[action_states]
-        logprobs = np.log(self.probs)
-        rewards = (np.log(self.underused_prob) - logprobs[action_states]) * np.float32(underused_mask) * discarded_mask
-        penalty = (logprobs[action_states]-np.log(self.overused_prob)) * np.float32(overused_mask) * discarded_mask
-        return rewards-penalty
+        #logprobs = np.log(self.probs)
+        # rewards = (np.log(self.underused_prob) - logprobs[action_states]) * np.float32(underused_mask) * discarded_mask
+        # penalty = (logprobs[action_states]-np.log(self.overused_prob)) * np.float32(overused_mask) * discarded_mask
+
+        taken_action_state_probs = self.probs[action_states]
+        rewards = np.log(np.clip(taken_action_state_probs + (1 - self.underused_prob), 1e-8, 1)) * discarded_mask
+        penalty = np.log(np.clip(-taken_action_state_probs + (1 + self.overused_prob), 1e-8, 1)) * discarded_mask
+
+        rewards = np.square(rewards*8500.)*7.
+        penalty = np.square(penalty*6)*9.
+
+        return rewards - penalty
 
     def get_metrics(self):
         return {

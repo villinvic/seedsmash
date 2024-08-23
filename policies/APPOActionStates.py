@@ -35,6 +35,10 @@ class APPOAS(ParametrisedPolicy):
     ):
 
         self.is_online = is_online
+        self.popart_module = Popart(
+            learning_rate=policy_config.popart_lr,
+            std_clip=policy_config.popart_std_clip
+        )
         if self.is_online:
             self.curriculum_module = Curriculum(
                 config=config,
@@ -63,10 +67,7 @@ class APPOAS(ParametrisedPolicy):
         #     learning_rate=self.policy_config.popart_lr,
         #     std_clip=self.policy_config.popart_std_clip
         # )
-        self.popart_module = Popart(
-            learning_rate=self.policy_config.popart_lr,
-            std_clip=self.policy_config.popart_std_clip
-        )
+
 
 
     def init_model(self):
@@ -78,8 +79,21 @@ class APPOAS(ParametrisedPolicy):
             self.update_offline_model()
         else:
             pass
-            # TODO: add epsilon param, add vmpo config toggle
             #self.model.action_dist = partial(EpsilonCategorical, epsilon=self.policy_config.random_action_chance)
+
+    def get_weights(self):
+        w = super().get_weights()
+        w["popart"] = self.popart_module.get_weights()
+        return w
+
+
+    def set_weights(self, weights):
+        w = weights.copy()
+        popart_weights = w.pop("popart", None)
+        if popart_weights is not None:
+            self.popart_module.set_weights(popart_weights)
+
+        super().set_weights(w)
 
 
     def get_params(self, online=False):
@@ -112,6 +126,7 @@ class APPOAS(ParametrisedPolicy):
             input_batch: SampleBatch,
             action_state_values,
             coaching_model = None,
+            coaching_batch = None
     ):
         preprocess_start_time = time.time()
         res = super().train(input_batch)
@@ -132,44 +147,49 @@ class APPOAS(ParametrisedPolicy):
             action_states
         )
 
-        d = dict(input_batch)
-        d["action_state_rewards"] = action_state_rewards
-        seq_lens = d.pop(SampleBatch.SEQ_LENS)
-        time_major_batch = tree.map_structure(make_time_major, d)
-
+        input_batch["action_state_rewards"] = action_state_rewards
 
 
         def add_last_timestep(v1, v2):
             return np.concatenate([v1, v2[-1:]], axis=0)
 
+        def process_batch(b):
+            b = dict(b)
+            seq_lens = b.pop(SampleBatch.SEQ_LENS)
+            time_major_batch = tree.map_structure(make_time_major, b)
 
-        # def get_samples(v):
-        #     return v[:, :4]
-        #
-        # print(tree.map_structure(get_samples, time_major_batch[SampleBatch.OBS]))
+            # def get_samples(v):
+            #     return v[:, :4]
+            #
+            # print(tree.map_structure(get_samples, time_major_batch[SampleBatch.OBS]))
 
-        time_major_batch[SampleBatch.OBS] = tree.map_structure(
-            add_last_timestep,
-            time_major_batch[SampleBatch.OBS], time_major_batch[SampleBatch.NEXT_OBS]
-        )
+            time_major_batch[SampleBatch.OBS] = tree.map_structure(
+                add_last_timestep,
+                time_major_batch[SampleBatch.OBS], time_major_batch[SampleBatch.NEXT_OBS]
+            )
 
-        # print(tree.map_structure(get_samples, time_major_batch[SampleBatch.OBS]))
-        #
-        # print(time_major_batch[SampleBatch.AGENT_ID])
-
-
-        time_major_batch[SampleBatch.PREV_REWARD] = np.concatenate([time_major_batch[SampleBatch.PREV_REWARD], time_major_batch[SampleBatch.REWARD][-1:]], axis=0)
-        time_major_batch[SampleBatch.PREV_ACTION] = np.concatenate([time_major_batch[SampleBatch.PREV_ACTION], time_major_batch[SampleBatch.ACTION][-1:]], axis=0)
-        time_major_batch[SampleBatch.SEQ_LENS] = seq_lens
-        time_major_batch[SampleBatch.STATE] = tree.map_structure(lambda v: v[0], time_major_batch[SampleBatch.STATE])
+            # print(tree.map_structure(get_samples, time_major_batch[SampleBatch.OBS]))
+            #
+            # print(time_major_batch[SampleBatch.AGENT_ID])
 
 
-        # Sequence is one step longer if we are not done at timestep T
-        time_major_batch[SampleBatch.SEQ_LENS][
-            np.logical_and(seq_lens == self.config.max_seq_len,
-                           np.logical_not(time_major_batch[SampleBatch.DONE][-1])
-                           )] += 1
+            time_major_batch[SampleBatch.PREV_REWARD] = np.concatenate([time_major_batch[SampleBatch.PREV_REWARD], time_major_batch[SampleBatch.REWARD][-1:]], axis=0)
+            time_major_batch[SampleBatch.PREV_ACTION] = np.concatenate([time_major_batch[SampleBatch.PREV_ACTION], time_major_batch[SampleBatch.ACTION][-1:]], axis=0)
+            time_major_batch[SampleBatch.SEQ_LENS] = seq_lens
+            time_major_batch[SampleBatch.STATE] = tree.map_structure(lambda v: v[0], time_major_batch[SampleBatch.STATE])
 
+
+            # Sequence is one step longer if we are not done at timestep T
+            time_major_batch[SampleBatch.SEQ_LENS][
+                np.logical_and(seq_lens == self.config.max_seq_len,
+                               np.logical_not(time_major_batch[SampleBatch.DONE][-1])
+                               )] += 1
+
+            return time_major_batch
+
+        tm_input_batch = process_batch(input_batch)
+        if coaching_batch is not None:
+            coaching_batch = process_batch(coaching_batch)
 
 
         nn_train_time = time.time()
@@ -180,8 +200,9 @@ class APPOAS(ParametrisedPolicy):
 
 
         metrics = self._train(
-            input_batch=time_major_batch,
-            coaching_model=coaching_model
+            input_batch=tm_input_batch,
+            coaching_model=coaching_model,
+            coaching_batch=coaching_batch,
         )
 
         popart_update_time = time.time()
@@ -191,6 +212,8 @@ class APPOAS(ParametrisedPolicy):
 
         self.popart_module.batch_update(metrics["vtrace_mean"], metrics["vtrace_std"], value_out=self.model._value_out)
         metrics["popart"] = self.popart_module.get_metrics()
+        metrics["version"] = self.version
+
         metrics["action_state_values"] = action_state_values.get_metrics()
 
         if self.version % self.policy_config.target_update_freq == 0:
@@ -218,6 +241,7 @@ class APPOAS(ParametrisedPolicy):
             self,
             input_batch,
             coaching_model=None,
+            coaching_batch=None
     ):
         #B, T = tf.shape(input_batch[SampleBatch.OBS])
         with (tf.GradientTape() as tape):
@@ -311,13 +335,19 @@ class APPOAS(ParametrisedPolicy):
                 total_loss = critic_loss + policy_loss - mean_entropy * self.policy_config.entropy_cost + self.policy_config.ppo_kl_coeff * mean_kl
 
                 if coaching_model is not None:
-                    (coaching_logits, _), _ = coaching_model(
-                        input_batch
+                    (imitating_logits, _), _ = self.model(
+                        coaching_batch
                     )
-                    coaching_dist = self.model.action_dist(tf.stop_gradient(coaching_logits[:-1]))
-                    kl_coach_online = tf.boolean_mask(coaching_dist.kl(action_logits), mask)
+                    (coaching_logits, _), _ = coaching_model(
+                        coaching_batch
+                    )
+                    coaching_dist = self.model.action_dist(tf.stop_gradient(coaching_logits))
+                    kl_coach_online = tf.reduce_mean(tf.boolean_mask(coaching_dist.kl(imitating_logits), mask_all))
 
-                    total_loss += kl_coach_online * self.curriculum_module.current_config._coaching_scale
+                    # todo: imitation_loss_coeff
+                    total_loss += kl_coach_online * self.curriculum_module.current_config._coaching_scale * 0.1
+                else:
+                    kl_coach_online = 0.
 
 
         vars = self.model.trainable_variables
@@ -343,5 +373,6 @@ class APPOAS(ParametrisedPolicy):
             "rhos": tf.reduce_mean(rhos),
             "batch_abs_rewards": tf.reduce_mean(tf.math.abs(tf.boolean_mask(input_batch[SampleBatch.REWARD], mask))),
             "action_state_rewards":  tf.reduce_mean(tf.boolean_mask(input_batch["action_state_rewards"], mask)),
-            "offline_to_online_kl": kl_offline_to_online
+            "offline_to_online_kl": kl_offline_to_online,
+            "kl_coach_online": kl_coach_online
         }

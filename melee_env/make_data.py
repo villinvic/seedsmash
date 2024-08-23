@@ -56,6 +56,7 @@ class FrameData(dict):
                     pass
 
     def remaining_frame(self, char, action, frame):
+        frame = np.clip(frame, 0, 2**16)
         if self[char][action] < frame:
             self[char][action] = np.int32(frame)
 

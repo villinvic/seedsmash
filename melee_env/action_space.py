@@ -4,7 +4,7 @@ from enum import Enum, IntEnum
 from typing import Sequence, List, Union, Deque, Dict, Tuple, Any
 
 from gymnasium.spaces import Discrete
-from melee import ControllerState, enums, Controller, Console, PlayerState, stages
+from melee import ControllerState, enums, Controller, Console, PlayerState, stages, GameState
 from melee.enums import Button, Character, Action
 from functools import partial
 import itertools
@@ -584,6 +584,18 @@ def disable_in_air(game_state, char_state: PlayerState, curr_action: InputSequen
         curr_action.terminate()
     return allow
 
+def disable_on_shield(game_state, char_state: PlayerState, curr_action: InputSequence):
+    allow = not char_state.action in (Action.SHIELD_START, Action.SHIELD) # TODO: shield release as well ?
+    if not allow:
+        curr_action.terminate()
+    return allow
+
+
+def disable_on_shield_air(game_state, char_state: PlayerState, curr_action: InputSequence):
+    allow = (not char_state.action in (Action.SHIELD_START, Action.SHIELD)) and char_state.on_ground # TODO: shield release as well ?
+    if not allow:
+        curr_action.terminate()
+    return allow
 
 def check_kneebend(game_state, char_state: PlayerState, curr_action: InputSequence):
     allow = char_state.action == Action.KNEE_BEND
@@ -603,8 +615,22 @@ def allow_shield_drop(game_state, char_state: PlayerState, curr_action: InputSeq
         curr_action.terminate()
     return allow
 
-def allow_waveland(game_state, char_state: PlayerState, curr_action: InputSequence):
-    allow = not char_state.on_ground
+def allow_waveland(game_state: GameState, char_state: PlayerState, curr_action: InputSequence):
+
+    allow = not (char_state.off_stage or char_state.on_ground)
+    if allow:
+        dy_ground = char_state.position.y
+        allow = dy_ground < 3
+        if not allow:
+            for (y, x1, x2) in [stages.top_platform_position(game_state.stage),
+                                stages.side_platform_position(False, game_state),
+                                stages.side_platform_position(True, game_state)
+            ]:
+                dy = char_state.position.y - y
+                # we are above a platform
+                allow = (dy<3 and x1 < char_state.position.x < x2)
+                if allow:
+                    break
     if not allow:
         curr_action.terminate()
     return allow
@@ -615,6 +641,14 @@ def allow_wavedash(game_state, char_state: PlayerState, curr_action: InputSequen
     if not allow:
         curr_action.terminate()
     return allow
+
+def allow_l_down(game_state, char_state: PlayerState, curr_action: InputSequence):
+    allow = allow_waveland(game_state, char_state, curr_action)
+    allow = allow or char_state.on_ground
+    if not allow:
+        curr_action.terminate()
+    return allow
+
 
 
 # SPECIFIC TO DOC AND MARIO, multishine for fox and falco too OP
@@ -664,38 +698,40 @@ class SSBMActionSpace:
     # check for mario action state in tornado, not same as doc ?
 
     RESET_CONTROLLER = lambda _: InputSequence(ControllerInput(energy_cost=0.))
-    LEFT = lambda _: InputSequence(ControllerInput(stick=StickPosition.LEFT, energy_cost=0.))
-    RIGHT = lambda _: InputSequence(ControllerInput(stick=StickPosition.RIGHT, energy_cost=0.))
-    DOWN = lambda _: InputSequence(ControllerInput(stick=StickPosition.DOWN, energy_cost=0.))
-    UP = lambda _: InputSequence(ControllerInput(stick=StickPosition.UP, energy_cost=0.))
-    UP_LEFT = lambda _: InputSequence(ControllerInput(stick=StickPosition.UP_LEFT, energy_cost=0.))
-    UP_RIGHT = lambda _: InputSequence(ControllerInput(stick=StickPosition.UP_RIGHT, energy_cost=0.))
-    DOWN_LEFT = lambda _: InputSequence(ControllerInput(stick=StickPosition.DOWN_LEFT, energy_cost=0.))
-    DOWN_RIGHT = lambda _: InputSequence(ControllerInput(stick=StickPosition.DOWN_RIGHT, energy_cost=0.))
-    A_NEUTRAL = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_A))
+    LEFT = lambda _: InputSequence(ControllerInput(stick=StickPosition.LEFT, test_func=disable_on_shield, energy_cost=0.))
+    RIGHT = lambda _: InputSequence(ControllerInput(stick=StickPosition.RIGHT, test_func=disable_on_shield, energy_cost=0.))
+    DOWN = lambda _: InputSequence(ControllerInput(stick=StickPosition.DOWN, test_func=disable_on_shield, energy_cost=0.))
+    UP = lambda _: InputSequence(ControllerInput(stick=StickPosition.UP, test_func=disable_on_shield, energy_cost=0.))
+    UP_LEFT = lambda _: InputSequence(ControllerInput(stick=StickPosition.UP_LEFT, test_func=disable_on_shield, energy_cost=0.))
+    UP_RIGHT = lambda _: InputSequence(ControllerInput(stick=StickPosition.UP_RIGHT, test_func=disable_on_shield, energy_cost=0.))
+    DOWN_LEFT = lambda _: InputSequence(ControllerInput(stick=StickPosition.DOWN_LEFT, test_func=disable_on_shield, energy_cost=0.))
+    DOWN_RIGHT = lambda _: InputSequence(ControllerInput(stick=StickPosition.DOWN_RIGHT, test_func=disable_on_shield, energy_cost=0.))
+    A_NEUTRAL = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_A, test_func=disable_on_shield))
     #Disable this when in the air, its the same as c stick
     TILT_UP = lambda _: InputSequence(
-        [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.UP_TILT, duration=2, test_func=disable_in_air),
-         ControllerInput(test_func=disable_in_air, duration=1),
+        [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.UP_TILT, duration=2, test_func=disable_on_shield_air),
+         ControllerInput(test_func=disable_on_shield_air, duration=1),
          ]
     )
     TILT_DOWN = lambda _: InputSequence(
-        [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.DOWN_TILT, duration=2, test_func=disable_in_air),
-         ControllerInput(test_func=disable_in_air, duration=1),
+        [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.DOWN_TILT, duration=2, test_func=disable_on_shield_air),
+         ControllerInput(test_func=disable_on_shield_air, duration=1),
          ]
     )
     TILT_LEFT = lambda _: InputSequence(
-        [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.LEFT_TILT, duration=2, test_func=disable_in_air),
-         ControllerInput(test_func=disable_in_air, duration=1),
+        [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.LEFT_TILT, duration=2, test_func=disable_on_shield_air),
+         ControllerInput(test_func=disable_on_shield_air, duration=1),
          ]
     )
     TILT_RIGHT = lambda _: InputSequence(
-        [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.RIGHT_TILT, duration=2, test_func=disable_in_air),
-         ControllerInput(test_func=disable_in_air, duration=1),
+        [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.RIGHT_TILT, duration=2, test_func=disable_on_shield_air),
+         ControllerInput(test_func=disable_on_shield_air, duration=1),
          ]
     )
+
+    # TODO: cannot work if we are already shielding
     SHIELD_DROP_LEFT = lambda _: InputSequence([
-        ControllerInput(stick=StickPosition.LEFT, test_func=disable_in_air, duration=1),
+        ControllerInput(stick=StickPosition.LEFT, test_func=disable_on_shield_air, duration=1),
         ControllerInput(stick=StickPosition.LEFT, buttons=Button.BUTTON_L, test_func=allow_shield_drop1, duration=1),
         ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.DOWN_LEFT, duration=1, test_func=allow_shield_drop),
     ])
@@ -705,36 +741,36 @@ class SSBMActionSpace:
     # Do it depending on the char ?
     # B_UP = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.UP, duration=3))
     B_UP_LEFT = lambda _: InputSequence([
-        ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.UP, duration=2),
+        ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.UP, duration=2, test_func=disable_on_shield),
         # allows reversed up-b
-        ControllerInput(stick=StickPosition.LEFT, duration=1),
+        ControllerInput(stick=StickPosition.LEFT, duration=1, test_func=disable_on_shield),
     ])
     B_UP_RIGHT = lambda _: InputSequence([
-        ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.UP, duration=2),
+        ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.UP, duration=2, test_func=disable_on_shield),
         # allows reversed up-b
-        ControllerInput(stick=StickPosition.RIGHT, duration=1),
+        ControllerInput(stick=StickPosition.RIGHT, duration=1, test_func=disable_on_shield),
     ])
     #########B_DOWN = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.DOWN))
-    B_LEFT = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.LEFT))
-    B_RIGHT = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.RIGHT))
-    C_UP = lambda _: InputSequence(ControllerInput(c_stick=StickPosition.UP))
-    C_RIGHT = lambda _: InputSequence(ControllerInput(c_stick=StickPosition.RIGHT))
-    C_LEFT = lambda _: InputSequence(ControllerInput(c_stick=StickPosition.LEFT))
-    C_DOWN = lambda _: InputSequence(ControllerInput(c_stick=StickPosition.DOWN))
+    B_LEFT = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.LEFT, test_func=disable_on_shield))
+    B_RIGHT = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.RIGHT, test_func=disable_on_shield))
+    C_UP = lambda _: InputSequence(ControllerInput(c_stick=StickPosition.UP, test_func=disable_on_shield))
+    C_RIGHT = lambda _: InputSequence(ControllerInput(c_stick=StickPosition.RIGHT, test_func=disable_on_shield))
+    C_LEFT = lambda _: InputSequence(ControllerInput(c_stick=StickPosition.LEFT, test_func=disable_on_shield))
+    C_DOWN = lambda _: InputSequence(ControllerInput(c_stick=StickPosition.DOWN, test_func=disable_on_shield))
 
     # using this on ground makes you jump
     L_UP = lambda _: InputSequence(
         ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.UP, test_func=disable_on_ground))
 
     # We can use this for puff, or to waveland with no angle
-    L_DOWN = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.DOWN))
+    L_DOWN = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.DOWN, test_func=allow_l_down))
 
     # Only allow this when on ground ? No for basic L cancel
     L_NEUTRAL = lambda _: InputSequence(
        ControllerInput(buttons=Button.BUTTON_L, test_func=disable_in_air))
     # For teching and l cancel without windows
     L_NEUTRAL_LIGHT = lambda _: InputSequence(
-        ControllerInput(analog_press=True, test_func=disable_in_air))
+        ControllerInput(analog_press=True)) # was disabled in air
     L_RIGHT = lambda _: InputSequence(
         ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.RIGHT, test_func=disable_in_air))
     L_LEFT = lambda _: InputSequence(
@@ -764,35 +800,35 @@ class SSBMActionSpace:
         }
     )
     SHORT_HOP_NEUTRAL = lambda _: InputSequence(
-        [ControllerInput(buttons=Button.BUTTON_X, duration=2, energy_cost=0., test_func=disable_in_air),
-         ControllerInput(duration=1, energy_cost=0., test_func=disable_in_air)]
+        [ControllerInput(buttons=Button.BUTTON_X, duration=2, energy_cost=0.),
+         ControllerInput(duration=1, energy_cost=0.)]
     )
     FULL_HOP_LEFT = lambda _: CharDependentInputSequence(
         {
             character: InputSequence(
                 ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames, stick=StickPosition.LEFT,
-                                energy_cost=0.), name=character)
+                                energy_cost=0., test_func=disable_on_shield), name=character)
             for character, short_hop_frames in char2kneebend.items()
         }
     )
     SHORT_HOP_LEFT = lambda _: InputSequence(
         [ControllerInput(buttons=Button.BUTTON_X, duration=2, stick=StickPosition.LEFT, energy_cost=0.,
-                         test_func=disable_in_air),
-         ControllerInput(duration=1, stick=StickPosition.LEFT, energy_cost=0., test_func=disable_in_air)]
+                         test_func=disable_on_shield),
+         ControllerInput(duration=1, stick=StickPosition.LEFT, energy_cost=0., test_func=disable_on_shield)]
     )
 
     FULL_HOP_RIGHT = lambda _: CharDependentInputSequence(
         {
             character: InputSequence(
                 ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames, stick=StickPosition.RIGHT,
-                                energy_cost=0.), name=character)
+                                energy_cost=0., test_func=disable_on_shield), name=character)
             for character, short_hop_frames in char2kneebend.items()
         }
     )
     SHORT_HOP_RIGHT = lambda _: InputSequence(
         [ControllerInput(buttons=Button.BUTTON_X, duration=2, stick=StickPosition.RIGHT, energy_cost=0.,
-                         test_func=disable_in_air),
-         ControllerInput(duration=1, stick=StickPosition.RIGHT, energy_cost=0., test_func=disable_in_air)]
+                         test_func=disable_on_shield),
+         ControllerInput(duration=1, stick=StickPosition.RIGHT, energy_cost=0., test_func=disable_on_shield)]
     )
 
     # TODO: only allow when on ground ?
@@ -802,7 +838,7 @@ class SSBMActionSpace:
         {
             character: InputSequence([
                 ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+1, stick=StickPosition.WAVE_LEFT,
-                                test_func=disable_in_air, energy_cost=0.),
+                                test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.WAVE_LEFT,
                                 test_func=allow_wavedash, energy_cost=0.),
             ], free_stick_at_frame=short_hop_frames + 2, name=character)
@@ -813,7 +849,7 @@ class SSBMActionSpace:
         {
             character: InputSequence([
                 ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+1, stick=StickPosition.WAVE_RIGHT,
-                                test_func=disable_in_air, energy_cost=0.),
+                                test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.WAVE_RIGHT,
                                 test_func=allow_wavedash, energy_cost=0.),
             ], free_stick_at_frame=short_hop_frames + 2, name=character)
@@ -824,7 +860,7 @@ class SSBMActionSpace:
         {
             character: InputSequence([
                 ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+1, stick=StickPosition.DOWN,
-                                test_func=disable_in_air, energy_cost=0.),
+                                test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.DOWN,
                                 test_func=check_kneebend, energy_cost=0.),
             ], free_stick_at_frame=short_hop_frames + 2, name=character)
@@ -835,7 +871,7 @@ class SSBMActionSpace:
         {
             character: InputSequence([
                 ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+1, stick=StickPosition.DOWN_LEFT,
-                                test_func=disable_in_air, energy_cost=0.),
+                                test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.DOWN_LEFT,
                                 test_func=allow_wavedash, energy_cost=0.),
             ], free_stick_at_frame=short_hop_frames + 2, name=character)
@@ -846,7 +882,7 @@ class SSBMActionSpace:
         {
             character: InputSequence([
                 ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+1, stick=StickPosition.DOWN_RIGHT,
-                                test_func=disable_in_air, energy_cost=0.),
+                                test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.DOWN_RIGHT,
                                 test_func=allow_wavedash, energy_cost=0.),
             ], free_stick_at_frame=short_hop_frames + 2, name=character)
@@ -861,8 +897,8 @@ class SSBMActionSpace:
         else
         # TODO: char specific move: gentleman, charged neutral b, etc.
         # for now, down b (no other action for down b)
-        InputSequence([ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.DOWN, duration=1),
-                       ControllerInput(duration=2),
+        InputSequence([ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.DOWN, duration=2),
+                       ControllerInput(duration=1),
                        ], name=character)
 
         for character in Character

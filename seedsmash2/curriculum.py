@@ -9,6 +9,7 @@ from seedsmash2.utils import inject_botconfig
 def linear_interpolation(a, b, l):
     return a * l + b * (1-l)
 
+
 class Curriculum:
 
     def __init__(
@@ -21,7 +22,7 @@ class Curriculum:
         self.config = config
         self.curriculum_max_version = config.curriculum_max_version
         if bot_config.coaching_bot is not None:
-            self.curriculum_max_version /= 2
+            self.curriculum_max_version = self.curriculum_max_version//8
 
         self.update_freq = self.curriculum_max_version // config.curriculum_num_updates
         self.curriculum_stage = 0.
@@ -38,7 +39,7 @@ class Curriculum:
             )
 
         self.initial_config._distance_reward_scale = 1.
-        self.initial_config._damage_penalty_scale = 0.03
+        self.initial_config._damage_penalty_scale = 0.1
         self.initial_config._damage_reward_scale = 3.
         self.initial_config._coaching_scale = 1.
 
@@ -50,8 +51,6 @@ class Curriculum:
 
         inject_botconfig(self.train_config, self.current_config)
 
-        self.update(0)
-
         # learn discount factor, start at 0.993
         # TODO: define log or linear update
         # damage scale 1 -> 0.2
@@ -59,8 +58,10 @@ class Curriculum:
         # inflicted_damage 0 -> 1
 
     def update(self, version):
-        self.curriculum_stage = np.minimum(version / self.config.curriculum_max_version, 1.)
-        if self.curriculum_stage == 1:
+        self.curriculum_stage = np.minimum(version / self.curriculum_max_version, 1.)
+        print(version, self.curriculum_stage, )
+
+        if self.curriculum_stage == 1.:
             self.current_config.coaching_bot = None
             self.target_config.coaching_bot = None
 
