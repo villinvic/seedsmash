@@ -60,6 +60,20 @@ class StepRewards(
     """
     away_penalty: np.float32 = 0.
 
+    """
+    Rewards obtained when in shieldstun 
+    """
+    shieldstun_rewards: np.float32 = 0.
+    shieldreflect_rewards : np.float32 = 0.
+
+    """
+    Rewards obtained when in charing neutral b (helper) 
+    """
+    neutralb_charging_rewards: np.float32 = 0.
+    neutralb_fullcharge_rewards: np.float32 = 0.
+
+
+
     # TODO: add a possibility to add a scaling between damage and stocks
 
     combo_length: np.float32 = 0.
@@ -188,18 +202,20 @@ class RewardFunction:
         self.damage_inflicted_scale = 0.05 * agressivity_p * self.bot_config._damage_reward_scale
 
         self.damage_received_scale = 0.05 * (1 - agressivity_p) * self.bot_config._damage_penalty_scale
-        self.kill_reward_scale = 10. * agressivity_p
-        self.death_reward_scale = 10. * (1 - agressivity_p)
-        self.time_cost = 0.002
-        self.distance_reward_scale = 3.e-3 * self.bot_config._distance_reward_scale
-        self.energy_cost_scale = 0.003
+        self.kill_reward_scale = 5.  #10. * agressivity_p
+        self.death_reward_scale = 5. #10. * (1 - agressivity_p)
+        self.time_cost = 0.001
+        self.distance_reward_scale = 2.e-3 * self.bot_config._distance_reward_scale
+        self.shieldstun_reward_scale = 0.05 * self.bot_config._shieldstun_reward_scale
+        self.neutralb_charge_reward_scale = 0.01 * self.bot_config._neutralb_charge_reward_scale
+        self.energy_cost_scale = 0.0015
 
         self.combo_counter = 0.
         self.int_combo_counter = 0
 
         self.last_hit_action_state = Action.KIRBY_BLADE_UP
-        self.max_combo_score = 6
-        self.linear_discount = 1/70
+        self.max_combo_score = 5
+        self.linear_discount = 1/(60*2.5)
 
         self.total_kills = 0
 
@@ -237,10 +253,12 @@ class RewardFunction:
 
         rewards.death_rewards += delta_frame.dstock[port]
 
-        # we decay rewards as we have more percent
+        # we decay rewards as opponent has more percent
         scale = 1.
-        if delta_frame.last_frame.players[other_port].percent > 85:
-            scale = np.maximum(0, 1-(delta_frame.last_frame.players[other_port].percent-85)/(135-85))
+        if delta_frame.last_frame.players[other_port].percent > 75:
+            scale *= np.maximum(0, 1-(delta_frame.last_frame.players[other_port].percent-75)/(135-75))
+        if delta_frame.last_frame.players[port].percent > 75:
+            scale *= np.maximum(3., 1 - (delta_frame.last_frame.players[other_port].percent - 75) / (100 - 75))
 
         rewards.damage_inflicted_rewards += delta_frame.dpercent[other_port] * scale
         rewards.damage_received_rewards += delta_frame.dpercent[port]
@@ -256,7 +274,9 @@ class RewardFunction:
 
             if self.last_hit_action_state == delta_frame.action[port]\
                     or delta_frame.dpercent[other_port] <= 5 :
-                bonus = 0.05
+                bonus = 0.33
+                if delta_frame.dpercent[other_port] <= 5:
+                    bonus = 0.05
 
             self.combo_counter = np.minimum(self.combo_counter + bonus, self.max_combo_score)
             self.last_hit_action_state = delta_frame.action[port]
@@ -268,6 +288,16 @@ class RewardFunction:
         rewards.combo_length = self.int_combo_counter
         rewards.distance = delta_frame.dist[port]
         rewards.away_penalty += np.float32(delta_frame.dist[port] > 75)
+        rewards.shieldstun_rewards += np.float32(delta_frame.last_frame.players[port].action == Action.SHIELD_STUN)
+        rewards.shieldreflect_rewards += np.float32(delta_frame.last_frame.players[port].action == Action.SHIELD_REFLECT)
+
+        if delta_frame.last_frame.players[port].character in (
+            Character.DK, Character.LINK, Character.YLINK, Character.MARTH, Character.ROY,
+            Character.MEWTWO, #Character.LUIGI, Character.PICHU, Character.PICHU
+        ):
+            rewards.neutralb_charging_rewards += np.float32(delta_frame.last_frame.players[port].action in (Action.NEUTRAL_B_CHARGING_AIR,Action.NEUTRAL_B_CHARGING))
+            rewards.neutralb_fullcharge_rewards += np.float32(delta_frame.last_frame.players[port].action in (Action.NEUTRAL_B_FULL_CHARGE,Action.NEUTRAL_B_FULL_CHARGE_AIR))
+
         self.discount_combo()
 
 
@@ -302,12 +332,14 @@ class RewardFunction:
         return (
                 rewards.kill_rewards * self.kill_reward_scale
                 - rewards.death_rewards * self.death_reward_scale
-                + win_rewards * self.bot_config.winning_desire * 0.25
+                #+ win_rewards * self.bot_config.winning_desire * 0.25
                 + (rewards.damage_inflicted_rewards +
                    rewards.off_stage_percents_inflicted*offstage_bonus_scale)
                 * self.damage_inflicted_scale * combo_gaming_bonus
                 - rewards.damage_received_rewards * self.damage_received_scale * combo_breaking_bonus
                 + rewards.distance_rewards * self.distance_reward_scale
+                + (rewards.neutralb_charging_rewards + 15. * rewards.neutralb_fullcharge_rewards) * self.neutralb_charge_reward_scale
+                + (rewards.shieldstun_rewards + 10. * rewards.shieldreflect_rewards) * self.shieldstun_reward_scale
                 - rewards.energy_costs * self.energy_cost_scale
                 - self.time_cost
         )

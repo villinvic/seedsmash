@@ -398,7 +398,7 @@ class SSBM(PolarisEnv):
 
         counter = 0
         self.current_matchup = tuple(chars) + (stage,)
-        print(self.current_matchup, reversed_ports)
+        # print(self.current_matchup, reversed_ports)
 
         while state.menu_state in [melee.Menu.IN_GAME, melee.Menu.SUDDEN_DEATH, None]:
             state = self.step_nones()
@@ -537,6 +537,7 @@ class SSBM(PolarisEnv):
         return next_state, collected_rewards, game_is_finished
 
     def step(self, action_dict):
+
         for port, chosen_input_sequence_index in action_dict.items():
             curr_port = self.current_aids[port]
             action = self.discrete_controllers[curr_port][chosen_input_sequence_index]
@@ -557,6 +558,8 @@ class SSBM(PolarisEnv):
             self.action_queues[port].push(action)
 
         state, rewards, game_finished = self.get_next_state_reward()
+
+
         done = False
         obs = None
         if state is None:
@@ -616,6 +619,7 @@ class SSBM(PolarisEnv):
 
         # print(self.episode_length, obs[1]["categorical"])
         # print(self.episode_length, obs[2]["categorical"])
+
 
         return obs, total_rewards, dones, dones, {}
 

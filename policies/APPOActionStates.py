@@ -78,8 +78,8 @@ class APPOAS(ParametrisedPolicy):
             # set weights to offline policy
             self.update_offline_model()
         else:
-            pass
-            #self.model.action_dist = partial(EpsilonCategorical, epsilon=self.policy_config.random_action_chance)
+            #pass
+            self.model.action_dist = partial(EpsilonCategorical, epsilon=self.policy_config.random_action_chance)
 
     def get_weights(self):
         w = super().get_weights()

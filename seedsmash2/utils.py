@@ -26,7 +26,8 @@ class ActionStateValues:
         Action.EDGE_ROLL_QUICK, Action.EDGE_ROLL_SLOW, Action.DEAD_UP, Action.DEAD_FLY, Action.DEAD_FLY_SPLATTER,
         Action.DEAD_DOWN, Action.DEAD_LEFT, Action.DEAD_RIGHT, Action.STANDING, Action.CROUCHING,
         Action.LYING_GROUND_DOWN, Action.LYING_GROUND_UP, Action.LYING_GROUND_UP_HIT,
-        Action.SHIELD_BREAK_FLY, Action.SHIELD_BREAK_FALL, Action.SHIELD_BREAK_TEETER
+        Action.SHIELD_BREAK_FLY, Action.SHIELD_BREAK_FALL, Action.SHIELD_BREAK_TEETER, Action.JUMPING_FORWARD,
+        Action.JUMPING_BACKWARD,
     ]])
     wall_tech_states = np.array([a.value for a in [
         Action.WALL_TECH, Action.WALL_TECH_JUMP
@@ -40,12 +41,12 @@ class ActionStateValues:
         self.discarded_action_states = np.ones((self.n_action_states,), dtype=np.float32)
         self.discarded_action_states[self.discarded_states] = 0.
 
-        self.underused_prob = 5e-5
+        self.underused_prob = 1e-4
         self.overused_prob = 0.33
 
     def push_samples(self, action_states):
         u, counts = np.unique(action_states, return_counts=True)
-        lr = 6e-2
+        lr = 1e-1
         count_probs = counts / counts.sum()
         self.probs[:] *= (1-lr)
         self.probs[u] += count_probs * lr
@@ -63,7 +64,7 @@ class ActionStateValues:
         rewards = np.log(np.clip(taken_action_state_probs + (1 - self.underused_prob), 1e-8, 1)) * discarded_mask
         penalty = np.log(np.clip(-taken_action_state_probs + (1 + self.overused_prob), 1e-8, 1)) * discarded_mask
 
-        rewards = np.square(rewards*8500.)*7.
+        rewards = np.square(rewards*8000.)*5.
         penalty = np.square(penalty*6)*9.
 
         return rewards - penalty

@@ -105,7 +105,6 @@ class SeedSmashTrainer(Checkpointable):
                 GlobalCounter[GlobalCounter.ENV_STEPS] = self.metrics["counters/" + GlobalCounter.ENV_STEPS].get()
 
             for policy_name, params in self.params_map.items():
-                params.config["entropy_cost"] = 8e-4
                 self.policy_map[policy_name] = self.PolicylCls(
                     name=policy_name,
                     action_space=self.env.action_space,
@@ -142,7 +141,6 @@ class SeedSmashTrainer(Checkpointable):
                 if bot_config.tag == pid:
                     policy_config = copy.deepcopy(self.config.default_policy_config)
                     inject_botconfig(policy_config, bot_config)
-                    policy_config["entropy_cost"] = 8e-4
 
                     self.policy_map[pid] = self.PolicylCls(
                         name=pid,
@@ -375,7 +373,7 @@ class SeedSmashTrainer(Checkpointable):
         try:
             while not self.is_done(self.metricbank.get()):
                 self.training_step()
-                self.metricbank.report(print_metrics=True)
+                self.metricbank.report(print_metrics=False)
                 self.checkpoint_if_needed()
         except KeyboardInterrupt:
             print("Caught C^.")

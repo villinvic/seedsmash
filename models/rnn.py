@@ -80,7 +80,8 @@ class RNN(BaseModel):
         self._mlp = snt.nets.MLP(
             output_sizes=self.config.fc_dims,
             activate_final=True,
-            name="MLP"
+            activation=tf.nn.silu,
+            name="MLP",
         )
 
         self._lstm = snt.LSTM(self.config.lstm_dim, name="lstm")
@@ -191,7 +192,7 @@ class RNN(BaseModel):
             #     tf.cast(action_state_opp + self.n_action_states * opp_char_input, tf.int32))
             # char_embedding_opp = self.opp_char_embed(tf.cast(opp_char_input, tf.int32))
 
-            prev_reward = tf.expand_dims(prev_reward, axis=0)
+            #prev_reward = tf.expand_dims(prev_reward, axis=0)
 
         else:
             continuous_inputs = [continuous_inputs[k] for k in self.observation_space["continuous"]]
@@ -223,6 +224,7 @@ class RNN(BaseModel):
 
         obs_input_post_embedding = self.post_embedding_concat(
             continuous_inputs + binary_inputs + categorical_one_hots
+            + [last_action_one_hot]
             #+ [action_state_self_common_embed, action_state_opp_common_embed,
             #   action_state_self_embed, joint_char_action_state_opp_embed, char_embedding_opp]
         )
@@ -232,9 +234,7 @@ class RNN(BaseModel):
 
         x = self._mlp(obs_input_post_embedding)
 
-        lstm_input = self.lstm_input_concat(
-            [x, last_action_one_hot]
-        )
+        lstm_input = x
 
         if single_obs:
             lstm_input = (tf.expand_dims(lstm_input, axis=0))

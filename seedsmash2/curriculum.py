@@ -41,7 +41,10 @@ class Curriculum:
         self.initial_config._distance_reward_scale = 1.
         self.initial_config._damage_penalty_scale = 0.1
         self.initial_config._damage_reward_scale = 3.
+        self.initial_config._neutralb_charge_reward_scale = 1.
+        self.initial_config._shieldstun_reward_scale = 1.
         self.initial_config._coaching_scale = 1.
+
 
         self.target_config = bot_config
         self.current_config = copy.deepcopy(bot_config)

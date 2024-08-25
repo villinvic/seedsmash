@@ -129,14 +129,14 @@ def my_config():
     default_policy_config = {
         'discount': 0.996,  # 0.997
         'gae_lambda': 1.,
-        'entropy_cost': 8e-4, # 1e-3 with impala, or around " 0.3, 0.4
+        'entropy_cost': 1.1e-3, # 1e-3 with impala, or around " 0.3, 0.4
         'popart_std_clip': 1e-2,
         'popart_lr': 5e-2,
         'grad_clip': 4.,
         'lr': 5e-4,
         'rms_prop_rho': 0.99,
         'rms_prop_epsilon': 1e-5,
-        'fc_dims': [128+64, 128],
+        'fc_dims': [128+32, 128+32],
         'lstm_dim': 256,
 
         'random_action_chance': 1.5e-2,
@@ -165,7 +165,7 @@ def my_config():
     update_ladder_freq_s = 29
     inject_new_bots_freq_s = 60
 
-    curriculum_max_version = 5_000
+    curriculum_max_version = 10_000
     curriculum_num_updates = 50
 
     checkpoint_config = dict(

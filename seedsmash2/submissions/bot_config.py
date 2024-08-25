@@ -480,9 +480,11 @@ By default this is set to 0.
         self._distance_reward_scale = 0.
         self._damage_penalty_scale = 1.
         self._damage_reward_scale = 1.
+        self._neutralb_charge_reward_scale = 0.
+        self._shieldstun_reward_scale = 0.
         self._coaching_scale = 0.
         self.__curriculum_fields__ = ["_distance_reward_scale", "_damage_penalty_scale", "_damage_reward_scale",
-                                      "_coaching_scale"]
+                                      "_neutralb_charge_reward_scale", "_shieldstun_reward_scale" , "_coaching_scale"]
 
 
 
