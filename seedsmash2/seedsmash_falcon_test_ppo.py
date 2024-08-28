@@ -24,7 +24,7 @@ obs_config = (
     .character()
     #.ecb()
     .stage()
-    .max_projectiles(4)  # one falco can generate more than 3 projectiles apparently ?
+    .max_projectiles(1)  # one falco can generate more than 3 projectiles apparently ?
     #.controller_state()
     .delay(3) # 4 (* 3)
 )
@@ -52,41 +52,41 @@ obs_config = (
 env_conf = (
     SSBMConfig()
     .chars([
-        Character.MARIO,
+        # Character.MARIO,
         Character.FOX,
         Character.CPTFALCON,
-        Character.DK,
-        #Character.KIRBY,
-        Character.BOWSER,
-        Character.LINK,
-        #Character.SHEIK,
-        Character.NESS,
-        Character.PEACH,
-        #Character.POPO,
-        Character.PIKACHU,
-        Character.SAMUS,
-        Character.YOSHI,
-        Character.JIGGLYPUFF,
-        Character.MEWTWO,
-        Character.LUIGI,
-        Character.MARTH,
-        #Character.ZELDA,
-        Character.YLINK,
-        Character.DOC,
-        Character.FALCO,
-        Character.PICHU,
-        Character.GAMEANDWATCH,
-        Character.GANONDORF,
-        Character.ROY
+        # Character.DK,
+        # #Character.KIRBY,
+        # Character.BOWSER,
+        # Character.LINK,
+        # #Character.SHEIK,
+        # Character.NESS,
+        # Character.PEACH,
+        # #Character.POPO,
+        # Character.PIKACHU,
+        # Character.SAMUS,
+        # Character.YOSHI,
+        # Character.JIGGLYPUFF,
+        # Character.MEWTWO,
+        # Character.LUIGI,
+        # Character.MARTH,
+        # #Character.ZELDA,
+        # Character.YLINK,
+        # Character.DOC,
+        # Character.FALCO,
+        # Character.PICHU,
+        # Character.GAMEANDWATCH,
+        # Character.GANONDORF,
+        # Character.ROY
     ])
     .stages([
-        Stage.FINAL_DESTINATION,
-        Stage.YOSHIS_STORY, # Why is this so buggy ?
-        Stage.POKEMON_STADIUM,
+        # Stage.FINAL_DESTINATION,
+        # Stage.YOSHIS_STORY, # Why is this so buggy ?
+        # Stage.POKEMON_STADIUM,
         Stage.BATTLEFIELD,
-        Stage.DREAMLAND,
-
-        Stage.FOUNTAIN_OF_DREAMS  # TODO support FOD
+        # Stage.DREAMLAND,
+        #
+        # Stage.FOUNTAIN_OF_DREAMS  # TODO support FOD
         # falcon falco, jiggs falco, marth falcon, jigs falcon, falcon falcon, falcon fox, marth falcon, falco falco,
         # marth falco, jigs marth
     ])
@@ -116,36 +116,34 @@ def my_config():
     del env_obj
     env_config = dict(env_conf)
 
-    num_workers = 62
-    policy_path = 'policies.APPOActionStates'
-    model_path = 'models.rnn'
-    policy_class = 'APPOAS'
+    num_workers = 8
+    policy_path = 'policies.PPOCurriculum'
+    model_path = 'models.rnn2'
+    policy_class = 'PPOC'
     model_class = 'RNN'
-    trajectory_length = 32
+    trajectory_length = 256
     max_seq_len = 32
-    train_batch_size = 2048*4
+    train_batch_size = (num_workers - 1) * trajectory_length * 4
     max_queue_size = train_batch_size * 10
+    n_epochs=8
+    minibatch_size=train_batch_size//4
 
     default_policy_config = {
         'discount': 0.996,  # 0.997
-        'gae_lambda': 1.,
-        'entropy_cost': 1.1e-3, # 1e-3 with impala, or around " 0.3, 0.4
-        'popart_std_clip': 1e-2,
-        'popart_lr': 5e-2,
-        'grad_clip': 4.,
+        'gae_lambda': 0.98,
+        'entropy_cost': 1.2e-3, # 1e-3 with impala, or around " 0.3, 0.4
         'lr': 5e-4,
-        'rms_prop_rho': 0.99,
-        'rms_prop_epsilon': 1e-5,
-        'fc_dims': [128+32, 128+32],
+        'fc_dims': [128, 128],
         'lstm_dim': 256,
+        'grad_clip': 5.,
 
-        'random_action_chance': 1.5e-2,
-
-        # APPO
+        # PPO
         'ppo_clip': 0.3,
-        'ppo_kl_coeff': 0.,
-        'target_update_freq': 1,
+        'initial_kl_coeff': 0.1,
+        'kl_coeff_speed': 2.,
         'baseline_coeff': 0.5,
+        'vf_clip': 10.,
+        'kl_target': 1e-2,
 
         # Coaching
         'imitation_loss_coeff': 1.5e-2,
@@ -158,6 +156,7 @@ def my_config():
         # Action state rewards
         }
 
+    compute_advantages_on_workers = True
     tensorboard_logdir = 'debugging'
     report_freq = 20
     episode_metrics_smoothing = 0.95
@@ -175,10 +174,9 @@ def my_config():
         keep=4,
     )
 
-    episode_callback_class = partial(
-    SSBMCallbacks,
-    negative_reward_scale=0.95
-)
+    episode_callback_class = SSBMCallbacks
+    negative_reward_scale = 0.95
+
 
 # Define a simple main function that will use the configuration
 @ex.main
@@ -188,15 +186,14 @@ def main(_config):
     gpus = tf.config.experimental.list_physical_devices('GPU')
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
-    from seedsmash2.seedsmash_trainer import SeedSmashTrainer
-
+    from seedsmash2.seedsmash_synctrainer import SeedSmashSyncTrainer
 
     # TODO: seeding
     # Access the configuration using _config
     c = ConfigDict(_config)
     print("Experiment Configuration:")
     print(c)
-    trainer = SeedSmashTrainer(c, restore=True)
+    trainer = SeedSmashSyncTrainer(c, restore=False)
     trainer.run()
 
 

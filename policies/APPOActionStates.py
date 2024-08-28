@@ -139,11 +139,11 @@ class APPOAS(ParametrisedPolicy):
 
         action_states = np.int32(input_batch[SampleBatch.OBS]["categorical"]["action1"])[:, 0]
 
-        action_state_rewards = action_state_values.get_rewards(
+        action_state_values.push_samples(
             action_states
         )
 
-        action_state_values.push_samples(
+        action_state_rewards = action_state_values.get_rewards(
             action_states
         )
 

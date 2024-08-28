@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Dict, List
 
 from melee import Action
@@ -5,6 +6,9 @@ from polaris.experience.episode_callbacks import EpisodeCallbacks
 from polaris.experience import SampleBatch
 from melee_env.observation_space_v2 import ObsBuilder
 import numpy as np
+
+from seedsmash2.utils import ActionStateValues
+
 
 def wrap_slice_set(arr, start, stop, values):
     length = arr.shape[0]
@@ -49,39 +53,10 @@ def compute_entropy_rewards(
 class SSBMCallbacks(
     EpisodeCallbacks
 ):
-    def __init__(self, *args, negative_reward_scale=0.8, **kwargs):
-        super().__init__(*args, **kwargs)
-        #self.om = observation_manager
-        #self.delay = self.om.config["obs"]["delay"]
-
-        # We only care about the second player for now
-        # self.self_stock_idx = self.om.get_player_obs_idx("stock", 1)
-        # self.opp_stock_idx = self.om.get_player_obs_idx("stock", 2)
-        # self.percent_idx = self.om.get_player_obs_idx("percent", 2)
-        # self.action_state_idx = self.om.get_player_obs_idx("action", 1)
-        #
-        # self.self_pos_idx = self.om.get_player_obs_idx("position", 1)
-        # self.opp_pos_idx = self.om.get_player_obs_idx("position", 2)
-
-        self.negative_reward_scale = negative_reward_scale
-
-        # self.action_state_history_size = 9000*3
-        # self.action_state_history = np.zeros((self.action_state_history_size,), dtype=np.int32)
-        # self.idx = 0
-        # self.counts = np.zeros((396,), dtype=np.int32)
-        # self.discarded_states = np.array([a.value for a in [
-        #     Action.WALK_SLOW, Action.WALK_FAST, Action.WALK_MIDDLE,
-        #     Action.TUMBLING, Action.TURNING, Action.TURNING_RUN, Action.GRABBED,
-        #     Action.EDGE_TEETERING, Action.EDGE_TEETERING_START, Action.RUN_BRAKE,
-        #     Action.EDGE_ATTACK_QUICK, Action.EDGE_HANGING, Action.EDGE_ATTACK_SLOW,
-        #     Action.EDGE_GETUP_QUICK, Action.EDGE_JUMP_1_QUICK, Action.EDGE_JUMP_2_QUICK,
-        #     Action.EDGE_JUMP_1_SLOW, Action.EDGE_JUMP_2_SLOW, Action.EDGE_GETUP_SLOW,
-        #     Action.EDGE_ROLL_QUICK, Action.EDGE_ROLL_SLOW
-        # ]])
-        self.wall_tech_states = np.array([a.value for a in [
-            Action.WALL_TECH, Action.WALL_TECH_JUMP
-        ]])
-
+    def __init__(self, config):
+        super().__init__(config)
+        self.negative_reward_scale = config.negative_reward_scale
+        self.action_state_values = {}
 
     def process_agent(
             self,
@@ -94,33 +69,27 @@ class SSBMCallbacks(
             np.maximum(batch[SampleBatch.REWARD], 0.) + \
             np.minimum(batch[SampleBatch.REWARD], 0.) * self.negative_reward_scale
 
-
-        # action_states = batch[SampleBatch.OBS][:, self.action_state_idx]
-        # next_idx = self.idx + len(action_states)
-        #
-        # wrap_slice_set(self.action_state_history, self.idx % self.action_state_history_size,
-        #                next_idx % self.action_state_history_size, action_states)
-        # self.idx = next_idx
-        #
-        # if self.idx >= self.action_state_history_size:
-        #     # More accurate to reward the transition preceding the observation, not the next one.
-        #     # We are missing the last bit, but fine
-        #     entropy_rewards, as_entropy = compute_entropy_rewards(action_states[1:],
-        #                                                           self.action_state_history[character],
-        #                                                           self.counts[character], self.discarded_states)
-        #     episode.custom_metrics["action_state_rewards"] = np.sum(entropy_rewards)
-        #     episode.custom_metrics["action_state_entropy"] = as_entropy
-        #
-        #     postprocessed_batch[SampleBatch.REWARDS][:-1] += entropy_rewards
-        #     # print(f"Episode total entropy rewards and entropy over {episode.length} timesteps: ",
-        #     #       episode.custom_metrics["action_state_rewards"],
-        #     #       as_entropy)
-
         metrics[f"{policy.name}/Wall techs"] = np.sum(
             np.int16(
-                np.isin(np.int32(batch[SampleBatch.OBS]["categorical"]["action1"]), self.wall_tech_states)
+                np.isin(np.int32(batch[SampleBatch.OBS]["categorical"]["action1"]), ActionStateValues.wall_tech_states)
                 ))
 
+        if policy.name not in self.action_state_values:
+            self.action_state_values[policy.name] = ActionStateValues(config=self.config)
+
+        action_states = batch[SampleBatch.OBS]["categorical"]["action1"][:, 0]
+        self.action_state_values[policy.name].push_samples(
+            action_states
+        )
+
+        action_state_rewards = self.action_state_values[policy.name].get_rewards(
+            action_states
+        )
+        # TODO this may be wrong if the model uses prev reward !
+        batch[SampleBatch.REWARD][:] = action_state_rewards + batch[SampleBatch.REWARD] * policy.policy_config["action_state_reward_scale"]
+
+        for m, v in self.action_state_values[policy.name].get_metrics().items():
+            metrics[f"{policy.name}/{m}"] = v
 
 
     def on_step(

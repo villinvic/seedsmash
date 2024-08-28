@@ -206,7 +206,7 @@ class RewardFunction:
         self.death_reward_scale = 5. #10. * (1 - agressivity_p)
         self.time_cost = 0.001
         self.distance_reward_scale = 2.e-3 * self.bot_config._distance_reward_scale
-        self.shieldstun_reward_scale = 0.05 * self.bot_config._shieldstun_reward_scale
+        self.shieldstun_reward_scale = 0.07 * self.bot_config._shieldstun_reward_scale
         self.neutralb_charge_reward_scale = 0.01 * self.bot_config._neutralb_charge_reward_scale
         self.energy_cost_scale = 0.0015
 
@@ -289,14 +289,15 @@ class RewardFunction:
         rewards.distance = delta_frame.dist[port]
         rewards.away_penalty += np.float32(delta_frame.dist[port] > 75)
         rewards.shieldstun_rewards += np.float32(delta_frame.last_frame.players[port].action == Action.SHIELD_STUN)
-        rewards.shieldreflect_rewards += np.float32(delta_frame.last_frame.players[port].action == Action.SHIELD_REFLECT)
 
-        if delta_frame.last_frame.players[port].character in (
-            Character.DK, Character.LINK, Character.YLINK, Character.MARTH, Character.ROY,
-            Character.MEWTWO, #Character.LUIGI, Character.PICHU, Character.PICHU
-        ):
-            rewards.neutralb_charging_rewards += np.float32(delta_frame.last_frame.players[port].action in (Action.NEUTRAL_B_CHARGING_AIR,Action.NEUTRAL_B_CHARGING))
-            rewards.neutralb_fullcharge_rewards += np.float32(delta_frame.last_frame.players[port].action in (Action.NEUTRAL_B_FULL_CHARGE,Action.NEUTRAL_B_FULL_CHARGE_AIR))
+        #rewards.shieldreflect_rewards += np.float32(delta_frame.last_frame.players[port].action == Action.SHIELD_REFLECT)
+
+        # if delta_frame.last_frame.players[port].character in (
+        #     Character.DK, Character.LINK, Character.YLINK, Character.MARTH, Character.ROY,
+        #     Character.MEWTWO, #Character.LUIGI, Character.PICHU, Character.PICHU
+        # ):
+        #     rewards.neutralb_charging_rewards += np.float32(delta_frame.last_frame.players[port].action in (Action.NEUTRAL_B_CHARGING_AIR,Action.NEUTRAL_B_CHARGING))
+        #     rewards.neutralb_fullcharge_rewards += np.float32(delta_frame.last_frame.players[port].action in (Action.NEUTRAL_B_FULL_CHARGE,Action.NEUTRAL_B_FULL_CHARGE_AIR))
 
         self.discount_combo()
 
@@ -338,8 +339,8 @@ class RewardFunction:
                 * self.damage_inflicted_scale * combo_gaming_bonus
                 - rewards.damage_received_rewards * self.damage_received_scale * combo_breaking_bonus
                 + rewards.distance_rewards * self.distance_reward_scale
-                + (rewards.neutralb_charging_rewards + 15. * rewards.neutralb_fullcharge_rewards) * self.neutralb_charge_reward_scale
-                + (rewards.shieldstun_rewards + 10. * rewards.shieldreflect_rewards) * self.shieldstun_reward_scale
+                #+ (rewards.neutralb_charging_rewards + 15. * rewards.neutralb_fullcharge_rewards) * self.neutralb_charge_reward_scale
+                + rewards.shieldstun_rewards * self.shieldstun_reward_scale
                 - rewards.energy_costs * self.energy_cost_scale
                 - self.time_cost
         )

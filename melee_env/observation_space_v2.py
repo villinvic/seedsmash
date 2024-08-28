@@ -271,7 +271,7 @@ class ObsBuilder:
             )
 
         stage_value_dict = dict(
-            stage=StateDataInfo(lambda s: all_stages_to_used[s.stage],
+            stage=StateDataInfo(lambda s: all_stages_to_used.get(s.stage, 0),
                                 StateDataInfo.CATEGORICAL,
                                 size=n_stages,
                                 config=self.config,
@@ -664,7 +664,7 @@ class ObsBuilder:
                                                  player_port=port,
                                                  config=self.config,
                                                  ),
-                character=StateDataInfo(lambda s: all_chars_to_used[s.players[port].character],
+                character=StateDataInfo(lambda s: all_chars_to_used.get(s.players[port].character, 0),
                                         StateDataInfo.CATEGORICAL,
                                         size=n_characters,
                                         player_port=port,

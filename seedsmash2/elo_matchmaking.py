@@ -82,13 +82,28 @@ class SeedSmashMatchmaking(MatchMaking):
     def next(
             self,
             params_map: Dict[str, "PolicyParams"],
+            wid: int,
             **kwargs,
     ) -> Dict[str, "PolicyParams"]:
 
         # Do not make players play against themselves
         pcopy = params_map.copy()
         policies = []
-        sampled_policy = np.random.choice(list(params_map.keys()))
+        # sample wrt to avg episode length
+        if wid == 0:
+            # pick uniformly for stream
+            p = None
+        else:
+            total_samples = np.array([
+                p.stats["samples_generated"] for p in params_map.values()
+            ])
+            total_samples -= np.min(total_samples)
+            delta = np.maximum(1e-8, np.max(total_samples) - total_samples)
+            p = delta / delta.sum()
+            # with this, the highest samples bot will never be picked here
+            print(total_samples, p)
+
+        sampled_policy = np.random.choice(list(params_map.keys()), p=p)
         policies.append(pcopy.pop(sampled_policy))
 
         ratings = np.array([

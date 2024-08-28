@@ -61,6 +61,11 @@ class SSTwitchBot(TwitchBotPUSH):
                   "bots you see are custom examples showcasing what's possible.Please note: I'm not always available to "
                   "answer questions, but feel free to enjoy the action and stay tuned for updates!")
 
+    async def progress_command(self, cmd: ChatCommand):
+        await cmd.reply("1. Random phase (0 -> 10k games) | 2. Begins to recognise where are the ledges and the opponent "
+                        "(10k -> 20k games) | 3. Beginner human level (20k -> 40k games) | 4. Stops move spamming, learns shields"
+                        " and to play around ledges (40k -> ???)")
+
     async def get_bot_list(self, cmd: ChatCommand):
         _, _, botnames = next(os.walk("bot_configs"))
         botnames = [bn.rstrip(".txt") for bn in botnames if bn.endswith(".txt")]
@@ -69,6 +74,7 @@ class SSTwitchBot(TwitchBotPUSH):
         for b in botnames:
             string += f"\n- {b}"
         await cmd.reply(string)
+
 
     async def push_game_command(self, cmd: ChatCommand):
 
@@ -112,11 +118,29 @@ class SSTwitchBot(TwitchBotPUSH):
         # there are more events, you can view them all in this documentation
 
         # you can directly register commands and their handlers, this will register the !reply command
-        chat.register_command('play', self.push_game_command)
-        chat.register_command('info', self.info_command)
-        chat.register_command('botlist', self.get_bot_list)
 
+        commands = (
+            ("play", self.push_game_command, "Requests a matchup for the next game. The bot tags should be in the current list of playing bots."),
+            ("info", self.info_command, "Shows an introductory message to the channel."),
+            ("progress", self.progress_command,
+             "Shows an approximation of how good a bot should be in function of how many games it played."),
+            ("botlist", self.get_bot_list, "Shows the list of currently playing bots."),
 
+        )
+
+        for c in commands:
+            chat.register_command(*c[:2])
+
+        async def help(cmd: ChatCommand):
+            string = ""
+            for i, (c, _, desc) in enumerate(commands, 1):
+                string += f"{i}. !{c} ({desc}) | "
+
+            await cmd.reply(string[:-3])
+
+        chat.register_command(
+            "help", help
+        )
 
         # we are done with our setup, lets start this bot up!
         chat.start()

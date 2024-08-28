@@ -48,9 +48,7 @@ class Curriculum:
 
         self.target_config = bot_config
         self.current_config = copy.deepcopy(bot_config)
-
-
-        self.train_config = {}
+        self.train_config = copy.deepcopy(policy_config)
 
         inject_botconfig(self.train_config, self.current_config)
 
@@ -83,7 +81,8 @@ class Curriculum:
                       + self.current_config.__curriculum_fields__)
         }
         d.update(
-            **self.train_config
+            discount=self.train_config["discount"],
+            action_state_reward_scale=self.train_config["action_state_reward_scale"]
         )
         d["curriculum_stage"] = self.curriculum_stage
         return d

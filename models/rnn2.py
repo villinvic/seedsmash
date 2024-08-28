@@ -62,19 +62,12 @@ class RNN(BaseModel):
         )
 
         self.num_outputs = action_space.n
-        self.character_embedding_size = 5
-        self.action_state_embedding_size = 32
-        self.joint_embedding_size = 64
-        self.last_action_embedding_size = 16
 
-        self.optimiser = snt.optimizers.RMSProp(
+        self.optimiser = snt.optimizers.Adam(
             learning_rate=config.lr,
-            decay=config.rms_prop_rho,
-            momentum=0.0,
-            epsilon=config.rms_prop_epsilon,
-            centered=False,
-            name="rmsprop"
+            name="adam"
         )
+
         self.action_dist = CategoricalDistribution
 
         self._mlp = snt.nets.MLP(
@@ -98,58 +91,6 @@ class RNN(BaseModel):
         self.n_chars = int(observation_space["categorical"]["character1"].high) + 1
         self.n_action_states = int(observation_space["categorical"]["action1"].high) + 1
 
-
-        # Have a large common action_state embedding
-        # have a small self action_state embedding
-        # have a small joint char/action_state embedding
-
-        # self.last_action_embed = snt.Embed(
-        #     vocab_size=self.num_outputs,
-        #     embed_dim=self.last_action_embedding_size,
-        #     densify_gradients=True,
-        #     name="last_action_embed"
-        # )
-        # self.common_action_state_embed = snt.Embed(
-        #     vocab_size=self.n_action_states,
-        #     embed_dim=128,
-        #     densify_gradients=True,
-        #     name="common_action_state_embed"
-        # )
-        #
-        # self.self_action_state_embed = snt.Embed(
-        #     vocab_size=self.n_action_states,
-        #     embed_dim=16,
-        #     densify_gradients=True,
-        #     name="self_action_state_embed"
-        # )
-        #
-        # self.opp_joint_char_action_state_embed = snt.Embed(
-        #     vocab_size=self.n_action_states*self.n_chars,
-        #     embed_dim=16,
-        #     densify_gradients=True,
-        #     name="opp_joint_char_action_state_embed"
-        # )
-        #
-        # self.opp_char_embed = snt.Embed(
-        #     vocab_size=self.n_chars,
-        #     embed_dim=8,
-        #     densify_gradients=True,
-        #     name="opp_char_embed"
-        # )
-
-        # self.opp_char_state_joint_embed = snt.Embed(
-        #     vocab_size=self.n_chars * self.n_action_states,
-        #     embed_dim=self.joint_embedding_size,
-        #     densify_gradients=True,
-        #     name="opp_char_state_joint_embed"
-        # )
-        self.opp_info_concat = tf.keras.layers.Concatenate(axis=-1, name="opp_info_concat")
-        self.opp_info_mlp = snt.nets.MLP(
-            output_sizes=[32,32],
-            activate_final=True,
-            activation=tf.nn.silu,
-            name="opp_info_mlp",
-        )
         self.lstm_input_concat = tf.keras.layers.Concatenate(axis=-1, name="lstm_input_concat")
         self.post_embedding_concat = tf.keras.layers.Concatenate(axis=-1, name="post_embedding_concat")
 
@@ -170,7 +111,6 @@ class RNN(BaseModel):
 
         if single_obs:
 
-
             continuous_inputs = [tf.expand_dims(continuous_inputs[k], axis=0, name=k) for k in self.observation_space["continuous"]]
 
             binary_inputs = [tf.cast(tf.expand_dims(binary_inputs[k], axis=0), dtype=tf.float32, name=k) for k in
@@ -180,33 +120,11 @@ class RNN(BaseModel):
                 tf.one_hot(tf.cast(categorical_inputs[k], tf.int32), depth=tf.cast(space.high[0], tf.int32) + 1, dtype=tf.float32,
                            name=k)
                 for k, space in self.observation_space["categorical"].items()
-                if k not in ["character1", "action2", "character2"]]  # "action1", "action2", "character2"
+                if k not in ["character1"]]  # "action1", "action2", "character2"
 
             last_action_one_hot = tf.one_hot(tf.cast(tf.expand_dims(prev_action, axis=0), tf.int32),
                                              depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
 
-            # action_state_self = categorical_inputs["action1"]
-            action_state_opp = categorical_inputs["action2"]
-            opp_char_input = categorical_inputs["character2"]
-
-            one_hot_action_state_opp = tf.one_hot(tf.cast(action_state_opp, tf.int32),
-                                                  depth=self.n_action_states + 1, dtype=tf.float32,
-                           name="action_state_opp_one_hot")
-            one_hot_opp_char = tf.one_hot(tf.cast(opp_char_input, tf.int32),
-                                                  depth=self.n_chars + 1, dtype=tf.float32,
-                           name="opp_char_one_hot")
-
-
-            # last_action_embedding = self.last_action_embed(tf.expand_dims(prev_action, axis=0))
-            # action_state_self_common_embed = self.common_action_state_embed(tf.cast(action_state_self, tf.int32))
-            # action_state_opp_common_embed = self.common_action_state_embed(tf.cast(action_state_opp, tf.int32))
-            #
-            # action_state_self_embed = self.self_action_state_embed(tf.cast(action_state_self, tf.int32))
-            # joint_char_action_state_opp_embed = self.opp_joint_char_action_state_embed(
-            #     tf.cast(action_state_opp + self.n_action_states * opp_char_input, tf.int32))
-            # char_embedding_opp = self.opp_char_embed(tf.cast(opp_char_input, tf.int32))
-
-            #prev_reward = tf.expand_dims(prev_reward, axis=0)
 
         else:
             continuous_inputs = [continuous_inputs[k] for k in self.observation_space["continuous"]]
@@ -217,36 +135,15 @@ class RNN(BaseModel):
                 tf.one_hot(tf.cast(categorical_inputs[k], tf.int32), depth=tf.cast(space.high[0], tf.int32) + 1, dtype=tf.float32,
                            name=k)[:, :, 0]
                 for k, space in self.observation_space["categorical"].items()
-                if k not in ["character1", "action2", "character2"]]  # "action1", "action2", "character2"
+                if k not in ["character1"]]  # "action1", "action2", "character2"
 
-            # action_state_self = categorical_inputs["action1"]
-            action_state_opp = categorical_inputs["action2"]
-            opp_char_input = categorical_inputs["character2"]
-
-            one_hot_action_state_opp = tf.one_hot(tf.cast(action_state_opp, tf.int32),
-                                                  depth=self.n_action_states + 1, dtype=tf.float32,
-                                                  name="action_state_opp_one_hot")[:, :, 0]
-            one_hot_opp_char = tf.one_hot(tf.cast(opp_char_input, tf.int32),
-                                          depth=self.n_chars + 1, dtype=tf.float32,
-                                          name="opp_char_one_hot")[:, :, 0]
 
             last_action_one_hot = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
 
-            # last_action_embedding = self.last_action_embed(prev_action)
-            #
-            # action_state_self_common_embed = self.common_action_state_embed(tf.cast(action_state_self, tf.int32))[:, :, 0]
-            # action_state_opp_common_embed = self.common_action_state_embed(tf.cast(action_state_opp, tf.int32))[:, :, 0]
-            #
-            # action_state_self_embed = self.self_action_state_embed(tf.cast(action_state_self, tf.int32))[:, :, 0]
-            # joint_char_action_state_opp_embed = self.opp_joint_char_action_state_embed(
-            #     tf.cast(action_state_opp + self.n_action_states * opp_char_input, tf.int32))[:, :, 0]
-            # char_embedding_opp = self.opp_char_embed(tf.cast(opp_char_input, tf.int32))[:, :, 0]
 
-        opp_info_input = self.opp_info_concat([one_hot_action_state_opp, one_hot_opp_char])
-        opp_info_embed = self.opp_info_mlp(opp_info_input)
         obs_input_post_embedding = self.post_embedding_concat(
             continuous_inputs + binary_inputs + categorical_one_hots
-            + [last_action_one_hot, opp_info_embed]
+            + [last_action_one_hot]
             #+ [action_state_self_common_embed, action_state_opp_common_embed,
             #   action_state_self_embed, joint_char_action_state_opp_embed, char_embedding_opp]
         )
@@ -282,23 +179,3 @@ class RNN(BaseModel):
                 hidden=np.zeros((1, self.config.lstm_dim,), dtype=np.float32),
                 cell=np.zeros((1, self.config.lstm_dim,), dtype=np.float32),
             )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

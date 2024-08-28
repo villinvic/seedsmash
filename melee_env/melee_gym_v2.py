@@ -368,7 +368,8 @@ class SSBM(PolarisEnv):
         else:
             chars = ()
             p = {s: 1. for s in self.config["stages"]}
-            for port in self.get_agent_ids():
+            for port in range(len(self.players)):
+                port += 1
                 if port in options:
                     chars = chars + (options[port].character,)
                     p[options[port].preferred_stage] += 1.
@@ -411,11 +412,14 @@ class SSBM(PolarisEnv):
             time.sleep(7)
 
         costumes = [options[p].costume for p in self.get_agent_ids()]
-        if chars[0] == chars[1] and costumes[0] == costumes[1]:
-            l = [0,1,2,3]
-            if costumes[0] in l:
-                l.remove(costumes[0])
-            costumes[1] = np.random.choice(l)
+        if len(costumes) > 1:
+            if chars[0] == chars[1] and costumes[0] == costumes[1]:
+                l = [0,1,2,3]
+                if costumes[0] in l:
+                    l.remove(costumes[0])
+                costumes[1] = np.random.choice(l)
+
+        print(chars)
 
         while state.menu_state not in [melee.Menu.IN_GAME, melee.Menu.SUDDEN_DEATH]:
             for port, controller in self.controllers.items():
@@ -486,6 +490,7 @@ class SSBM(PolarisEnv):
                                                                curr_sequence)
                             if self.config["debug"]:
                                 print(f"Sent input {active_actions[port]} of sequence {curr_sequence} on port {port}.")
+                                print(f"curr action_state:{gs.players[port].action}")
                         elif self.config["debug"]:
                             print(f"Waiting a frame before new input on port {port}.")
 

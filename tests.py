@@ -165,7 +165,6 @@ config = (
           )
 
 config.worker_cls = SpectateWorker
-config.log_level = "WARN"
 
 config_dict = config.to_dict()
 
