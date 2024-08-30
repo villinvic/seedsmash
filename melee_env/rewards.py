@@ -199,23 +199,23 @@ class RewardFunction:
         agressivity_p = self.bot_config.agressivity / 100
         agressivity_p = 0.4 + agressivity_p * 0.2
 
-        self.damage_inflicted_scale = 0.05 * agressivity_p * self.bot_config._damage_reward_scale
+        self.damage_inflicted_scale = 0.01 * agressivity_p * self.bot_config._damage_reward_scale
 
-        self.damage_received_scale = 0.05 * (1 - agressivity_p) * self.bot_config._damage_penalty_scale
-        self.kill_reward_scale = 5.  #10. * agressivity_p
-        self.death_reward_scale = 5. #10. * (1 - agressivity_p)
-        self.time_cost = 0.001
-        self.distance_reward_scale = 2.e-3 * self.bot_config._distance_reward_scale
-        self.shieldstun_reward_scale = 0.07 * self.bot_config._shieldstun_reward_scale
-        self.neutralb_charge_reward_scale = 0.01 * self.bot_config._neutralb_charge_reward_scale
-        self.energy_cost_scale = 0.0015
+        self.damage_received_scale = 0.01 * (1 - agressivity_p) * self.bot_config._damage_penalty_scale
+        self.kill_reward_scale = 1.  #10. * agressivity_p
+        self.death_reward_scale = 1. #10. * (1 - agressivity_p)
+        self.time_cost = 0.0002
+        self.distance_reward_scale = 0. * 2.e-3 * self.bot_config._distance_reward_scale
+        self.shieldstun_reward_scale = 0. *0.07 * self.bot_config._shieldstun_reward_scale
+        self.neutralb_charge_reward_scale = 0. * 0.01 * self.bot_config._neutralb_charge_reward_scale
+        self.energy_cost_scale = 0.0003
 
         self.combo_counter = 0.
         self.int_combo_counter = 0
 
         self.last_hit_action_state = Action.KIRBY_BLADE_UP
         self.max_combo_score = 5
-        self.linear_discount = 1/(60*2.5)
+        self.linear_discount = 1/60
 
         self.total_kills = 0
 
@@ -308,8 +308,8 @@ class RewardFunction:
 
         # TODO: use logspace for bot config !
 
-        combo_gaming_bonus = (1 + 6e-3 * self.int_combo_counter * self.bot_config.combo_game)
-        combo_breaking_bonus = (1 + 6e-3 * opponent_combo_count * self.bot_config.combo_breaker)
+        combo_gaming_bonus = (1 + 6e-3 * np.maximum(0., self.int_combo_counter - 1) * self.bot_config.combo_game)
+        combo_breaking_bonus = (1 + 6e-3 * np.maximum(0., opponent_combo_count- 1) * self.bot_config.combo_breaker)
 
         # input("ENTER")
         # print(

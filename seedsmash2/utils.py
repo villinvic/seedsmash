@@ -46,10 +46,13 @@ class ActionStateValues:
 
         self.underused_prob = 1e-4
         self.overused_prob = 0.3
+        self.last_rewards = 0.
+        self.last_penalties = 0.
+        self.min_taken_prob = 0.
 
     def push_samples(self, action_states):
         u, counts = np.unique(action_states, return_counts=True)
-        lr = 3e-3
+        lr = 6e-2
         count_probs = counts / counts.sum()
         self.probs[:] *= (1-lr)
         self.probs[u] += count_probs * lr
@@ -67,14 +70,21 @@ class ActionStateValues:
         rewards = np.log(np.clip(taken_action_state_probs + (1 - self.underused_prob), 1e-8, 1)) * discarded_mask
         penalty = np.log(np.clip(-taken_action_state_probs + (1 + self.overused_prob), 1e-8, 1)) * discarded_mask
 
-        rewards = np.square(rewards*8000.)*5.
-        penalty = np.square(penalty*6)
+        rewards = np.square(rewards*8000.)
+        penalty = np.square(penalty)
+
+        self.last_rewards = np.mean(rewards)
+        self.last_penalties = np.mean(penalty)
+        self.min_taken_prob = np.min(taken_action_state_probs)
 
         return rewards - penalty
 
     def get_metrics(self):
         return {
             "entropy": - np.sum(np.log(self.probs) * self.probs),
-            "min_prob": np.min(self.probs[self.probs > 1e-6]),
-            "max_prob": np.max(self.probs)
+            "min_taken_prob": self.min_taken_prob,
+            "min_prob": np.min(self.probs),
+            "max_prob": np.max(self.probs),
+            "bonus": self.last_rewards,
+            "penatly": self.last_penalties
         }

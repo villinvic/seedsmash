@@ -115,6 +115,8 @@ class SyncSpotlightWorkerSet(SyncWorkerSet):
         self.batch_count = 0
 
         self.available_workers = set(list(self.workers.keys()))
+        self.waiting_workers = set(list(self.workers.keys())) - {0}
+
         self.running_jobs = {}
         self.pipe_name = "matchmaking_pipe"
 
@@ -139,6 +141,8 @@ class SyncSpotlightWorkerSet(SyncWorkerSet):
             push_back=False
     ):
         job_refs = []
+        self.waiting_workers -= {0}
+
         if not push_back and 0 in self.available_workers:
             # send matchmaking info to window:
             job = jobs.pop()
@@ -168,9 +172,12 @@ class SyncSpotlightWorkerSet(SyncWorkerSet):
                 }
             )
 
+
+
             job_refs.append(self.workers[0].get_next_batch_for.remote(
                 job
             ))
+            self.running_jobs[0] = job
             self.available_workers -= {0}
 
 
@@ -178,26 +185,32 @@ class SyncSpotlightWorkerSet(SyncWorkerSet):
             return job_refs
 
         available_workers = self.available_workers - {0}
-        print(available_workers, self.running_jobs.keys())
-        job_refs = []
 
         for wid, job in self.running_jobs.items():
             # wid == 0 should not return mid episode !
-            if wid != 0:
-                for aid, params in job.items():
-                    job[aid] = params_map[params.name]
+            if wid != 0 and wid in self.waiting_workers:
+                job = {
+                    aid: params_map[params.name]
+                    for aid, params in job.items()
+                }
+
+                #print("continuing new episode with", wid, [(p.name, p.version) for p in job.values()])
+
                 job_refs.append(self.workers[wid].get_next_batch_for.remote(
                     job
                 ))
+                self.waiting_workers -= {wid}
 
         hired_workers = set()
         for wid, job in zip(available_workers, jobs):
             hired_workers.add(wid)
             self.running_jobs[wid] = job
-            for job in jo
+            # for aid, params in job.items():
+            #     print("Sending for new episode!", wid, params.name, params.version)
             job_refs.append(self.workers[wid].get_next_batch_for.remote(
                 job
             ))
         self.available_workers -= hired_workers
+        self.waiting_workers -= hired_workers
 
         return job_refs

@@ -17,21 +17,12 @@
 import numpy as np
 from collections import defaultdict
 
-class tmp:
-    def __init__(self):
-        pass
+from seedsmash2.utils import ActionStateValues
 
+probs = ActionStateValues({})
 
-x = defaultdict(tmp)
+batch_size = 256
+action_probs = np.float32(np.square(np.arange(len(probs.probs))))
+action_probs /= action_probs.sum()
 
-
-
-
-games = np.concatenate([np.random.randint(6000*28_000, 6000*30_000, 10),
-                        np.random.randint(6000*25000, 6000*28000, 5)], axis=0)
-games -= np.min(games)
-
-delta = np.max(games) - games
-p = delta / delta.sum()
-
-print(delta, p, 1/15)
+print(action_probs)

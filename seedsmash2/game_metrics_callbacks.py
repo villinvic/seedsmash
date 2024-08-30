@@ -86,10 +86,10 @@ class SSBMCallbacks(
             action_states
         )
         # TODO this may be wrong if the model uses prev reward !
-        batch[SampleBatch.REWARD][:] = action_state_rewards + batch[SampleBatch.REWARD] * policy.policy_config["action_state_reward_scale"]
+        batch[SampleBatch.REWARD][:] = action_state_rewards * policy.policy_config["action_state_reward_scale"] + batch[SampleBatch.REWARD]
 
         for m, v in self.action_state_values[policy.name].get_metrics().items():
-            metrics[f"{policy.name}/{m}"] = v
+            metrics[f"{policy.name}/action_state_reward_scale/{m}"] = v
 
 
     def on_step(

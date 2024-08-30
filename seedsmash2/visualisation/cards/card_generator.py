@@ -76,7 +76,7 @@ def attribute_color(bot_id):
 
     if origin_color in ["red", "blue", "green"]:
         deviation_color = rng.integers(0, 255, 3)
-        dev_w = 0.45
+        dev_w = 0.47
     elif origin_color == "white":
         deviation_color = rng.integers(0, 255, 3)
         dev_w = 0.1

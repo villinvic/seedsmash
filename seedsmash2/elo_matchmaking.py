@@ -43,8 +43,8 @@ class SeedSmashMatchmaking(MatchMaking):
             initial_elo=1000,
             initial_lr=40,
             annealing=0.99,
-            final_lr=20,
-            win_rate_lr=2e-2,
+            final_lr=12,
+            win_rate_lr=5e-2,
             match_count=None,
             elo_scores=None,
             lr=None,
@@ -101,7 +101,7 @@ class SeedSmashMatchmaking(MatchMaking):
             delta = np.maximum(1e-8, np.max(total_samples) - total_samples)
             p = delta / delta.sum()
             # with this, the highest samples bot will never be picked here
-            print(total_samples, p)
+            #print(total_samples, p)
 
         sampled_policy = np.random.choice(list(params_map.keys()), p=p)
         policies.append(pcopy.pop(sampled_policy))

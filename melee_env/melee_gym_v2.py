@@ -18,6 +18,8 @@ import gymnasium
 from gymnasium.spaces import Discrete, Box, Tuple, Dict, MultiDiscrete
 
 from melee.enums import ControllerType, Character, Stage
+from melee.slippstream import EnetDisconnected
+
 from melee_env.enums import PlayerType
 from melee_env.action_space import ActionSpace, ComboPad, ActionSpaceStick, ActionSpaceCStick, ControllerStateCombo, \
     SimpleActionSpace, InputQueue, ActionControllerInterface, SSBMActionSpace
@@ -242,6 +244,8 @@ class SSBM(PolarisEnv):
             except BrokenPipeError as e:
                 print(e, self.env_index)
                 break
+            except EnetDisconnected:
+                raise ResetNeeded("EnetDisconnected")
             c += 1
             if c > max_w:
                 break

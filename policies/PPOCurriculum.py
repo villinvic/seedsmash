@@ -219,18 +219,19 @@ class PPOC(ParametrisedPolicy):
                 mean_entropy = tf.reduce_mean(entropy)
 
                 if self.policy_config.initial_kl_coeff > 0.0:
-                    kl_behavior_to_online = behavior_dist.kl(action_logits)
+                    kl_behavior_to_online = tf.boolean_mask(behavior_dist.kl(action_logits), mask)
+
                     kl_coeff = tf.exp(self.log_kl_coeff * self.policy_config.kl_coeff_speed)
                     kl_loss = (kl_coeff * (self.policy_config.kl_target - tf.stop_gradient(kl_behavior_to_online)) +
                                    tf.stop_gradient(kl_coeff) * kl_behavior_to_online)
-                    kl_loss = tf.reduce_mean(tf.boolean_mask(kl_loss, mask))
+                    kl_loss = tf.reduce_mean(kl_loss)
 
                 else:
                     kl_loss = tf.constant(0.0)
 
                 total_loss = critic_loss + policy_loss - mean_entropy * self.policy_config.entropy_cost + kl_loss
 
-        vars = self.model.trainable_variables
+        vars = self.model.trainable_variables + (self.log_kl_coeff,)
         gradients = tape.gradient(total_loss, vars)
         gradients, mean_grad_norm = tf.clip_by_global_norm(gradients, self.policy_config.grad_clip)
 
@@ -248,6 +249,7 @@ class PPOC(ParametrisedPolicy):
             "pi_loss": policy_loss,
             "mean_grad_norm": mean_grad_norm,
             "explained_vf": explained_vf,
-            "kl": tf.reduce_mean(tf.boolean_mask(kl_behavior_to_online, mask)),
-            "kl_loss": kl_loss
+            "kl": tf.reduce_mean(kl_behavior_to_online),
+            "kl_loss": kl_loss,
+            "kl_coeff": kl_coeff,
         }

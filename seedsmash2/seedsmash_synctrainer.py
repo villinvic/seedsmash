@@ -60,7 +60,7 @@ class SeedSmashSyncTrainer(Checkpointable):
             agent_ids=self.env.get_agent_ids(),
         )
 
-        self.runnning_jobs = []
+        self.running_jobs = []
 
         self.metricbank = MetricBank(
             dirname=self.config.tensorboard_logdir,
@@ -102,6 +102,7 @@ class SeedSmashSyncTrainer(Checkpointable):
                 GlobalCounter[GlobalCounter.ENV_STEPS] = self.metrics["counters/" + GlobalCounter.ENV_STEPS].get()
 
             for policy_name, params in self.params_map.items():
+                params.config.kl_target = 1e-2
                 self.policy_map[policy_name] = self.PolicylCls(
                     name=policy_name,
                     action_space=self.env.action_space,
@@ -114,6 +115,7 @@ class SeedSmashSyncTrainer(Checkpointable):
                     is_online=True,
                 )
                 self.policy_map[policy_name].setup(params)
+
                 self.policy_map[policy_name].curriculum_module.update(params.version)
 
                 # We pass again with curriculum stuff
@@ -190,13 +192,13 @@ class SeedSmashSyncTrainer(Checkpointable):
         jobs = [self.matchmaking.next(self.curriculum_params_map, wid) for wid in self.worker_set.available_workers]
         t.append(time.time())
 
-        self.runnning_jobs += self.worker_set.push_jobs(self.curriculum_params_map, jobs)
+        self.running_jobs += self.worker_set.push_jobs(self.curriculum_params_map, jobs)
         experience_metrics = []
         t.append(time.time())
         frames = 0
         env_steps = 0
 
-        experience = self.worker_set.wait(self.curriculum_params_map, self.runnning_jobs)
+        experience, self.running_jobs = self.worker_set.wait(self.curriculum_params_map, self.running_jobs)
         enqueue_time_start = time.time()
         num_batch = 0
 
@@ -210,9 +212,7 @@ class SeedSmashSyncTrainer(Checkpointable):
                     self.matchmaking.update(
                         pid1, pid2, outcome
                     )
-                    for pid in [pid1, pid2]:
-                        self.policy_map[pid].stats["samples_generated"] += exp_batch.policy_metrics[pid].episode_length
-                        print(pid, self.policy_map[pid].stats["samples_generated"])
+
                     experience_metrics.append(exp_batch)
                     env_steps += exp_batch.length
                 except Exception as e:
@@ -220,14 +220,17 @@ class SeedSmashSyncTrainer(Checkpointable):
 
             else: # Experience batch
                 owner = self.policy_map[exp_batch.get_owner()]
-                if not self.experience_queue[owner.name].is_ready() or owner.version == exp_batch[SampleBatch.VERSION][0]:
+                if (not self.experience_queue[owner.name].is_ready()) and owner.version == exp_batch[SampleBatch.VERSION][0]:
                     num_batch +=1
                     exp_batch = exp_batch.pad_sequences()
                     exp_batch[SampleBatch.SEQ_LENS] = np.array(exp_batch[SampleBatch.SEQ_LENS])
-                    print(f"rcved {owner} {exp_batch[SampleBatch.SEQ_LENS]}, version {exp_batch[SampleBatch.VERSION][0]}")
+                    #print(f"rcved {owner} {exp_batch[SampleBatch.SEQ_LENS]}, version {exp_batch[SampleBatch.VERSION][0]}")
                     self.experience_queue[owner.name].push([exp_batch])
+                    self.policy_map[owner.name].stats["samples_generated"] += exp_batch.size()
                     GlobalCounter.incr("batch_count")
                     frames += exp_batch.size()
+                elif owner.version != exp_batch[SampleBatch.VERSION][0]:
+                    print(owner.name, owner.version, exp_batch[SampleBatch.VERSION][0], self.curriculum_params_map[owner.name].version)
                 else:
                     # toss the batch...
                     pass

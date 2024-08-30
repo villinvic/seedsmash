@@ -104,8 +104,15 @@ dummy_ssbm = SSBM(**dict(env_conf))
 # TODO: spectate command
 # TODO: change projectile obs
 # TODO: improve visual of scrolling matchup + new challenger approaching ?
-# TODO: change observation for blastzones, platforms and projectiles # Is this WORKING?
-# TODO: test relative position of other player # Is this WORKING ?
+
+# TODO:     next_state = self.step_nones()
+#   File "/home/goji/seedsmash/melee_env/melee_gym_v2.py", line 241, in step_nones
+#     state = self.console.step()
+#   File "/home/goji/libmelee/melee/console.py", line 623, in step
+#     message = self._slippstream.dispatch(
+#   File "/home/goji/libmelee/melee/slippstream.py", line 171, in dispatch
+#     raise EnetDisconnected()
+# melee.slippstream.EnetDisconnected
 
 
 @ex.config
@@ -116,22 +123,22 @@ def my_config():
     del env_obj
     env_config = dict(env_conf)
 
-    num_workers = 8
+    num_workers = 62
     policy_path = 'policies.PPOCurriculum'
     model_path = 'models.rnn2'
     policy_class = 'PPOC'
     model_class = 'RNN'
     trajectory_length = 256
     max_seq_len = 32
-    train_batch_size = (num_workers - 1) * trajectory_length * 4
+    train_batch_size = 8192*4
     max_queue_size = train_batch_size * 10
-    n_epochs=8
+    n_epochs= 16
     minibatch_size=train_batch_size//4
 
     default_policy_config = {
         'discount': 0.996,  # 0.997
         'gae_lambda': 0.98,
-        'entropy_cost': 1.2e-3, # 1e-3 with impala, or around " 0.3, 0.4
+        'entropy_cost': 1.4e-3, # 1e-3 with impala, or around " 0.3, 0.4
         'lr': 5e-4,
         'fc_dims': [128, 128],
         'lstm_dim': 256,
@@ -139,8 +146,8 @@ def my_config():
 
         # PPO
         'ppo_clip': 0.3,
-        'initial_kl_coeff': 0.1,
-        'kl_coeff_speed': 2.,
+        'initial_kl_coeff': 2.,
+        'kl_coeff_speed': 1.,
         'baseline_coeff': 0.5,
         'vf_clip': 10.,
         'kl_target': 1e-2,
@@ -158,24 +165,24 @@ def my_config():
 
     compute_advantages_on_workers = True
     tensorboard_logdir = 'debugging'
-    report_freq = 20
+    report_freq = 5
     episode_metrics_smoothing = 0.95
     training_metrics_smoothing = 0.9
     update_ladder_freq_s = 29
     inject_new_bots_freq_s = 60
 
-    curriculum_max_version = 8_000
+    curriculum_max_version = 200
     curriculum_num_updates = 50
 
     checkpoint_config = dict(
-        checkpoint_frequency=5000,
+        checkpoint_frequency=200,
         checkpoint_path=exp_path,
         stopping_condition={"environment_steps": 1e10},
         keep=4,
     )
 
     episode_callback_class = SSBMCallbacks
-    negative_reward_scale = 0.95
+    negative_reward_scale = 0.9
 
 
 # Define a simple main function that will use the configuration
