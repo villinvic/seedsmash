@@ -167,7 +167,7 @@ class SSBM(PolarisEnv):
         sock = socket()
         sock.bind(('', 0))
 
-        self.slippi_port = int(sock.getsockname()[1])#51441 + self.env_index * 100 + np.random.randint(0, 100)
+        self.slippi_port =51441 + self.env_index * 100  #int(sock.getsockname()[1])
 
         home = os.path.expanduser("~")
         path = home + "/SlippiOnline/%s/dolphin"
