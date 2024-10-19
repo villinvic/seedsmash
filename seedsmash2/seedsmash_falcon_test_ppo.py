@@ -137,7 +137,7 @@ def my_config():
         'discount': 0.992,  # 0.997
         'action_state_reward_scale': 1.,
 
-        'gae_lambda': 0.97, # 0.98
+        'gae_lambda': 0.999, # 0.98
         'entropy_cost': 7e-3, # 1e-3 with impala, or around " 0.3, 0.4
         'lr': 5e-4,
         'fc_dims': [128, 128],

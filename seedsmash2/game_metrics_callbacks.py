@@ -147,14 +147,18 @@ class SSBMCallbacks(
             #scale = np.clip((200 - distance) / 200, 0., 1.)
             #print("as scale", scale, distance)
 
-            batch[SampleBatch.REWARD][:-1] += action_state_rewards * policy.policy_config["action_state_reward_scale"] #* scale
+            scale = 1.
+            total_bonus = np.sum(action_state_rewards)
+            if total_bonus > 1:
+                scale = 1./total_bonus
+
+            batch[SampleBatch.REWARD][:-1] += scale * action_state_rewards * policy.policy_config["action_state_reward_scale"] #* scale
 
             as_bonus_metric_name = f"{policy.name}/action_state_bonus"
-            total_bonus = np.sum(action_state_rewards)
             if as_bonus_metric_name not in metrics:
-                metrics[as_bonus_metric_name] = total_bonus
+                metrics[as_bonus_metric_name] = total_bonus * scale
             else:
-                metrics[as_bonus_metric_name] += total_bonus
+                metrics[as_bonus_metric_name] += total_bonus * scale
 
         not_dones = np.logical_not(batch[SampleBatch.DONE])
         uniques, counts = np.unique(batch[SampleBatch.OBS]["categorical"]["action1"][not_dones, 0], return_counts=True)

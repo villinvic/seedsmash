@@ -384,8 +384,9 @@ class SS0(BaseModel):
         )
         z = cdf_evals[:, :, -1:] - cdf_evals[:, :,  :1]
         bin_probs = cdf_evals[:, :, 1:] - cdf_evals[:, :, :-1]
+        ret = bin_probs / z
 
-        return bin_probs / z
+        return ret
 
 
     def critic_loss(self, targets):

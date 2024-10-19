@@ -77,7 +77,8 @@ class ActionStateCounts:
         # overused_mask = (self.probs > self.overused_prob)[action_states]
         logprobs = np.log(self.probs)
         rewards = np.maximum((np.log(self.underused_prob) - logprobs) * self.discarded_action_states, 0.)
-        penalty = np.maximum((logprobs-np.log(self.overused_prob)) * self.discarded_action_states, 0.)
+        penalty = np.clip(np.maximum((logprobs-np.log(self.overused_prob)) * self.discarded_action_states, 0.),
+                          0, 0.05)
 
 
         # rewards = np.log(np.clip(self.probs + (1 - self.underused_prob), 1e-8, 1)) * self.discarded_action_states
