@@ -223,6 +223,9 @@ class RewardFunction:
         self.total_kills = 0
         self.previous_last_hit_frame = -120
 
+        self.num_combos = 0
+        self.total_combos = 0
+
 
         self.landed_hits = {
             a: 0 for a in Action
@@ -328,12 +331,15 @@ class RewardFunction:
 
         received_percents = delta_frame.dpercent[port]
         percents = delta_frame.last_frame.players[port].percent
-        if received_percents > 0:
+        if received_percents > 0 or delta_frame.dstock[port] > 0:
             # max percent 200
             scale = 1 - np.clip(percents / 200, 0, 1)
             received_percents_rewards = received_percents * scale
             rewards.damage_received_rewards += received_percents_rewards
 
+            if self.num_combos > 0:
+                self.num_combos += 1
+                self.total_combos += self.combo_counter
             self.combo_counter = 0
             self.last_hit_action_state = Action.UNKNOWN_ANIMATION
 
@@ -474,8 +480,8 @@ class RewardFunction:
             "perf_frame_" + k: v / (game_length * 3)
             for k, v in self.per_frame_metrics.items()
         }
+        metrics["avg_combo_length"] = self.total_combos / (self.num_combos + 1e-8)
         metrics.update(self.metrics)
         helper_metrics = self.helper.get_metrics()
-        print(helper_metrics)
         metrics.update(helper_metrics)
         return metrics

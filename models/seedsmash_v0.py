@@ -118,8 +118,8 @@ class SS0(BaseModel):
 
         # Categorical value function
 
-        self.num_bins = 40
-        self.v_min, self.v_max = (-3., 3.)
+        self.num_bins = 50
+        self.v_min, self.v_max = (-5., 5.)
         self.bin_width = (self.v_max - self.v_min) / self.num_bins
         self.support = tf.cast(tf.expand_dims(tf.expand_dims(tf.linspace(self.v_min, self.v_max, self.num_bins + 1), axis=0), axis=0),
                                tf.float32)

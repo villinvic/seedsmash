@@ -130,15 +130,15 @@ def my_config():
     max_seq_len = 32
     train_batch_size = 32768
     max_queue_size = train_batch_size * 10
-    n_epochs=4
+    n_epochs=8
     minibatch_size=train_batch_size//8
 
     default_policy_config = {
         'discount': 0.992,  # 0.997
         'action_state_reward_scale': 1.,
 
-        'gae_lambda': 0.95, # 0.98
-        'entropy_cost': 5e-3, # 1e-3 with impala, or around " 0.3, 0.4
+        'gae_lambda': 0.97, # 0.98
+        'entropy_cost': 7e-3, # 1e-3 with impala, or around " 0.3, 0.4
         'lr': 5e-4,
         'fc_dims': [128, 128],
         'lstm_dim': 128,
