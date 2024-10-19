@@ -115,9 +115,6 @@ class PPOC(ParametrisedPolicy):
                 print(v)
                 raise e
 
-        print("input here!", input_batch[SampleBatch.REWARD].shape)
-
-
         def process_batch(b):
             b = dict(b)
             seq_lens = b.pop(SampleBatch.SEQ_LENS)
@@ -154,15 +151,12 @@ class PPOC(ParametrisedPolicy):
 
         metrics["curriculum"] = self.curriculum_module.get_metrics()
 
-        popart_update_time = time.time()
-
         #self.return_based_scaling.batch_update(metrics.pop("masked_rewards"), metrics.pop("returns"))
         #metrics["return_based_scaling"] = self.return_based_scaling.get_metrics()
 
         metrics.update(**res,
                        preprocess_time_ms=(nn_train_time-preprocess_start_time)*1000.,
-                       grad_time_ms=(popart_update_time - nn_train_time) * 1000.,
-                       popart_update_ms=(time.time()-popart_update_time)*1000.,
+                       grad_time_ms=(time.time() - nn_train_time) * 1000.,
                        )
         return metrics
 
@@ -181,7 +175,6 @@ class PPOC(ParametrisedPolicy):
                     input_batch
                 )
                 mask = tf.transpose(tf.sequence_mask(input_batch[SampleBatch.SEQ_LENS], maxlen=self.config.max_seq_len), [1, 0])
-                action_logits = action_logits
                 action_dist = self.model.action_dist(action_logits)
                 action_logp = action_dist.logp(input_batch[SampleBatch.ACTION])
 

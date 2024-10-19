@@ -376,7 +376,7 @@ class SSBM(PolarisEnv):
                 port += 1
                 if port in options:
                     chars = chars + (options[port].character,)
-                    p[options[port].preferred_stage] += 1.
+                    #p[options[port].preferred_stage] += 1.
                 else:
                     chars = chars + (np.random.choice(self.config["chars"]),)
 
@@ -613,22 +613,16 @@ class SSBM(PolarisEnv):
             print(f"Collected rewards: {rewards}")
 
         total_rewards = {}
+        self.episode_length += 1
+
         for port in self.get_agent_ids():
             curr_port = self.current_aids[port]
             other_port = 1 + (port % 2)
-            other_combo_count = 0 if other_port not in self.reward_functions\
-                else self.reward_functions[other_port].int_combo_counter
-            total_rewards[curr_port] = self.reward_functions[port].compute(rewards[port], other_combo_count)
-            for rid, r in rewards[port].to_dict().items():
-                self.episode_metrics[f"{curr_port}/{rid}"] += r
-                if done:
-                    self.episode_metrics[f"{curr_port}/per_frame/{rid}"] = self.episode_metrics[f"{curr_port}/{rid}"]/self.episode_length
-
-        self.episode_length += 1
-
-        # print(self.episode_length, obs[1]["categorical"])
-        # print(self.episode_length, obs[2]["categorical"])
-
+            opponent_combo_counter = 0 if other_port not in self.reward_functions\
+                else self.reward_functions[other_port].combo_counter
+            total_rewards[curr_port] = self.reward_functions[port].compute(rewards[port], opponent_combo_counter)
+            if done:
+                self.episode_metrics[f"agent_{port}"] = self.reward_functions[port].get_metrics(self.episode_length)
 
         return obs, total_rewards, dones, dones, {}
 

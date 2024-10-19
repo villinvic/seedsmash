@@ -1,0 +1,32 @@
+- test with fictitious play falcon dittos
+- my falcons tend to suicide first stock, check if still there is bugs over observations
+- less sgd iters ?
+- does not learn to shield
+- action state bonuses too low ?
+- revamp observations, it does not look too good (bigger clip ranges maybe) : We reverted to simpler obs for now
+- can't use much of what we had last year (lost most of it, last time for falcon ditto clips was 13.09.2023, prediction stuff was not good,
+multi char thingy was end of june)
+- recheck whole env, observations, rewards: TODO
+- put back the 2 frame delay (care for the action_space test functions) ? Keep at 0 for debug now
+- the action state bonus were added after the advantage computation ??? what ? maybe I changed something in rllib code
+- fix kl param over sgd iters, I am using vmpo method right now. -> OK, still using VMPO loss, but updating the kl coeff after whole iter
+- winning desire: boost rewards for subsequent kills, eg, 1 reward for stock 1, 2 for stock 2...
+- try tf embeddings with L2 regularization.
+- try again classification for vf (not priority)
+- for matchmaking in ss, take number of samples as base, then ranking, the lower the ranking, the higher probability,
+so that top performing bots can be caught up (ex: give time for lower ranked bots to learn to counter spamming strats).
+
+- think of helper functions specific for characters
+- think of helper functions for techskill: dashdance, wavedash, ledge-cancel, waveland, moonwalk, powershield
+- ie:
+- if waveland action goes through: provide reward, find a way that this is not hackable
+- ledge-cancel: if in landinglag (aerial, up-b, other specials) at frame t, and in air frame t+1, get reward
+- dashdance: provide minimal reward, or itself as well ?
+- wavedash: provide minimal reward if the action goes through, or itself as well ?
+- minimal reward when sliding ?
+- luigi charge: https://www.youtube.com/watch?v=EXzQRb51xaw
+
+scale down helper function rewards as it gets them more frequently:
+r = r_base * np.maximum((1 - freq) / (1 - freq_threshold), 0)
+
+- add damage reward landscape as customization (constant, linear, sinus, exp decay, noisy)

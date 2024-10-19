@@ -28,7 +28,7 @@ from seedsmash2.elo_matchmaking import SeedSmashMatchmaking
 from seedsmash2.spotlight_worker_set import SpotlightWorkerSet
 from seedsmash2.submissions.bot_config import BotConfig
 from seedsmash2.submissions.generate_form import load_filled_form
-from seedsmash2.utils import ActionStateValues, inject_botconfig
+from seedsmash2.utils import ActionStateCounts, inject_botconfig
 
 
 class SeedSmashTrainer(Checkpointable):
@@ -69,7 +69,7 @@ class SeedSmashTrainer(Checkpointable):
         )
         self.metrics = self.metricbank.metrics
 
-        self.action_state_values: Dict[str, ActionStateValues] = {}
+        self.action_state_values: Dict[str, ActionStateCounts] = {}
 
         # self.grad_thread = GradientThread(
         #     env=self.env,
@@ -171,7 +171,7 @@ class SeedSmashTrainer(Checkpointable):
                     print(self.curriculum_params_map[pid].options, self.params_map[pid].options)
 
                     self.experience_queue[pid] = ExperienceQueue(self.config)
-                    self.action_state_values[pid] = ActionStateValues(self.policy_map[pid].policy_config)
+                    self.action_state_values[pid] = ActionStateCounts(self.policy_map[pid].policy_config)
 
 
     def training_step(self):

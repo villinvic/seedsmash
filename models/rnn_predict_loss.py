@@ -62,10 +62,6 @@ class RNN(BaseModel):
         )
 
         self.num_outputs = action_space.n
-        self.action_state_embedding_size = 64
-        self.last_action_embedding_size = 32
-
-        self.num_outputs = action_space.n
 
         self.optimiser = snt.optimizers.Adam(
             learning_rate=config.lr,
@@ -93,22 +89,7 @@ class RNN(BaseModel):
         )
 
         #self.n_chars = int(observation_space["categorical"]["character1"].high) + 1
-        self.n_action_states = int(observation_space["categorical"]["action1"].high) + 1
-
-        self.last_action_embed = tf.keras.layers.Embedding(
-            input_dim=self.num_outputs,
-            output_dim=self.last_action_embedding_size,
-            embeddings_regularizer=tf.keras.regularizers.L2(l2=1e-4),
-            name="last_action_embed"
-        )
-
-        self.action_state_embed = tf.keras.layers.Embedding(
-            input_dim=self.n_action_states,
-            output_dim=self.action_state_embedding_size,
-            embeddings_regularizer=tf.keras.regularizers.L2(l2=1e-4),
-            name="action_state_embed"
-        )
-
+        #self.n_action_states = int(observation_space["categorical"]["action1"].high) + 1
         self.lstm_input_concat = tf.keras.layers.Concatenate(axis=-1, name="lstm_input_concat")
         self.post_embedding_concat = tf.keras.layers.Concatenate(axis=-1, name="post_embedding_concat")
 
@@ -138,16 +119,11 @@ class RNN(BaseModel):
                 tf.one_hot(tf.cast(categorical_inputs[k], tf.int32), depth=tf.cast(space.high[0], tf.int32) + 1, dtype=tf.float32,
                            name=k)
                 for k, space in self.observation_space["categorical"].items()
-                if k not in ["character1", "action1", "action2"]]  # "action1", "action2", "character2"
+                if k not in ["character1"]]  # "action1", "action2", "character2"
 
-            # last_action_one_hot = tf.one_hot(tf.cast(tf.expand_dims(prev_action, axis=0), tf.int32),
-            #                                  depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
+            last_action_one_hot = tf.one_hot(tf.cast(tf.expand_dims(prev_action, axis=0), tf.int32),
+                                             depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
 
-            action_state_self = categorical_inputs["action1"]
-            action_state_opp = categorical_inputs["action2"]
-            last_action_embedding = self.last_action_embed(tf.expand_dims(prev_action, axis=0))
-            action_state_self_embed = self.action_state_embed(tf.cast(action_state_self, tf.int32))
-            action_state_opp_embed = self.action_state_embed(tf.cast(action_state_opp, tf.int32))
 
         else:
             continuous_inputs = [continuous_inputs[k] for k in self.observation_space["continuous"]]
@@ -158,21 +134,15 @@ class RNN(BaseModel):
                 tf.one_hot(tf.cast(categorical_inputs[k], tf.int32), depth=tf.cast(space.high[0], tf.int32) + 1, dtype=tf.float32,
                            name=k)[:, :, 0]
                 for k, space in self.observation_space["categorical"].items()
-                if k not in ["character1", "action1", "action2"]]  # "action1", "action2", "character2"
+                if k not in ["character1"]]  # "action1", "action2", "character2"
 
 
+            last_action_one_hot = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
 
-            #last_action_one_hot = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
-
-            action_state_self = categorical_inputs["action1"]
-            action_state_opp = categorical_inputs["action2"]
-            last_action_embedding = self.last_action_embed(prev_action)
-            action_state_self_embed = self.action_state_embed(tf.cast(action_state_self, tf.int32))[:, :, 0]
-            action_state_opp_embed = self.action_state_embed(tf.cast(action_state_opp, tf.int32))[:, :, 0]
 
         obs_input_post_embedding = self.post_embedding_concat(
             continuous_inputs + binary_inputs + categorical_one_hots
-            + [last_action_embedding, action_state_self_embed, action_state_opp_embed]
+            + [last_action_one_hot]
             #+ [action_state_self_common_embed, action_state_opp_common_embed,
             #   action_state_self_embed, joint_char_action_state_opp_embed, char_embedding_opp]
         )

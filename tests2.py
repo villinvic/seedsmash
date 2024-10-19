@@ -14,15 +14,37 @@
 #     socket.send_pyobj(i)
 #     print('sent', i)
 #     time.sleep(1)
+import time
+
 import numpy as np
-from collections import defaultdict
 
-from seedsmash2.utils import ActionStateValues
+import numpy as np
 
-probs = ActionStateValues({})
 
-batch_size = 256
-action_probs = np.float32(np.square(np.arange(len(probs.probs))))
-action_probs /= action_probs.sum()
+def surround_with_true(arr, n):
+    # Step 1: Get the indices of all True values in the input array
+    true_indices = np.flatnonzero(arr)
 
-print(action_probs)
+    if len(true_indices) == 0:
+        return arr  # No True values, return original array
+
+    # Step 2: Generate the range of indices to be set to True
+    start_indices = np.maximum(true_indices - n, 0)  # Ensures index doesn't go negative
+    end_indices = np.minimum(true_indices + n, len(arr) - 1)  # Ensures index doesn't exceed array length
+
+    # Step 3: Create an empty boolean array
+    output = np.zeros_like(arr, dtype=bool)
+
+    # Step 4: Use NumPy broadcasting to mark ranges as True
+    for start, end in zip(start_indices, end_indices):
+        output[start:end + 1] = True
+
+    return output
+
+arr = np.random.choice(2, size=30, p=[0.9, 0.1])
+print(arr)
+t = time.time()
+result = surround_with_true(arr, 0)
+print(result)
+print(time.time()-t)
+

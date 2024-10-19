@@ -4,10 +4,12 @@ from typing import Dict, List
 from melee import Action
 from polaris.experience.episode_callbacks import EpisodeCallbacks
 from polaris.experience import SampleBatch
-from melee_env.observation_space_v2 import ObsBuilder
+from tensorflow.python.keras.backend import dtype
+
+from melee_env.observation_space_v2 import ObsBuilder, idx_to_action
 import numpy as np
 
-from seedsmash2.utils import ActionStateValues
+from seedsmash2.utils import ActionStateCounts, ActionStateValues
 
 
 def wrap_slice_set(arr, start, stop, values):
@@ -50,46 +52,114 @@ def compute_entropy_rewards(
 
     return entropy_rewards, action_state_entropy
 
+def linear_interpolation(arr, a=0.1):
+    n = len(arr)
+
+    # Initialize output array
+    output = np.zeros_like(arr, dtype=np.float32)
+
+    # Find indices where the ones are located
+    one_indices = np.where(arr)[0]
+
+    if len(one_indices) == 0:
+        return output  # Return all zeros if there are no ones
+
+    # Create an array to store the minimum distance to the nearest '1'
+    distances = np.full(n, np.inf)
+
+    # Leftward pass: Calculate the distance to the nearest '1' to the left
+    for idx in one_indices:
+        left_distance = np.arange(idx, -1, -1)
+        distances[:idx + 1] = np.minimum(distances[:idx + 1], left_distance)
+
+    # Rightward pass: Calculate the distance to the nearest '1' to the right
+    for idx in one_indices:
+        right_distance = np.arange(0, n - idx)
+        distances[idx:] = np.minimum(distances[idx:], right_distance)
+
+    # Apply linear interpolation using step size 'a'
+    output = np.maximum(1 - distances * a, 0)
+
+    return output
+
+def surround_with_true(arr, n):
+    # Step 1: Get the indices of all True values in the input array
+    true_indices = np.flatnonzero(arr)
+
+    if len(true_indices) == 0:
+        return arr  # No True values, return original array
+
+    # Step 2: Generate the range of indices to be set to True
+    start_indices = np.maximum(true_indices - n, 0)  # Ensures index doesn't go negative
+    end_indices = np.minimum(true_indices + n, len(arr) - 1)  # Ensures index doesn't exceed array length
+
+    # Step 3: Create an empty boolean array
+    output = np.zeros_like(arr, dtype=bool)
+
+    # Step 4: Use NumPy broadcasting to mark ranges as True
+    for start, end in zip(start_indices, end_indices):
+        output[start:end + 1] = True
+
+    return output
+
 class SSBMCallbacks(
     EpisodeCallbacks
 ):
     def __init__(self, config):
         super().__init__(config)
         self.negative_reward_scale = config.negative_reward_scale
-        self.action_state_values = {}
+        self.action_state_counts = defaultdict(lambda: np.zeros((len(Action),), dtype=np.int32))
+        self.landed_hits = defaultdict(lambda: {
+            action.name: 0. for action in Action
+        })
 
     def process_agent(
             self,
             policy,
             batch,
-            metrics
+            metrics,
     ):
 
         batch[SampleBatch.REWARD][:] = \
             np.maximum(batch[SampleBatch.REWARD], 0.) + \
             np.minimum(batch[SampleBatch.REWARD], 0.) * self.negative_reward_scale
 
-        metrics[f"{policy.name}/Wall techs"] = np.sum(
+        tech_metric_name = f"{policy.name}/Wall techs"
+        num_techs = np.sum(
             np.int16(
                 np.isin(np.int32(batch[SampleBatch.OBS]["categorical"]["action1"]), ActionStateValues.wall_tech_states)
                 ))
+        if tech_metric_name not in metrics:
+            metrics[f"{policy.name}/Wall techs"] = num_techs
+        else:
+            metrics[f"{policy.name}/Wall techs"] += num_techs
 
-        if policy.name not in self.action_state_values:
-            self.action_state_values[policy.name] = ActionStateValues(config=self.config)
 
         action_states = batch[SampleBatch.OBS]["categorical"]["action1"][:, 0]
-        self.action_state_values[policy.name].push_samples(
-            action_states
-        )
 
-        action_state_rewards = self.action_state_values[policy.name].get_rewards(
-            action_states
-        )
-        # TODO this may be wrong if the model uses prev reward !
-        batch[SampleBatch.REWARD][:] = action_state_rewards * policy.policy_config["action_state_reward_scale"] + batch[SampleBatch.REWARD]
+        if "action_state_values" in policy.stats:
+            action_state_rewards = policy.stats["action_state_values"].get_rewards(
+                action_states[1:]
+            )
+            # TODO this may be wrong if the model uses prev reward !
 
-        for m, v in self.action_state_values[policy.name].get_metrics().items():
-            metrics[f"{policy.name}/action_state_reward_scale/{m}"] = v
+            # scale linearly as the players get farther
+            #scale = np.clip((200 - distance) / 200, 0., 1.)
+            #print("as scale", scale, distance)
+
+            batch[SampleBatch.REWARD][:-1] += action_state_rewards * policy.policy_config["action_state_reward_scale"] #* scale
+
+            as_bonus_metric_name = f"{policy.name}/action_state_bonus"
+            total_bonus = np.sum(action_state_rewards)
+            if as_bonus_metric_name not in metrics:
+                metrics[as_bonus_metric_name] = total_bonus
+            else:
+                metrics[as_bonus_metric_name] += total_bonus
+
+        not_dones = np.logical_not(batch[SampleBatch.DONE])
+        uniques, counts = np.unique(batch[SampleBatch.OBS]["categorical"]["action1"][not_dones, 0], return_counts=True)
+
+        self.action_state_counts[policy.name][uniques] += counts
 
 
     def on_step(
@@ -103,7 +173,13 @@ class SSBMCallbacks(
             infos: Dict,
             metrics: Dict,
     ):
-        pass
+        for aid, policy in agents_to_policies.items():
+            other_aid = aid % 2 + 1
+            inflicted = next_observations[other_aid]["continuous"]["percent1"][0] - observations[other_aid]["continuous"]["percent1"][0]
+            if inflicted > 0:
+                curr_action = idx_to_action[observations[aid]["categorical"]["action1"][0]]
+                self.landed_hits[policy.name][curr_action.name] += inflicted * 100
+
 
     def on_trajectory_end(
             self,
@@ -111,12 +187,13 @@ class SSBMCallbacks(
             sample_batches: List,
             metrics: Dict,
     ):
+
         for batch in sample_batches:
             policy = agents_to_policies[batch[SampleBatch.AGENT_ID][0]]
             self.process_agent(
                 policy,
                 batch,
-                metrics
+                metrics,
             )
 
     def on_episode_end(
@@ -136,3 +213,19 @@ class SSBMCallbacks(
                     break
             if not policy_metric:
                 metrics[metric_name] = metric
+
+        for policy in agents_to_policies.values():
+            metrics[f"{policy.name}/to_pop/action_states_and_counts"] = self.action_state_counts[policy.name].copy()
+            # TODO: del this ?
+            self.action_state_counts[policy.name][:] = 0
+
+            # if ditto, sends one with double count
+            landed_hits_metric = f"{policy.name}/landed_hits"
+            if landed_hits_metric in metrics:
+                metrics[landed_hits_metric] = np.array({
+                    a: v/2 for a, v in metrics[landed_hits_metric].item().items()
+                })
+            else:
+                metrics[f"{policy.name}/landed_hits"] = np.array(self.landed_hits[policy.name])
+                del self.landed_hits[policy.name]
+

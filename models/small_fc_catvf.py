@@ -69,7 +69,6 @@ class SmallFCCatVf(BaseModel):
         self.bin_width = (self.v_max - self.v_min) / self.num_bins
         self.support = tf.cast(tf.expand_dims(tf.linspace(self.v_min, self.v_max, self.num_bins + 1), axis=0), tf.float32)
         self.centers = (self.support[:, :-1] + self.support[:, 1:]) / 2.
-
         smoothing_ratio = 0.75
         sigma = smoothing_ratio * self.bin_width
         self.sqrt_two_sigma = tf.math.sqrt(2.) * sigma

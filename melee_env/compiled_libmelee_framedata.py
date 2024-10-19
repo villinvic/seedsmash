@@ -26,6 +26,10 @@ class CompiledFrameData:
             lambda: defaultdict(list)
         )
 
+        self.ranges = defaultdict(
+            lambda: defaultdict(list)
+        )
+
         self.is_grab = self.FD.is_grab
         self.is_roll = self.FD.is_roll
         self.is_bmove = self.FD.is_bmove
@@ -42,13 +46,29 @@ class CompiledFrameData:
                     attackingframe = self.FD._getframe(char, action, frame)
                     if attackingframe is None:
                         continue
+
+                    if attackingframe['hitbox_1_status']:
+                        self.ranges[char][action].append((frame, attackingframe["hitbox_1_x"],
+                                                          attackingframe["hitbox_1_y"],
+                                                          attackingframe["hitbox_1_size"]))
+                    if attackingframe['hitbox_2_status']:
+                        self.ranges[char][action].append((frame, attackingframe["hitbox_2_x"],
+                                                          attackingframe["hitbox_2_y"],
+                                                          attackingframe["hitbox_2_size"]))
+                    if attackingframe['hitbox_3_status']:
+                        self.ranges[char][action].append((frame, attackingframe["hitbox_3_x"],
+                                                          attackingframe["hitbox_3_y"],
+                                                          attackingframe["hitbox_3_size"]))
+                    if attackingframe['hitbox_4_status']:
+                        self.ranges[char][action].append((frame,
+                                                          attackingframe["hitbox_4_x"],
+                                                          attackingframe["hitbox_4_y"],
+                                                          attackingframe["hitbox_4_size"]))
+
                     if attackingframe['hitbox_1_status'] or attackingframe['hitbox_2_status'] \
                             or attackingframe['hitbox_3_status'] or attackingframe['hitbox_4_status'] or \
                             attackingframe['projectile']:
                         self.hitbox_frames[char][action].append(frame)
-
-
-
 
     def is_attack(self, character, action):
         return self.attack[character][action]
@@ -195,6 +215,14 @@ class CompiledFrameData:
                 break
 
         return frames_before_next_hitbox
+
+    def get_move_next_hitboxes(self, character, action, curr_frame):
+        infos = []
+        for frame, x, y, r in self.ranges[character][action]:
+            if frame > curr_frame:
+                infos.append((x, y, r))
+        return infos
+
 
 
 

@@ -2,6 +2,7 @@
 from functools import partial
 
 import numpy as np
+import wandb
 from melee.enums import Character, Stage
 from melee_env.enums import PlayerType
 from melee_env.melee_gym_v2 import SSBM
@@ -24,9 +25,9 @@ obs_config = (
     .character()
     #.ecb()
     .stage()
-    .max_projectiles(1)  # one falco can generate more than 3 projectiles apparently ?
-    #.controller_state()
-    .delay(3) # 4 (* 3)
+    .max_projectiles(0)  # one falco can generate more than 3 projectiles apparently ?
+    .controller_state()
+    .delay(6) # 4 (* 3)
 )
 
 
@@ -74,21 +75,18 @@ env_conf = (
         # Character.YLINK,
         # Character.DOC,
         # Character.FALCO,
-        # Character.PICHU,
+        # Character.PICHU
         # Character.GAMEANDWATCH,
         # Character.GANONDORF,
         # Character.ROY
     ])
     .stages([
-        # Stage.FINAL_DESTINATION,
-        # Stage.YOSHIS_STORY, # Why is this so buggy ?
-        # Stage.POKEMON_STADIUM,
+        Stage.FINAL_DESTINATION,
+        Stage.YOSHIS_STORY,
+        Stage.POKEMON_STADIUM,
         Stage.BATTLEFIELD,
-        # Stage.DREAMLAND,
-        #
-        # Stage.FOUNTAIN_OF_DREAMS  # TODO support FOD
-        # falcon falco, jiggs falco, marth falcon, jigs falcon, falcon falcon, falcon fox, marth falcon, falco falco,
-        # marth falco, jigs marth
+        Stage.DREAMLAND,
+        Stage.FOUNTAIN_OF_DREAMS
     ])
     .players([PlayerType.BOT, PlayerType.BOT])
     .n_eval(-100)
@@ -123,29 +121,31 @@ def my_config():
     del env_obj
     env_config = dict(env_conf)
 
-    num_workers = 62
-    policy_path = 'policies.PPOCurriculum'
-    model_path = 'models.rnn2'
-    policy_class = 'PPOC'
-    model_class = 'RNN'
-    trajectory_length = 256
+    num_workers = 64
+    policy_path = 'polaris.policies.PPO'
+    model_path = 'models.seedsmash_v0'
+    policy_class = 'PPO'
+    model_class = 'SS0'
+    trajectory_length = 128 # 256 ?
     max_seq_len = 32
-    train_batch_size = 8192*4
+    train_batch_size = 32768
     max_queue_size = train_batch_size * 10
-    n_epochs= 16
-    minibatch_size=train_batch_size//4
+    n_epochs=4
+    minibatch_size=train_batch_size//8
 
     default_policy_config = {
-        'discount': 0.996,  # 0.997
-        'gae_lambda': 0.98,
-        'entropy_cost': 1.4e-3, # 1e-3 with impala, or around " 0.3, 0.4
+        'discount': 0.992,  # 0.997
+        'action_state_reward_scale': 1.,
+
+        'gae_lambda': 0.95, # 0.98
+        'entropy_cost': 5e-3, # 1e-3 with impala, or around " 0.3, 0.4
         'lr': 5e-4,
         'fc_dims': [128, 128],
-        'lstm_dim': 256,
+        'lstm_dim': 128,
         'grad_clip': 5.,
 
         # PPO
-        'ppo_clip': 0.3,
+        'ppo_clip': 0.1, # 0.3
         'initial_kl_coeff': 2.,
         'kl_coeff_speed': 1.,
         'baseline_coeff': 0.5,
@@ -164,25 +164,24 @@ def my_config():
         }
 
     compute_advantages_on_workers = True
-    tensorboard_logdir = 'debugging'
+    wandb_logdir = 'logs'
     report_freq = 5
     episode_metrics_smoothing = 0.95
-    training_metrics_smoothing = 0.9
-    update_ladder_freq_s = 29
+    training_metrics_smoothing = 0.8
     inject_new_bots_freq_s = 60
-
-    curriculum_max_version = 200
-    curriculum_num_updates = 50
+    # FSP
+    update_policy_history_freq = 400
+    policy_history_length = 3
 
     checkpoint_config = dict(
-        checkpoint_frequency=200,
+        checkpoint_frequency=50,
         checkpoint_path=exp_path,
         stopping_condition={"environment_steps": 1e10},
         keep=4,
     )
 
     episode_callback_class = SSBMCallbacks
-    negative_reward_scale = 0.9
+    negative_reward_scale = 0.96
 
 
 # Define a simple main function that will use the configuration
@@ -193,14 +192,24 @@ def main(_config):
     gpus = tf.config.experimental.list_physical_devices('GPU')
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
-    from seedsmash2.seedsmash_synctrainer import SeedSmashSyncTrainer
+    from seedsmash2.fsp_sync_trainer import FSP
 
     # TODO: seeding
     # Access the configuration using _config
     c = ConfigDict(_config)
-    print("Experiment Configuration:")
-    print(c)
-    trainer = SeedSmashSyncTrainer(c, restore=False)
+    wandb.init(
+        config=c,
+        project="Seedsmash",
+        mode='online',
+        group="debug",
+        name="fictitious_play_multi_stage_2",
+        notes=None,
+        dir=c.wandb_logdir
+    )
+    # print("Experiment Configuration:")
+    # print(c)
+
+    trainer = FSP(c, restore=False)
     trainer.run()
 
 

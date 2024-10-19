@@ -585,14 +585,14 @@ def disable_in_air(game_state, char_state: PlayerState, curr_action: InputSequen
     return allow
 
 def disable_on_shield(game_state, char_state: PlayerState, curr_action: InputSequence):
-    allow = not char_state.action in (Action.SHIELD_START, Action.SHIELD) # TODO: shield release as well ?
+    allow = not char_state.action in (Action.SHIELD_START, Action.SHIELD, Action.SHIELD_STUN) # TODO: shield release as well ?
     if not allow:
         curr_action.terminate()
     return allow
 
 
 def disable_on_shield_air(game_state, char_state: PlayerState, curr_action: InputSequence):
-    allow = (not char_state.action in (Action.SHIELD_START, Action.SHIELD)) and char_state.on_ground # TODO: shield release as well ?
+    allow = (not char_state.action in (Action.SHIELD_START, Action.SHIELD, Action.SHIELD_STUN)) and char_state.on_ground # TODO: shield release as well ?
     if not allow:
         curr_action.terminate()
     return allow
@@ -610,7 +610,7 @@ def allow_shield_drop1(game_state, char_state: PlayerState, curr_action: InputSe
     return allow
 
 def allow_shield_drop(game_state, char_state: PlayerState, curr_action: InputSequence):
-    allow = char_state.action in (Action.SHIELD_START, Action.SHIELD, Action.SHIELD_REFLECT) and char_state.y > 8
+    allow = char_state.action in (Action.SHIELD_START, Action.SHIELD, Action.SHIELD_REFLECT, Action.SHIELD_STUN) and char_state.y > 8
     if not allow:
         curr_action.terminate()
     return allow
@@ -672,6 +672,13 @@ def allow_tornado_init(game_state, char_state: PlayerState, curr_action: InputSe
         curr_action.terminate()
     return allow
 
+def allow_jc_grab(game_state, char_state: PlayerState, curr_action: InputSequence):
+    allow = char_state.action in (Action.RUNNING, Action.DASHING, Action.WALK_FAST, Action.WALK_MIDDLE)
+    if not allow:
+        curr_action.terminate()
+    return allow
+
+
 
 def debug(game_state, char_state: PlayerState, curr_action: InputSequence):
     print("debuging action", char_state.action, char_state.on_ground)
@@ -680,7 +687,7 @@ def debug(game_state, char_state: PlayerState, curr_action: InputSequence):
 
 MARIO_TORNADO = []
 while len(MARIO_TORNADO) < 41:  # actually 37
-    if len(MARIO_TORNADO) > 6:
+    if len(MARIO_TORNADO) > 0: # 6
         test_func = allow_tornado
     else:
         test_func = allow_tornado_init
@@ -785,9 +792,9 @@ class SSBMActionSpace:
     # Hook, Z-cancel, NAIR
     Z = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_Z, test_func=disable_on_ground))
 
-    Z_GRAB = lambda _: InputSequence([
-        ControllerInput(buttons=Button.BUTTON_X, duration=2, test_func=disable_in_air),
-        ControllerInput(buttons=Button.BUTTON_Z, duration=1, test_func=disable_in_air),
+    JC_GRAB = lambda _: InputSequence([
+        ControllerInput(buttons=Button.BUTTON_X, duration=2, test_func=allow_jc_grab),
+        ControllerInput(buttons=Button.BUTTON_Z, duration=1, test_func=allow_jc_grab),
     ])
     SHIELD_GRAB = lambda _: InputSequence(
         ControllerInput(buttons=(Button.BUTTON_A, Button.BUTTON_L), test_func=disable_in_air),
@@ -836,7 +843,7 @@ class SSBMActionSpace:
         {
             character: InputSequence([
                 ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+1, stick=StickPosition.WAVE_LEFT,
-                                test_func=disable_in_air, energy_cost=0.),
+                                test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.WAVE_LEFT,
                                 test_func=allow_wavedash, energy_cost=0.),
             ], free_stick_at_frame=short_hop_frames + 2, name=character)
@@ -847,7 +854,7 @@ class SSBMActionSpace:
         {
             character: InputSequence([
                 ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+1, stick=StickPosition.WAVE_RIGHT,
-                                test_func=disable_in_air, energy_cost=0.),
+                                test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.WAVE_RIGHT,
                                 test_func=allow_wavedash, energy_cost=0.),
             ], free_stick_at_frame=short_hop_frames + 2, name=character)
@@ -858,7 +865,7 @@ class SSBMActionSpace:
         {
             character: InputSequence([
                 ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+1, stick=StickPosition.DOWN,
-                                test_func=disable_in_air, energy_cost=0.),
+                                test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.DOWN,
                                 test_func=check_kneebend, energy_cost=0.),
             ], free_stick_at_frame=short_hop_frames + 2, name=character)
@@ -869,7 +876,7 @@ class SSBMActionSpace:
         {
             character: InputSequence([
                 ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+1, stick=StickPosition.DOWN_LEFT,
-                                test_func=disable_in_air, energy_cost=0.),
+                                test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.DOWN_LEFT,
                                 test_func=allow_wavedash, energy_cost=0.),
             ], free_stick_at_frame=short_hop_frames + 2, name=character)
@@ -880,7 +887,7 @@ class SSBMActionSpace:
         {
             character: InputSequence([
                 ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+1, stick=StickPosition.DOWN_RIGHT,
-                                test_func=disable_in_air, energy_cost=0.),
+                                test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.DOWN_RIGHT,
                                 test_func=allow_wavedash, energy_cost=0.),
             ], free_stick_at_frame=short_hop_frames + 2, name=character)

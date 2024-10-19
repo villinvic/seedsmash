@@ -28,7 +28,7 @@ from seedsmash2.elo_matchmaking import SeedSmashMatchmaking
 from seedsmash2.spotlight_worker_set import SpotlightWorkerSet, SyncSpotlightWorkerSet
 from seedsmash2.submissions.bot_config import BotConfig
 from seedsmash2.submissions.generate_form import load_filled_form
-from seedsmash2.utils import ActionStateValues, inject_botconfig
+from seedsmash2.utils import ActionStateCounts, inject_botconfig
 
 
 class SeedSmashSyncTrainer(Checkpointable):
@@ -50,6 +50,8 @@ class SeedSmashSyncTrainer(Checkpointable):
 
         self.PolicylCls = getattr(importlib.import_module(self.config.policy_path), self.config.policy_class)
         self.policy_map: Dict[str, Policy] = {}
+        self.action_state_counts: Dict[str, ActionStateCounts] = {}
+
 
         self.curriculum_params_map = ParamsMap()
         self.params_map = ParamsMap()
@@ -84,6 +86,7 @@ class SeedSmashSyncTrainer(Checkpointable):
                 "config": self.config,
                 "params_map": self.params_map,
                 "metrics": self.metrics,
+                "action_state_counts": self.action_state_counts,
                 "discarded_policies": self.discarded_policies,
             }
         )
@@ -102,7 +105,6 @@ class SeedSmashSyncTrainer(Checkpointable):
                 GlobalCounter[GlobalCounter.ENV_STEPS] = self.metrics["counters/" + GlobalCounter.ENV_STEPS].get()
 
             for policy_name, params in self.params_map.items():
-                params.config.kl_target = 1e-2
                 self.policy_map[policy_name] = self.PolicylCls(
                     name=policy_name,
                     action_space=self.env.action_space,
@@ -122,7 +124,6 @@ class SeedSmashSyncTrainer(Checkpointable):
                 self.curriculum_params_map[policy_name] = self.policy_map[policy_name].get_params()
 
                 self.experience_queue[policy_name] = ExperienceQueue(self.config)
-
 
         self.inject_bot_configs()
         self.worker_set.init_window()
@@ -176,6 +177,8 @@ class SeedSmashSyncTrainer(Checkpointable):
                     )
 
                     self.experience_queue[pid] = ExperienceQueue(self.config)
+                    self.action_state_counts[pid] = ActionStateCounts(self.policy_map[pid].policy_config)
+
 
     def training_step(self):
         """
@@ -204,7 +207,6 @@ class SeedSmashSyncTrainer(Checkpointable):
 
         for exp_batch in experience:
             if isinstance(exp_batch, EpisodeMetrics):
-
                 try:
                     # If this fails, it means the episode exited early
                     pid1, pid2 = exp_batch.policy_metrics.keys()
@@ -212,6 +214,14 @@ class SeedSmashSyncTrainer(Checkpointable):
                     self.matchmaking.update(
                         pid1, pid2, outcome
                     )
+                    for pid in (pid1, pid2):
+
+                        action_state_counts = exp_batch.custom_metrics.pop(f"{pid}/to_pop/action_states_and_counts", None)
+                        if action_state_counts is not None:
+                            self.action_state_counts[pid].push_samples(action_state_counts)
+                            self.policy_map[pid].stats["action_state_values"] = self.action_state_counts[pid].get_values()
+                        else:
+                            print("???", exp_batch.custom_metrics)
 
                     experience_metrics.append(exp_batch)
                     env_steps += exp_batch.length
@@ -220,6 +230,7 @@ class SeedSmashSyncTrainer(Checkpointable):
 
             else: # Experience batch
                 owner = self.policy_map[exp_batch.get_owner()]
+
                 if (not self.experience_queue[owner.name].is_ready()) and owner.version == exp_batch[SampleBatch.VERSION][0]:
                     num_batch +=1
                     exp_batch = exp_batch.pad_sequences()
@@ -234,6 +245,7 @@ class SeedSmashSyncTrainer(Checkpointable):
                 else:
                     # toss the batch...
                     pass
+
 
         if frames > 0:
             GlobalTimer[GlobalTimer.PREV_FRAMES] = time.time()
@@ -287,6 +299,8 @@ class SeedSmashSyncTrainer(Checkpointable):
                     #coaching_model=coaching_model,
                     #coaching_batch=coaching_batch
                 )
+
+                train_results["action_state_counts"] = self.action_state_counts[policy_name].get_metrics()
 
                 training_metrics[f"{policy_name}"] = train_results
                 GlobalCounter.incr(GlobalCounter.STEP)

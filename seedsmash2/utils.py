@@ -1,8 +1,15 @@
 import numpy as np
 from melee import Action
+from tensorflow_probability.python.internal.backend.jax import argmax
 
 from seedsmash2.submissions.bot_config import BotConfig
 
+action_idx = {
+    s: i for i, s in enumerate(Action)
+}
+idx_to_action = {
+    i: s for i, s in enumerate(Action)
+}
 
 def inject_botconfig(policy_config, botconfig: BotConfig):
 
@@ -16,8 +23,84 @@ def inject_botconfig(policy_config, botconfig: BotConfig):
     policy_config["action_state_reward_scale"] = creativity_coeff
 
 
+class ActionStateCounts:
+
+    def __init__(self, config):
+        self.config = config
+        self.n_action_states = len(action_idx)
+        self.probs = np.full((self.n_action_states,), dtype=np.float32, fill_value=1/self.n_action_states)
+
+        self.discarded_action_states = np.ones((self.n_action_states,), dtype=np.float32)
+        self.discarded_action_states[ActionStateValues.discarded_states] = 0.
+
+        self.underused_prob = 1e-4
+        self.overused_prob = 0.16
+
+        self.count_max = 100 / self.underused_prob
+        self.count_min = 20 / self.underused_prob
+        self.curr_count = 0
+        self.count_sizes = []
+        self.queue = []
+        self.values = np.zeros((self.n_action_states,), dtype=np.float32)
+
+
+    def push_samples(self, action_state_counts):
+        # We want to punish moves that are used to often
+        # Reward rare states.
+        # if we take the unique actions, we can't punish the overused actions
+        # same if we only take the first frame where the action appears (example: DK down-b)
+        # if we take all actions, we repeatdly reward states that can't be stayed on (e.g. techs).
+        # but for those states we can't stay on, we do not reward a lot of frames in consequence, so this should be
+        # fine.
+
+        self.queue.append(action_state_counts)
+        size = np.sum(action_state_counts)
+        self.curr_count += size
+        self.count_sizes.append(size)
+
+        if self.curr_count < self.count_min:
+            return
+
+        while self.curr_count > self.count_max:
+            popped_size = self.count_sizes.pop(0)
+            self.queue.pop(0)
+            self.curr_count -= popped_size
+
+
+    def get_values(self):
+
+        if self.curr_count > self.count_min:
+            self.probs[:] = np.maximum(np.sum(self.queue, dtype=np.float32, axis=0), 1e-3)
+            self.probs /= self.probs.sum()
+
+        # underused_mask =  (self.probs < self.underused_prob)[action_states]
+        # overused_mask = (self.probs > self.overused_prob)[action_states]
+        logprobs = np.log(self.probs)
+        rewards = np.maximum((np.log(self.underused_prob) - logprobs) * self.discarded_action_states, 0.)
+        penalty = np.maximum((logprobs-np.log(self.overused_prob)) * self.discarded_action_states, 0.)
+
+
+        # rewards = np.log(np.clip(self.probs + (1 - self.underused_prob), 1e-8, 1)) * self.discarded_action_states
+        # penalty = np.log(np.clip(-self.probs + (1 + self.overused_prob), 1e-8, 1)) * self.discarded_action_states
+        #
+        # rewards = np.square(rewards*8_000.) * 0.05
+        # penalty = np.square(penalty)
+
+        scores = (rewards * 6. - penalty) * 0.01
+
+        return ActionStateValues(scores)
+
+    def get_metrics(self):
+        return {
+            "entropy": - np.sum(np.log(self.probs) * self.probs),
+            "min_prob": np.min(self.probs),
+            "max_prob": np.max(self.probs),
+            "count": self.curr_count,
+        }
+
+
 class ActionStateValues:
-    discarded_states = np.array([a.value for a in [
+    discarded_states = np.array([action_idx[a] for a in [
         Action.WALK_SLOW, Action.WALK_FAST, Action.WALK_MIDDLE,
         Action.TUMBLING, Action.TURNING, Action.TURNING_RUN, Action.GRABBED,
         Action.EDGE_TEETERING, Action.EDGE_TEETERING_START, Action.RUN_BRAKE,
@@ -30,61 +113,44 @@ class ActionStateValues:
         Action.SHIELD_BREAK_FLY, Action.SHIELD_BREAK_FALL, Action.SHIELD_BREAK_TEETER, Action.JUMPING_FORWARD,
         Action.JUMPING_BACKWARD, Action.GRAB_BREAK, Action.SHIELD_BREAK_DOWN_U, Action.SHIELD_BREAK_DOWN_D,
         Action.SHIELD_BREAK_STAND_U, Action.SHIELD_BREAK_STAND_D, Action.GRAB, Action.GRAB_RUNNING,
-        Action.GRAB_PULL, Action.GRAB_PUMMELED
+        Action.GRAB_PULL, Action.GRAB_PUMMELED, Action.BUMP_WALL, Action.BUMP_CIELING, Action.BOUNCE_WALL, Action.BOUNCE_CEILING,
+        Action.DEAD_FLY_STAR, Action.THROWN_COPY_STAR, Action.THROWN_KIRBY_STAR, Action.THROWN_KIRBY, Action.THROWN_UP,
+        Action.THROWN_BACK, Action.THROWN_DOWN, Action.THROWN_FORWARD, Action.DAMAGE_FLY_HIGH, Action.DAMAGE_HIGH_1,
+        Action.DAMAGE_HIGH_2, Action.DAMAGE_HIGH_3, Action.DAMAGE_NEUTRAL_1, Action.DAMAGE_NEUTRAL_2, Action.DAMAGE_NEUTRAL_3,
+        Action.DAMAGE_LOW_1, Action.DAMAGE_LOW_2, Action.DAMAGE_LOW_3, Action.DAMAGE_AIR_1, Action.DAMAGE_AIR_2, Action.DAMAGE_AIR_3,
+        Action.DAMAGE_FLY_HIGH, Action.DAMAGE_FLY_NEUTRAL, Action.DAMAGE_FLY_LOW, Action.DAMAGE_FLY_TOP, Action.DAMAGE_FLY_ROLL,
+        Action.DAMAGE_GROUND, Action.PUMMELED_HIGH, Action.GRABBED_WAIT_HIGH, Action.YOSHI_EGG, Action.KIRBY_YOSHI_EGG,
+        Action.THROWN_F_HIGH, Action.THROWN_DOWN_2, Action.THROWN_F_LOW, Action.THROWN_MEWTWO, Action.THROWN_MEWTWO_AIR,
+        Action.THROWN_FB, Action.THROWN_FF, Action.THROWN_KIRBY_DRINK_S_SHOT, Action.THROWN_KIRBY_SPIT_S_SHOT,
+        Action.THROWN_KOOPA_B, Action.THROWN_KOOPA_F, Action.THROWN_KOOPA_AIR_B, Action.THROWN_KOOPA_END_F,
+        Action.THROWN_KOOPA_AIR_F, Action.THROWN_KOOPA_AIR_END_B, Action.THROWN_KOOPA_END_B, Action.THROWN_KOOPA_AIR_END_F,
+        Action.GRAB_ESCAPE
     ]])
-    wall_tech_states = np.array([a.value for a in [
+    wall_tech_states = np.array([action_idx[a] for a in [
         Action.WALL_TECH, Action.WALL_TECH_JUMP, Action.CEILING_TECH
     ]])
 
-    def __init__(self, config):
-        self.config = config
-        self.n_action_states = len(Action)
-        self.probs = np.full((self.n_action_states,), dtype=np.float32, fill_value=1/self.n_action_states)
-
-        self.discarded_action_states = np.ones((self.n_action_states,), dtype=np.float32)
-        self.discarded_action_states[self.discarded_states] = 0.
-
-        self.underused_prob = 1e-4
-        self.overused_prob = 0.3
-        self.last_rewards = 0.
-        self.last_penalties = 0.
-        self.min_taken_prob = 0.
-
-    def push_samples(self, action_states):
-        u, counts = np.unique(action_states, return_counts=True)
-        lr = 6e-2
-        count_probs = counts / counts.sum()
-        self.probs[:] *= (1-lr)
-        self.probs[u] += count_probs * lr
-        np.clip(self.probs, 1e-6, 1., out=self.probs)
+    def __init__(self, values):
+        self.values = values
+        self.last_penalty = 0.
+        self.last_bonus = 0.
 
     def get_rewards(self, action_states):
-        # underused_mask =  (self.probs < self.underused_prob)[action_states]
-        # overused_mask = (self.probs > self.overused_prob)[action_states]
-        discarded_mask = self.discarded_action_states[action_states]
-        #logprobs = np.log(self.probs)
-        # rewards = (np.log(self.underused_prob) - logprobs[action_states]) * np.float32(underused_mask) * discarded_mask
-        # penalty = (logprobs[action_states]-np.log(self.overused_prob)) * np.float32(overused_mask) * discarded_mask
 
-        taken_action_state_probs = self.probs[action_states]
-        rewards = np.log(np.clip(taken_action_state_probs + (1 - self.underused_prob), 1e-8, 1)) * discarded_mask
-        penalty = np.log(np.clip(-taken_action_state_probs + (1 + self.overused_prob), 1e-8, 1)) * discarded_mask
+        rewards = self.values[action_states]
+        self.last_penalty = np.minimum(np.min(rewards), 0)
+        self.last_bonus = np.maximum(np.max(rewards), 0)
 
-        rewards = np.square(rewards*8000.)
-        penalty = np.square(penalty)
+        arg = np.argmax(rewards)
 
-        self.last_rewards = np.mean(rewards)
-        self.last_penalties = np.mean(penalty)
-        self.min_taken_prob = np.min(taken_action_state_probs)
+        if rewards[arg] > 0:
+            print(idx_to_action[action_states[arg]], rewards[arg])
 
-        return rewards - penalty
+        return self.values[action_states]
+
 
     def get_metrics(self):
         return {
-            "entropy": - np.sum(np.log(self.probs) * self.probs),
-            "min_taken_prob": self.min_taken_prob,
-            "min_prob": np.min(self.probs),
-            "max_prob": np.max(self.probs),
-            "bonus": self.last_rewards,
-            "penatly": self.last_penalties
+            "penalty": self.last_penalty,
+            "bonus": self.last_bonus
         }
