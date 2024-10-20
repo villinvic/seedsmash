@@ -484,7 +484,7 @@ class ObsBuilder:
                                               config=self.config),
                 stock=StateDataInfo(lambda s: s.players[port].stock,
                                     StateDataInfo.CATEGORICAL,
-                                    size=4,
+                                    size=5,
                                     player_port=port,
                                     config=self.config),
                 action_frame=StateDataInfo(lambda s: np.clip(self.FFD.remaining_frame(s.players[port].character,
