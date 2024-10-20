@@ -112,12 +112,12 @@ class SS0(BaseModel):
         self.undelay_lstm = snt.DeepRNN([ResGRUBlock(128) for _ in range(1)])
 
         # full game
-        self.game_embeddings = snt.nets.MLP([256], activate_final=True,
+        self.game_embeddings = snt.nets.MLP([128], activate_final=True,
                                             name="encoder")
 
 
         # partial obs LSTM
-        self.partial_obs_lstm = snt.DeepRNN([ResLSTMBlock(256) for _ in range(1)])
+        self.partial_obs_lstm = snt.DeepRNN([ResLSTMBlock(128) for _ in range(1)])
         self._pi_out = snt.Linear(self.num_outputs, name="pi_out")
 
         # Categorical value function
@@ -392,8 +392,8 @@ class SS0(BaseModel):
 
 
         opp_embedded = self.player_embeddings(tf.concat(
-            binary_inputs+
-            continuous_inputs+
+            opp_binary_inputs+
+            opp_continuous_inputs+
             [
                 stage_one_hot,
                 self.jumps_embeddings(opp_jumps),
