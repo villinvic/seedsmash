@@ -446,7 +446,7 @@ class SS0(BaseModel):
             ], axis=-1
         ))
 
-        return tf.reduce_mean(tf.math.square(opp_embedded - self._undelayed_opp_embedded))
+        return tf.reduce_mean(tf.math.square(tf.stop_gradient(opp_embedded) - self._undelayed_opp_embedded))
 
 
 
