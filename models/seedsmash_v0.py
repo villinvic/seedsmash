@@ -76,16 +76,16 @@ class SS0(BaseModel):
 
         # # categorical
         # # jumps
-        self.jumps_embeddings = snt.Embed(self.observation_space["categorical"]["jumps_left1"].high+1, 4,
+        self.jumps_embeddings = snt.Embed(tf.cast(self.observation_space["categorical"]["jumps_left1"].high[0], dtype=tf.int32)+1, 4,
                                           densify_gradients=True)
         # # stocks
-        self.stocks_embeddings = snt.Embed(self.observation_space["categorical"]["stock1"].high+1, 2,
+        self.stocks_embeddings = snt.Embed(tf.cast(self.observation_space["categorical"]["stock1"].high[0], dtype=tf.int32)+1, 2,
                                           densify_gradients=True)
         # action_state
-        self.action_state_embeddings = snt.Embed(self.observation_space["categorical"]["action1"].high+1, 32,
+        self.action_state_embeddings = snt.Embed(tf.cast(self.observation_space["categorical"]["action1"].high[0], dtype=tf.int32)+1, 32,
                                           densify_gradients=True)
         # # char
-        self.char_embeddings = snt.Embed(self.observation_space["categorical"]["character1"].high+1, 8,
+        self.char_embeddings = snt.Embed(tf.cast(self.observation_space["categorical"]["character1"].high[0], dtype=tf.int32)+1, 8,
                                                   densify_gradients=True)
         #
         # # global info (necessary at player level)
