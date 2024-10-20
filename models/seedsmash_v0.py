@@ -246,7 +246,7 @@ class SS0(BaseModel):
             self_char = tf.cast(categorical_inputs["character1"], tf.int32)[:, :, 0]
             opp_char = tf.cast(categorical_inputs["character2"], tf.int32)[:, :, 0]
 
-            last_action = tf.cast(prev_action, tf.int32)[:, :, 0]
+            last_action = tf.cast(prev_action, tf.int32)
             # obs_input_post_embedding = self.post_embedding_concat(
             #     continuous_inputs + binary_inputs + categorical_one_hots
             #     + [last_action_one_hot]
