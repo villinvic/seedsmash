@@ -130,7 +130,7 @@ def my_config():
     max_seq_len = 32
     train_batch_size = 32768
     max_queue_size = train_batch_size * 10
-    n_epochs=8
+    n_epochs=4
     minibatch_size=train_batch_size//8
 
     default_policy_config = {
