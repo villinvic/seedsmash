@@ -155,12 +155,7 @@ def my_config():
         # Coaching
         'imitation_loss_coeff': 1.5e-2,
 
-        # random goal exploration
-        # 'random_goal_weight': 2e-2,
-        # 'goal_randomisation_freq': 16*4,
-        # 'random_embedding_dims': [64, 64],
-
-        # Action state rewards
+        'aux_loss_weight': 1e-1,
         }
 
     compute_advantages_on_workers = True
