@@ -337,6 +337,8 @@ class SS0(BaseModel):
             sequence_length=seq_lens
         )
 
+        self._undelayed_opp_embedded = undelayed_opp_embedded
+
         obs_input_post_embedding = self.post_embedding_concat(
             [self_embedded, last_action_one_hot, undelayed_opp_embedded]
         )
@@ -394,3 +396,57 @@ class SS0(BaseModel):
             y_pred=self._value_logits,
             from_logits=True,
         )
+
+    def aux_loss(
+            self,
+            *,
+            obs,
+            prev_action,
+            prev_reward,
+            state,
+            seq_lens,
+            single_obs=False,
+            **kwargs
+    ):
+        continuous_inputs = obs["ground_truth"]["continuous"]
+        binary_inputs = obs["ground_truth"]["binary"]
+        categorical_inputs = obs["ground_truth"]["categorical"]
+
+
+        opp_continuous_inputs = [continuous_inputs[k] for k in self.observation_space["continuous"] if "2" in k]
+        opp_binary_inputs = [tf.cast(binary_inputs[k], dtype=tf.float32, name=k) for k in
+                             self.observation_space["binary"] if "2" in k]
+        opp_jumps_one_hot = tf.one_hot(tf.cast(categorical_inputs["jumps_left2"], tf.int32),
+                                       depth=tf.cast(self.observation_space["categorical"]["jumps_left2"].high[0],
+                                                     tf.int32) + 1, dtype=tf.float32)[:, :, 0]
+        opp_stocks_one_hot = tf.one_hot(tf.cast(categorical_inputs["stock2"], tf.int32),
+                                        depth=tf.cast(self.observation_space["categorical"]["stock2"].high[0],
+                                                      tf.int32) + 1, dtype=tf.float32)[:, :, 0]
+        opp_action_state_one_hot = tf.one_hot(tf.cast(categorical_inputs["action2"], tf.int32),
+                                              depth=tf.cast(
+                                                  self.observation_space["categorical"]["action2"].high[0],
+                                                  tf.int32) + 1, dtype=tf.float32)[:, :, 0]
+        opp_char_one_hot = tf.one_hot(tf.cast(categorical_inputs["character2"], tf.int32),
+                                      depth=tf.cast(
+                                          self.observation_space["categorical"]["character2"].high[0],
+                                          tf.int32) + 1, dtype=tf.float32)[:, :, 0]
+        stage_one_hot = tf.one_hot(tf.cast(categorical_inputs["stage"], tf.int32),
+                                   depth=tf.cast(self.observation_space["categorical"]["stage"].high[0],
+                                                 tf.int32) + 1, dtype=tf.float32, name="stage_one_hot")[:, :, 0]
+
+        opp_embedded = self.player_embeddings(tf.concat(
+            opp_binary_inputs +
+            opp_continuous_inputs +
+            [
+                stage_one_hot,
+                opp_jumps_one_hot,
+                opp_stocks_one_hot,
+                opp_action_state_one_hot,
+                opp_char_one_hot
+            ], axis=-1
+        ))
+
+        return tf.reduce_mean(tf.math.square(opp_embedded - self._undelayed_opp_embedded))
+
+
+

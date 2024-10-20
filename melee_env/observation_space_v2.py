@@ -854,11 +854,11 @@ class ObsBuilder:
                 StateDataInfo.BINARY: SortedDict(),
                 StateDataInfo.CATEGORICAL: SortedDict(),
                 StateDataInfo.CONTINUOUS: SortedDict(),
-                # "ground_truth": {
-                #     StateDataInfo.BINARY: SortedDict(),
-                #     StateDataInfo.CATEGORICAL: SortedDict(),
-                #     StateDataInfo.CONTINUOUS: SortedDict(),
-                # }
+                "ground_truth": {
+                    StateDataInfo.BINARY: SortedDict(),
+                    StateDataInfo.CATEGORICAL: SortedDict(),
+                    StateDataInfo.CONTINUOUS: SortedDict(),
+                }
             }
             self.build_for(port, obs_dict[curr_port])
         return obs_dict
@@ -871,16 +871,16 @@ class ObsBuilder:
                 obs_slot = feature.base_name + ObsBuilder.player_permuts[player_idx][p]
 
                 obs[feature.nature][obs_slot] = feature.observe(undelay=p == player_idx)
-                #obs["ground_truth"][feature.nature][obs_slot] = feature.observe(undelay=True)
+                obs["ground_truth"][feature.nature][obs_slot] = feature.observe(undelay=True)
             else:
                 obs[feature.nature][feature.name] = feature.observe(undelay=True)
-                #obs["ground_truth"][feature.nature][feature.name] = feature.observe(undelay=True)
+                obs["ground_truth"][feature.nature][feature.name] = feature.observe(undelay=True)
 
         for pp_feature in self.post_process_features:
             value = pp_feature.observe(obs)
             obs[pp_feature.nature][pp_feature.name] = value
-            #true_value = pp_feature.observe(obs["ground_truth"])
-            #obs["ground_truth"][pp_feature.nature][pp_feature.name] = true_value
+            true_value = pp_feature.observe(obs["ground_truth"])
+            obs["ground_truth"][pp_feature.nature][pp_feature.name] = true_value
 
     def initialize(self):
 
@@ -892,7 +892,7 @@ class ObsBuilder:
                                                                            StateDataInfo.BINARY,
                                                                            StateDataInfo.CATEGORICAL)
         }
-        #spec_dict["ground_truth"] = Dict(copy.deepcopy(spec_dict))
+        spec_dict["ground_truth"] = Dict(copy.deepcopy(spec_dict))
         self.gym_specs = Dict(spec_dict)
 
         game_state = GameState()
