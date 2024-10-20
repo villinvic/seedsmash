@@ -9,7 +9,7 @@ import tensorflow as tf
 
 from polaris.experience import SampleBatch
 
-from models.modules import LayerNormLSTM, ResLSTMBlock
+from models.modules import LayerNormLSTM, ResLSTMBlock, ResGRUBlock
 
 tf.compat.v1.enable_eager_execution()
 
@@ -105,7 +105,7 @@ class SS0(BaseModel):
 
 
         # undelay LSTM
-        self.undelay_lstm = snt.DeepRNN([ResLSTMBlock(128) for _ in range(1)])
+        self.undelay_lstm = snt.DeepRNN([ResGRUBlock(128) for _ in range(1)])
 
         # full game
         self.game_embeddings = snt.nets.MLP([256], activate_final=True,
@@ -364,10 +364,7 @@ class SS0(BaseModel):
 
 
     def get_initial_state(self):
-        return (tuple(snt.LSTMState(
-                hidden=np.zeros((1, 128,), dtype=np.float32),
-                cell=np.zeros((1, 128,), dtype=np.float32),
-        ) for _ in range(1)), tuple(snt.LSTMState(
+        return (tuple(np.zeros((1, 128), dtype=np.float32) for _ in range(1)), tuple(snt.LSTMState(
                 hidden=np.zeros((1, 256,), dtype=np.float32),
                 cell=np.zeros((1, 256,), dtype=np.float32),
         ) for _ in range(1)))

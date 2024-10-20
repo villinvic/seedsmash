@@ -33,6 +33,7 @@ class LayerNorm(snt.Module):
         return inputs
 
 
+
 class ResLSTMBlock(snt.RNNCore):
 
   def __init__(self, residual_size, hidden_size=None, name='ResLSTMBlock'):
@@ -49,7 +50,27 @@ class ResLSTMBlock(snt.RNNCore):
     x = residual
     x = self.layernorm(x)
     x, next_state = self.lstm(x, prev_state)
-    x = self.decoder(x) * 0.
+    x = self.decoder(x)
+    return residual + x, next_state
+
+
+class ResGRUBlock(snt.RNNCore):
+
+  def __init__(self, residual_size, hidden_size=None, name='ResGRUBlock'):
+    super().__init__(name=name)
+    self.layernorm = LayerNorm()
+    self.gru = snt.GRU(hidden_size or residual_size)
+    # initialize the resnet as the identity function
+    self.decoder = snt.Linear(residual_size, w_init=tf.zeros_initializer())
+
+  def initial_state(self, batch_size):
+    return self.gru.initial_state(batch_size)
+
+  def __call__(self, residual, prev_state):
+    x = residual
+    x = self.layernorm(x)
+    x, next_state = self.gru(x, prev_state)
+    x = self.decoder(x)
     return residual + x, next_state
 
 

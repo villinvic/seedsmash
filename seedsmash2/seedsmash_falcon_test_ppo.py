@@ -145,7 +145,7 @@ def my_config():
         'grad_clip': 5.,
 
         # PPO
-        'ppo_clip': 0.1, # 0.3
+        'ppo_clip': 0.2, # 0.3
         'initial_kl_coeff': 2.,
         'kl_coeff_speed': 1.,
         'baseline_coeff': 0.5,
