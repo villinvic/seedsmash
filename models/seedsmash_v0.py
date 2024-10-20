@@ -106,7 +106,7 @@ class SS0(BaseModel):
 
 
         # prev_action
-        self.prev_action_embeddings = snt.Embed(self.num_outputs, densify_gradients=True)
+        self.prev_action_embeddings = snt.Embed(self.num_outputs, 16, densify_gradients=True)
 
         # undelay LSTM
         self.undelay_lstm = snt.DeepRNN([ResGRUBlock(128) for _ in range(1)])
