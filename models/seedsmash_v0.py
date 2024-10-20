@@ -390,13 +390,11 @@ class SS0(BaseModel):
                                    depth=tf.cast(self.observation_space["categorical"]["stage"].high[0],
                                                  tf.int32) + 1, dtype=tf.float32, name="stage_one_hot")[:, :, 0]
 
-        opp_binary_embedded = self.binary_embeddings(tf.concat(opp_binary_inputs, axis=-1))
-        opp_continuous_embedded = self.continuous_embeddings(tf.concat(opp_continuous_inputs, axis=-1))
 
         opp_embedded = self.player_embeddings(tf.concat(
+            binary_inputs+
+            continuous_inputs+
             [
-                opp_binary_embedded,
-                opp_continuous_embedded,
                 stage_one_hot,
                 self.jumps_embeddings(opp_jumps),
                 self.stocks_embeddings(opp_stocks),
