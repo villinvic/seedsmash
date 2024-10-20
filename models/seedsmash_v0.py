@@ -258,34 +258,34 @@ class SS0(BaseModel):
 
             self_jumps_one_hot = tf.one_hot(tf.cast(categorical_inputs["jumps_left1"], tf.int32),
                                             depth=tf.cast(self.observation_space["categorical"]["jumps_left1"].high[0],
-                                                          tf.int32) + 1, dtype=tf.float32)[:, :, 0]
+                                                          tf.int32) + 1, dtype=tf.int32)[:, :, 0]
             opp_jumps_one_hot = tf.one_hot(tf.cast(categorical_inputs["jumps_left2"], tf.int32),
                                            depth=tf.cast(self.observation_space["categorical"]["jumps_left2"].high[0],
-                                                         tf.int32) + 1, dtype=tf.float32)[:, :, 0]
+                                                         tf.int32) + 1, dtype=tf.int32)[:, :, 0]
             self_stocks_one_hot = tf.one_hot(tf.cast(categorical_inputs["stock1"], tf.int32),
                                              depth=tf.cast(self.observation_space["categorical"]["stock1"].high[0],
-                                                           tf.int32) + 1, dtype=tf.float32)[:, :, 0]
+                                                           tf.int32) + 1, dtype=tf.int32)[:, :, 0]
             opp_stocks_one_hot = tf.one_hot(tf.cast(categorical_inputs["stock2"], tf.int32),
                                             depth=tf.cast(self.observation_space["categorical"]["stock2"].high[0],
-                                                          tf.int32) + 1, dtype=tf.float32)[:, :, 0]
+                                                          tf.int32) + 1, dtype=tf.int32)[:, :, 0]
             self_action_state_one_hot = tf.one_hot(tf.cast(categorical_inputs["action1"], tf.int32),
                                                    depth=tf.cast(
                                                        self.observation_space["categorical"]["action1"].high[0],
-                                                       tf.int32) + 1, dtype=tf.float32)[:, :, 0]
+                                                       tf.int32) + 1, dtype=tf.int32)[:, :, 0]
             opp_action_state_one_hot = tf.one_hot(tf.cast(categorical_inputs["action2"], tf.int32),
                                                   depth=tf.cast(
                                                       self.observation_space["categorical"]["action2"].high[0],
-                                                      tf.int32) + 1, dtype=tf.float32)[:, :, 0]
+                                                      tf.int32) + 1, dtype=tf.int32)[:, :, 0]
             self_char_one_hot = tf.one_hot(tf.cast(categorical_inputs["character1"], tf.int32),
                                           depth=tf.cast(
                                               self.observation_space["categorical"]["character1"].high[0],
-                                              tf.int32) + 1, dtype=tf.float32)[:, :, 0]
+                                              tf.int32) + 1, dtype=tf.int32)[:, :, 0]
             opp_char_one_hot = tf.one_hot(tf.cast(categorical_inputs["character2"], tf.int32),
                                           depth=tf.cast(
                                               self.observation_space["categorical"]["character2"].high[0],
-                                              tf.int32) + 1, dtype=tf.float32)[:, :, 0]
+                                              tf.int32) + 1, dtype=tf.int32)[:, :, 0]
 
-            last_action_one_hot = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs, dtype=tf.float32, name="prev_action_one_hot")
+            last_action_one_hot = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs, dtype=tf.int32, name="prev_action_one_hot")
             # obs_input_post_embedding = self.post_embedding_concat(
             #     continuous_inputs + binary_inputs + categorical_one_hots
             #     + [last_action_one_hot]
