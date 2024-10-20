@@ -332,8 +332,8 @@ class SS0(BaseModel):
 
     def get_initial_state(self):
         return (tuple(np.zeros((1, 128), dtype=np.float32) for _ in range(1)), tuple(snt.LSTMState(
-                hidden=np.zeros((1, 256,), dtype=np.float32),
-                cell=np.zeros((1, 256,), dtype=np.float32),
+                hidden=np.zeros((1, 128,), dtype=np.float32),
+                cell=np.zeros((1, 128,), dtype=np.float32),
         ) for _ in range(1)))
 
 
