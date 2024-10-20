@@ -76,17 +76,17 @@ class SS0(BaseModel):
 
         # # categorical
         # # jumps
-        self.jumps_embeddings = snt.Embed(tf.cast(self.observation_space["categorical"]["jumps_left1"].high[0], dtype=tf.int32)+1, 4,
-                                          densify_gradients=True)
+        self.jumps_embeddings = tf.keras.layers.Embedding(tf.cast(self.observation_space["categorical"]["jumps_left1"].high[0], dtype=tf.int32)+1, 4,
+                                          embeddings_regularizer=tf.keras.regularizers.L2(l2=1e-4))
         # # stocks
-        self.stocks_embeddings = snt.Embed(tf.cast(self.observation_space["categorical"]["stock1"].high[0], dtype=tf.int32)+1, 2,
-                                          densify_gradients=True)
+        self.stocks_embeddings = tf.keras.layers.Embedding(tf.cast(self.observation_space["categorical"]["stock1"].high[0], dtype=tf.int32)+1, 2,
+                                          embeddings_regularizer=tf.keras.regularizers.L2(l2=1e-4))
         # action_state
-        self.action_state_embeddings = snt.Embed(tf.cast(self.observation_space["categorical"]["action1"].high[0], dtype=tf.int32)+1, 32,
-                                          densify_gradients=True)
+        self.action_state_embeddings = tf.keras.layers.Embedding(tf.cast(self.observation_space["categorical"]["action1"].high[0], dtype=tf.int32)+1, 32,
+                                          embeddings_regularizer=tf.keras.regularizers.L2(l2=1e-4))
         # # char
-        self.char_embeddings = snt.Embed(tf.cast(self.observation_space["categorical"]["character1"].high[0], dtype=tf.int32)+1, 8,
-                                                  densify_gradients=True)
+        self.char_embeddings = tf.keras.layers.Embedding(tf.cast(self.observation_space["categorical"]["character1"].high[0], dtype=tf.int32)+1, 8,
+                                          embeddings_regularizer=tf.keras.regularizers.L2(l2=1e-4))
         #
         # # global info (necessary at player level)
         #self.stage_embeddings =  snt.Embed(self.observation_space["categorical"]["stage"].high+1, 4,
@@ -106,7 +106,8 @@ class SS0(BaseModel):
 
 
         # prev_action
-        self.prev_action_embeddings = snt.Embed(self.num_outputs, 16, densify_gradients=True)
+        self.prev_action_embeddings = tf.keras.layers.Embedding(self.num_outputs, 16,
+                                          embeddings_regularizer=tf.keras.regularizers.L2(l2=1e-4))
 
         # undelay LSTM
         self.undelay_lstm = snt.DeepRNN([ResGRUBlock(128) for _ in range(1)])
