@@ -155,7 +155,7 @@ def my_config():
         # Coaching
         'imitation_loss_coeff': 1.5e-2,
 
-        'aux_loss_weight': 0.1,
+        'aux_loss_weight': 0.,
         }
 
     compute_advantages_on_workers = True
