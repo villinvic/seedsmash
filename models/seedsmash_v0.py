@@ -309,10 +309,10 @@ class SS0(BaseModel):
                 opp_binary_embedded,
                 opp_continuous_embedded,
                 stage_one_hot,
-                self.jumps_embeddings(opp_jumps_one_hot),
-                self.stocks_embeddings(opp_stocks_one_hot),
-                self.action_state_embeddings(opp_action_state_one_hot),
-                self.char_embeddings(opp_char_one_hot)
+                self.jumps_embeddings(categorical_inputs["jumps_left2"]),
+                self.stocks_embeddings(categorical_inputs["stock2"]),
+                self.action_state_embeddings(categorical_inputs["action2"]),
+                self.char_embeddings(categorical_inputs["character2"])
              ], axis=-1
         ))
 
@@ -321,10 +321,10 @@ class SS0(BaseModel):
                 self_binary_embedded,
                 self_continuous_embedded,
                 stage_one_hot,
-                self.jumps_embeddings(self_jumps_one_hot),
-                self.stocks_embeddings(self_stocks_one_hot),
-                self.action_state_embeddings(self_action_state_one_hot),
-                self.char_embeddings(self_char_one_hot)
+                self.jumps_embeddings(categorical_inputs["jumps_left1"]),
+                self.stocks_embeddings(categorical_inputs["stock1"]),
+                self.action_state_embeddings(categorical_inputs["action1"]),
+                self.char_embeddings(categorical_inputs["character1"])
             ], axis=-1
         ))
 
