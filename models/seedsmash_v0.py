@@ -309,10 +309,10 @@ class SS0(BaseModel):
                 opp_binary_embedded,
                 opp_continuous_embedded,
                 stage_one_hot,
-                self.jumps_embeddings(categorical_inputs["jumps_left2"]),
-                self.stocks_embeddings(categorical_inputs["stock2"]),
-                self.action_state_embeddings(categorical_inputs["action2"]),
-                self.char_embeddings(categorical_inputs["character2"])
+                self.jumps_embeddings(tf.cast(categorical_inputs["jumps_left2"], dtype=tf.int32)),
+                self.stocks_embeddings(tf.cast(categorical_inputs["stock2"], dtype=tf.int32)),
+                self.action_state_embeddings(tf.cast(categorical_inputs["action2"], dtype=tf.int32)),
+                self.char_embeddings(tf.cast(categorical_inputs["character2"], dtype=tf.int32))
              ], axis=-1
         ))
 
@@ -321,10 +321,10 @@ class SS0(BaseModel):
                 self_binary_embedded,
                 self_continuous_embedded,
                 stage_one_hot,
-                self.jumps_embeddings(categorical_inputs["jumps_left1"]),
-                self.stocks_embeddings(categorical_inputs["stock1"]),
-                self.action_state_embeddings(categorical_inputs["action1"]),
-                self.char_embeddings(categorical_inputs["character1"])
+                self.jumps_embeddings(tf.cast(categorical_inputs["jumps_left1"], dtype=tf.int32)),
+                self.stocks_embeddings(tf.cast(categorical_inputs["stock1"], dtype=tf.int32)),
+                self.action_state_embeddings(tf.cast(categorical_inputs["action1"], dtype=tf.int32)),
+                self.char_embeddings(tf.cast(categorical_inputs["character1"], dtype=tf.int32))
             ], axis=-1
         ))
 
