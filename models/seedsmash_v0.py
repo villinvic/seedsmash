@@ -76,19 +76,24 @@ class SS0(BaseModel):
 
         # # categorical
         # # jumps
-        # self.jumps_embeddings = snt.nets.MLP([16], activate_final=True)
+        self.jumps_embeddings = snt.Embed(self.observation_space["categorical"]["jumps_left1"].high+1, 4,
+                                          densify_gradients=True)
         # # stocks
-        # self.stocks_embeddings = snt.nets.MLP([8], activate_final=True)
-        # # action_state
-        # self.action_state_embeddings = snt.nets.MLP([32], activate_final=True)
+        self.stocks_embeddings = snt.Embed(self.observation_space["categorical"]["stock1"].high+1, 2,
+                                          densify_gradients=True)
+        # action_state
+        self.action_state_embeddings = snt.Embed(self.observation_space["categorical"]["action1"].high+1, 32,
+                                          densify_gradients=True)
         # # char
-        # self.char_embeddings = snt.nets.MLP([16], activate_final=True)
+        self.char_embeddings = snt.Embed(self.observation_space["categorical"]["character1"].high+1, 8,
+                                                  densify_gradients=True)
         #
         # # global info (necessary at player level)
-        # self.stage_embeddings = snt.nets.MLP([16], activate_final=True)
+        #self.stage_embeddings =  snt.Embed(self.observation_space["categorical"]["stage"].high+1, 4,
+        #                                          densify_gradients=True)
         #
         # # continuous
-        # self.continuous_embeddings = snt.nets.MLP([16], activate_final=True)
+        self.continuous_embeddings = snt.nets.MLP([32, 16], activate_final=True)
 
         self.player_embeddings = snt.nets.MLP([128], activate_final=True)
 
@@ -97,12 +102,11 @@ class SS0(BaseModel):
         # on_ground
         # invulnerable
         # buttons
-        #self.binary_embeddings = snt.nets.MLP([16], activate_final=True)
+        self.binary_embeddings = snt.nets.MLP([8], activate_final=True)
 
 
         # prev_action
-        #self.prev_action_embeddings = snt.nets.MLP([16], activate_final=True)
-
+        self.prev_action_embeddings = snt.Embed(self.num_outputs, densify_gradients=True)
 
         # undelay LSTM
         self.undelay_lstm = snt.DeepRNN([ResGRUBlock(128) for _ in range(1)])
@@ -294,33 +298,33 @@ class SS0(BaseModel):
 
         # stage_embedded = self.stage_embeddings(stage_one_hot)
         #
-        # self_binary_embedded = self.binary_embeddings(tf.concat(self_binary_inputs, axis=-1))
-        # opp_binary_embedded = self.binary_embeddings(tf.concat(opp_binary_inputs, axis=-1))
-        # self_continuous_embedded = self.continuous_embeddings(tf.concat(self_continuous_inputs, axis=-1))
-        # opp_continuous_embedded = self.continuous_embeddings(tf.concat(opp_continuous_inputs, axis=-1))
-        #last_action_embedded = self.prev_action_embeddings(last_action_one_hot)
+        self_binary_embedded = self.binary_embeddings(tf.concat(self_binary_inputs, axis=-1))
+        opp_binary_embedded = self.binary_embeddings(tf.concat(opp_binary_inputs, axis=-1))
+        self_continuous_embedded = self.continuous_embeddings(tf.concat(self_continuous_inputs, axis=-1))
+        opp_continuous_embedded = self.continuous_embeddings(tf.concat(opp_continuous_inputs, axis=-1))
+        last_action_embedded = self.prev_action_embeddings(last_action_one_hot)
 
         opp_embedded = self.player_embeddings(tf.concat(
-            opp_binary_inputs+
-            opp_continuous_inputs+
             [
+                opp_binary_embedded,
+                opp_continuous_embedded,
                 stage_one_hot,
-                opp_jumps_one_hot,
-                opp_stocks_one_hot,
-                opp_action_state_one_hot,
-                opp_char_one_hot
+                self.jumps_embeddings(opp_jumps_one_hot),
+                self.stocks_embeddings(opp_stocks_one_hot),
+                self.action_state_embeddings(opp_action_state_one_hot),
+                self.char_embeddings(opp_char_one_hot)
              ], axis=-1
         ))
 
         self_embedded = self.player_embeddings(tf.concat(
-            self_binary_inputs+
-            self_continuous_inputs+
             [
+                self_binary_embedded,
+                self_continuous_embedded,
                 stage_one_hot,
-                self_jumps_one_hot,
-                self_stocks_one_hot,
-                self_action_state_one_hot,
-                self_char_one_hot
+                self.jumps_embeddings(self_jumps_one_hot),
+                self.stocks_embeddings(self_stocks_one_hot),
+                self.action_state_embeddings(self_action_state_one_hot),
+                self.char_embeddings(self_char_one_hot)
             ], axis=-1
         ))
 
@@ -328,7 +332,7 @@ class SS0(BaseModel):
         if single_obs:
             opp_embedded = tf.expand_dims(opp_embedded, axis=0)
             self_embedded = tf.expand_dims(self_embedded, axis=0)
-            last_action_one_hot = tf.expand_dims(last_action_one_hot, axis=0)
+            last_action_embedded = tf.expand_dims(last_action_embedded, axis=0)
 
         undelayed_opp_embedded, undelayed_opp_state = snt.static_unroll(
             self.undelay_lstm,
@@ -340,7 +344,7 @@ class SS0(BaseModel):
         self._undelayed_opp_embedded = undelayed_opp_embedded
 
         obs_input_post_embedding = self.post_embedding_concat(
-            [self_embedded, last_action_one_hot, undelayed_opp_embedded]
+            [self_embedded, last_action_embedded, undelayed_opp_embedded]
         )
 
         game_embedded = self.game_embeddings(obs_input_post_embedding)
