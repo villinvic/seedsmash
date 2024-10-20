@@ -381,33 +381,27 @@ class SS0(BaseModel):
         opp_continuous_inputs = [continuous_inputs[k] for k in self.observation_space["continuous"] if "2" in k]
         opp_binary_inputs = [tf.cast(binary_inputs[k], dtype=tf.float32, name=k) for k in
                              self.observation_space["binary"] if "2" in k]
-        opp_jumps_one_hot = tf.one_hot(tf.cast(categorical_inputs["jumps_left2"], tf.int32),
-                                       depth=tf.cast(self.observation_space["categorical"]["jumps_left2"].high[0],
-                                                     tf.int32) + 1, dtype=tf.float32)[:, :, 0]
-        opp_stocks_one_hot = tf.one_hot(tf.cast(categorical_inputs["stock2"], tf.int32),
-                                        depth=tf.cast(self.observation_space["categorical"]["stock2"].high[0],
-                                                      tf.int32) + 1, dtype=tf.float32)[:, :, 0]
-        opp_action_state_one_hot = tf.one_hot(tf.cast(categorical_inputs["action2"], tf.int32),
-                                              depth=tf.cast(
-                                                  self.observation_space["categorical"]["action2"].high[0],
-                                                  tf.int32) + 1, dtype=tf.float32)[:, :, 0]
-        opp_char_one_hot = tf.one_hot(tf.cast(categorical_inputs["character2"], tf.int32),
-                                      depth=tf.cast(
-                                          self.observation_space["categorical"]["character2"].high[0],
-                                          tf.int32) + 1, dtype=tf.float32)[:, :, 0]
+        opp_jumps = tf.cast(categorical_inputs["jumps_left2"], tf.int32)[:, :, 0]
+        opp_stocks = tf.cast(categorical_inputs["stock2"], tf.int32)[:, :, 0]
+        opp_action_state = tf.cast(categorical_inputs["action2"], tf.int32)[:, :, 0]
+        opp_char = tf.cast(categorical_inputs["character2"], tf.int32)[:, :, 0]
+
         stage_one_hot = tf.one_hot(tf.cast(categorical_inputs["stage"], tf.int32),
                                    depth=tf.cast(self.observation_space["categorical"]["stage"].high[0],
                                                  tf.int32) + 1, dtype=tf.float32, name="stage_one_hot")[:, :, 0]
 
+        opp_binary_embedded = self.binary_embeddings(tf.concat(opp_binary_inputs, axis=-1))
+        opp_continuous_embedded = self.continuous_embeddings(tf.concat(opp_continuous_inputs, axis=-1))
+
         opp_embedded = self.player_embeddings(tf.concat(
-            opp_binary_inputs +
-            opp_continuous_inputs +
             [
+                opp_binary_embedded,
+                opp_continuous_embedded,
                 stage_one_hot,
-                opp_jumps_one_hot,
-                opp_stocks_one_hot,
-                opp_action_state_one_hot,
-                opp_char_one_hot
+                self.jumps_embeddings(opp_jumps),
+                self.stocks_embeddings(opp_stocks),
+                self.action_state_embeddings(opp_action_state),
+                self.char_embeddings(opp_char)
             ], axis=-1
         ))
 
