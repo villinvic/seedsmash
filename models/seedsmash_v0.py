@@ -93,7 +93,7 @@ class SS0(BaseModel):
         #                                          densify_gradients=True)
         #
         # # continuous
-        self.continuous_embeddings = snt.nets.MLP([32, 16], activate_final=True)
+        #self.continuous_embeddings = snt.nets.MLP([32, 16], activate_final=True)
 
         self.player_embeddings = snt.nets.MLP([128], activate_final=True)
 
@@ -102,7 +102,7 @@ class SS0(BaseModel):
         # on_ground
         # invulnerable
         # buttons
-        self.binary_embeddings = snt.nets.MLP([8], activate_final=True)
+        #self.binary_embeddings = snt.nets.MLP([8], activate_final=True)
 
 
         # prev_action
@@ -259,16 +259,16 @@ class SS0(BaseModel):
 
         # stage_embedded = self.stage_embeddings(stage_one_hot)
         #
-        self_binary_embedded = self.binary_embeddings(tf.concat(self_binary_inputs, axis=-1))
-        opp_binary_embedded = self.binary_embeddings(tf.concat(opp_binary_inputs, axis=-1))
-        self_continuous_embedded = self.continuous_embeddings(tf.concat(self_continuous_inputs, axis=-1))
-        opp_continuous_embedded = self.continuous_embeddings(tf.concat(opp_continuous_inputs, axis=-1))
+        #self_binary_embedded = self.binary_embeddings(tf.concat(self_binary_inputs, axis=-1))
+        #opp_binary_embedded = self.binary_embeddings(tf.concat(opp_binary_inputs, axis=-1))
+        #self_continuous_embedded = self.continuous_embeddings(tf.concat(self_continuous_inputs, axis=-1))
+        #opp_continuous_embedded = self.continuous_embeddings(tf.concat(opp_continuous_inputs, axis=-1))
         last_action_embedded = self.prev_action_embeddings(last_action)
 
         opp_embedded = self.player_embeddings(tf.concat(
+            opp_binary_inputs+
+            opp_continuous_inputs+
             [
-                opp_binary_embedded,
-                opp_continuous_embedded,
                 stage_one_hot,
                 self.jumps_embeddings(opp_jumps),
                 self.stocks_embeddings(opp_stocks),
@@ -278,9 +278,9 @@ class SS0(BaseModel):
         ))
 
         self_embedded = self.player_embeddings(tf.concat(
+            self_binary_inputs+
+            self_continuous_inputs+
             [
-                self_binary_embedded,
-                self_continuous_embedded,
                 stage_one_hot,
                 self.jumps_embeddings(self_jumps),
                 self.stocks_embeddings(self_stocks),
