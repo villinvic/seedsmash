@@ -49,7 +49,7 @@ class ResLSTMBlock(snt.RNNCore):
     x = residual
     x = self.layernorm(x)
     x, next_state = self.lstm(x, prev_state)
-    x = self.decoder(x)
+    x = self.decoder(x) * 0.
     return residual + x, next_state
 
 
