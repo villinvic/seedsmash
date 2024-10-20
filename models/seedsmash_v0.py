@@ -189,8 +189,7 @@ class SS0(BaseModel):
             self_char = tf.cast(categorical_inputs["character1"], tf.int32)
             opp_char = tf.cast(categorical_inputs["character2"], tf.int32)
 
-            last_action_one_hot = tf.one_hot(tf.cast(tf.expand_dims(prev_action, axis=0), tf.int32),
-                                             depth=self.num_outputs, dtype=tf.int32, name="prev_action_one_hot")
+            last_action = tf.cast(tf.expand_dims(prev_action, axis=0), tf.int32)
 
             # obs_input_post_embedding = tf.expand_dims(self.post_embedding_concat(
             #     continuous_inputs + binary_inputs + categorical_one_hots + [last_action_one_hot]), axis=0
@@ -247,7 +246,7 @@ class SS0(BaseModel):
             self_char = tf.cast(categorical_inputs["character1"], tf.int32)[:, :, 0]
             opp_char = tf.cast(categorical_inputs["character2"], tf.int32)[:, :, 0]
 
-            last_action_one_hot = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs, dtype=tf.int32, name="prev_action_one_hot")
+            last_action = tf.cast(prev_action, tf.int32)[:, :, 0]
             # obs_input_post_embedding = self.post_embedding_concat(
             #     continuous_inputs + binary_inputs + categorical_one_hots
             #     + [last_action_one_hot]
@@ -264,7 +263,7 @@ class SS0(BaseModel):
         opp_binary_embedded = self.binary_embeddings(tf.concat(opp_binary_inputs, axis=-1))
         self_continuous_embedded = self.continuous_embeddings(tf.concat(self_continuous_inputs, axis=-1))
         opp_continuous_embedded = self.continuous_embeddings(tf.concat(opp_continuous_inputs, axis=-1))
-        last_action_embedded = self.prev_action_embeddings(last_action_one_hot)
+        last_action_embedded = self.prev_action_embeddings(last_action)
 
         opp_embedded = self.player_embeddings(tf.concat(
             [
