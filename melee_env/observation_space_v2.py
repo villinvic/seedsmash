@@ -870,7 +870,7 @@ class ObsBuilder:
 
                 obs_slot = feature.base_name + ObsBuilder.player_permuts[player_idx][p]
 
-                obs[feature.nature][obs_slot] = feature.observe(undelay=p == player_idx)
+                obs[feature.nature][obs_slot] = feature.observe(undelay=False) # undelay=p == player_idx
                 obs["ground_truth"][feature.nature][obs_slot] = feature.observe(undelay=True)
             else:
                 obs[feature.nature][feature.name] = feature.observe(undelay=True)

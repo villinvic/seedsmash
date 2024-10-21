@@ -26,8 +26,8 @@ obs_config = (
     #.ecb()
     .stage()
     .max_projectiles(0)  # one falco can generate more than 3 projectiles apparently ?
-    .controller_state()
-    .delay(6) # 4 (* 3)
+    #.controller_state()
+    .delay(5) # 4 (* 3)
 )
 
 
@@ -123,9 +123,9 @@ def my_config():
 
     num_workers = 64
     policy_path = 'polaris.policies.PPO'
-    model_path = 'models.seedsmash_v0'
+    model_path = 'models.seedsmash_v1'
     policy_class = 'PPO'
-    model_class = 'SS0'
+    model_class = 'SS1'
     trajectory_length = 128 # 256 ?
     max_seq_len = 32
     train_batch_size = 32768

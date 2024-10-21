@@ -37,7 +37,7 @@ class ActionStateCounts:
         self.overused_prob = 0.16
 
         self.count_max = 100 / self.underused_prob
-        self.count_min = 20 / self.underused_prob
+        self.count_min = 15 / self.underused_prob
         self.curr_count = 0
         self.count_sizes = []
         self.queue = []
