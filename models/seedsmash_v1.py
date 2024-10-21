@@ -144,7 +144,11 @@ class SS1(BaseModel):
             stocks_oh = stocks_oh[:, :, 0]
             action_state_oh = action_state_oh[:, :, 0]
             char_oh = char_oh[:, :, 0]
-
+        else:
+            jumps_oh = jumps_oh[0]
+            stocks_oh = stocks_oh[0]
+            action_state_oh = action_state_oh[0]
+            char_oh = char_oh[0]
 
         all_concat = tf.concat(
             continuous_inputs + binary_inputs + [
