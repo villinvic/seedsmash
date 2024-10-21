@@ -261,6 +261,10 @@ class RewardFunction:
             rewards.death_rewards += base_stock_reward * (1 + 0*time_ratio)
             if delta_frame.last_frame.players[port].percent <= 5:
                 self.metrics["zero_percent_suicides"] += 1
+                print(delta_frame.last_frame.players[port].percent, delta_frame.last_frame.players[other_port].percent,
+                      delta_frame.last_frame.frame)
+
+        self.metrics["win"] += delta_frame.win[port]
 
         # Encourage Interactions
         # How ?
@@ -337,7 +341,7 @@ class RewardFunction:
             received_percents_rewards = received_percents * scale
             rewards.damage_received_rewards += received_percents_rewards
 
-            if self.num_combos > 0:
+            if self.total_combos > 0:
                 self.num_combos += 1
                 self.total_combos += self.combo_counter
             self.combo_counter = 0
@@ -459,19 +463,19 @@ class RewardFunction:
 
     def compute(self, rewards: StepRewards, opponent_combo_counter):
 
-        self_combo_multipler = self.combo_counter / self.max_combo + 1
-        opp_combo_multipler = opponent_combo_counter / self.max_combo + 1
+        self_combo_multiplier = self.combo_counter / self.max_combo + 1
+        opp_combo_multiplier = opponent_combo_counter / self.max_combo + 1
 
         return (
             rewards.kill_rewards
-            + (rewards.damage_inflicted_rewards + rewards.off_stage_percents_inflicted) * 0.01 * self_combo_multipler
+            + (rewards.damage_inflicted_rewards + rewards.off_stage_percents_inflicted) * 0.01 * self_combo_multiplier
             + rewards.distance_rewards * 3e-4
             + rewards.edge_guarding * 0.1
             + rewards.edge_while_opp_invulnerable * 0.05
             + rewards.shield_pressured * 0.02
 
             - rewards.death_rewards
-            - (rewards.damage_received_rewards + rewards.off_stage_percents_received) * 0.01 * opp_combo_multipler
+            - (rewards.damage_received_rewards + rewards.off_stage_percents_received) * 0.01 * opp_combo_multiplier
             - rewards.bad_edge_catches * 0.1
         )
 
