@@ -262,7 +262,7 @@ class RewardFunction:
             if delta_frame.last_frame.players[port].percent <= 5:
                 self.metrics["zero_percent_suicides"] += 1
                 print(delta_frame.last_frame.players[port].percent, delta_frame.last_frame.players[other_port].percent,
-                      delta_frame.last_frame.frame)
+                      delta_frame.last_frame.frame, delta_frame.last_frame.stage)
 
         self.metrics["win"] += delta_frame.win[port]
 
