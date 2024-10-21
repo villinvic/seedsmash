@@ -215,6 +215,8 @@ class SS1(BaseModel):
 
         if not single_obs:
             stage_oh = stage_oh[:, :, 0]
+        else:
+            stage_oh = stage_oh[0]
 
         self_embedded = self.get_player_embedding(
             obs["ground_truth"],
