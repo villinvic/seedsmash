@@ -260,9 +260,9 @@ class RewardFunction:
         if death > 0:
             rewards.death_rewards += base_stock_reward * (1 + 0*time_ratio)
             if delta_frame.last_frame.players[port].percent <= 5:
-                self.metrics["zero_percent_suicides"] += 1
-                print(delta_frame.last_frame.players[port].percent, delta_frame.last_frame.players[other_port].percent,
-                      delta_frame.last_frame.frame, delta_frame.last_frame.stage)
+                self.metrics["zero_percent_suicides"] += 1.
+            else:
+                self.metrics["zero_percent_suicides"] += 0.
 
         self.metrics["win"] += delta_frame.win[port]
 
