@@ -181,7 +181,7 @@ class SS1(BaseModel):
 
     def get_game_embed(self, self_embedded, undelayed_op_embedded, prev_action, rnn_state, seq_lens, single_obs):
         if single_obs:
-            prev_action = tf.expand_dims(prev_action, axis=0)
+            prev_action = tf.expand_dims(tf.expand_dims(prev_action, axis=0))
         game_embedded = self.game_embeddings(
             tf.concat(
                 [self_embedded, undelayed_op_embedded, prev_action]
