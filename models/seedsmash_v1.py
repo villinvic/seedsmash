@@ -154,9 +154,12 @@ class SS1(BaseModel):
             continuous_inputs + binary_inputs + [
                 jumps_oh, stocks_oh, action_state_oh, char_oh, stage_oh
                                ], axis=-1)
-        embed_player = self.player_embeddings(all_concat)
+
         if single_obs:
-            embed_player =  tf.expand_dims(embed_player, axis=0)
+            all_concat =  tf.expand_dims(tf.expand_dims(all_concat, axis=0), axis=0)
+
+        embed_player = self.player_embeddings(all_concat)
+
 
         return embed_player
 
