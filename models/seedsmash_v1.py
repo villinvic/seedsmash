@@ -319,7 +319,10 @@ class SS1(BaseModel):
             advantages
         ), axis=-1)
 
-        return tf.reduce_sum(advantage_weights * tf.math.square(tf.stop_gradient(opp_embedded) - self._undelayed_opp_embedded))
+        return tf.reduce_sum(
+            tf.reduce_mean(advantage_weights * tf.math.square(tf.stop_gradient(opp_embedded) - self._undelayed_opp_embedded),
+                           axis=-1)
+        )
 
 
 
