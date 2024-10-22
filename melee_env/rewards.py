@@ -148,7 +148,8 @@ class DeltaFrame:
 
             # dx_before = np.abs(self.last_frame.players[1].position.x - self.last_frame.players[2].position.x)
             # dy_before = np.abs(self.last_frame.players[1].position.y - self.last_frame.players[2].position.y)
-            dx2 = (self.last_frame.players[1].position.x - self.last_frame.players[2].position.x)**2
+            dx_before = (self.last_frame.players[1].position.x - self.last_frame.players[2].position.x)
+            dx2 = dx_before**2
             dy2 = (self.last_frame.players[1].position.y - self.last_frame.players[2].position.y)**2
             dist_before = np.sqrt(dx2 + dy2) #np.sqrt(dx2 + 0.1 * dy2)
 
@@ -158,9 +159,9 @@ class DeltaFrame:
                 self.dist[port] = np.sqrt(dx2 + dy2)
                 # dx_now = np.abs(frame.players[port].position.x - self.last_frame.players[other_port].position.x)
                 # dy_now = np.abs(frame.players[port].position.y - self.last_frame.players[other_port].position.y)
+                dx_now = frame.players[port].position.x - self.last_frame.players[other_port].position.x
                 dist_now = np.sqrt(
-                    (frame.players[port].position.x - self.last_frame.players[other_port].position.x
-                     )**2 + (frame.players[port].position.y - self.last_frame.players[other_port].position.y) ** 2)
+                    dx_now**2 + (frame.players[port].position.y - self.last_frame.players[other_port].position.y) ** 2)
                 # 0.1
 
                 self.dstock[port] = np.clip(self.last_frame.players[port].stock - frame.players[port].stock, 0., 1.)
@@ -179,7 +180,7 @@ class DeltaFrame:
                 #     self.ddist[port] = np.clip(np.minimum(ddist, 0), -10, 10)
                 # else:
                 #     self.ddist[port] = np.clip(ddist, -10, 10)
-                self.ddist[port] = np.clip(dist_before-dist_now, 0, 15)
+                self.ddist[port] = np.clip(np.abs(dx_before)-np.abs(dx_now), 0, 15)
 
                 self.action[port] = self.last_frame.players[port].action
 
@@ -218,7 +219,7 @@ class RewardFunction:
         self.last_hit_action_state = Action.UNKNOWN_ANIMATION
         self.max_combo = 5
         self.combo_bonus = 0.
-        self.linear_discount = 1/120
+        #self.linear_discount = 1/120
 
         self.total_kills = 0
         self.previous_last_hit_frame = -120
@@ -237,7 +238,7 @@ class RewardFunction:
         self.helper = MeleeHelper(port, bot_config.character)
 
     def discount_combo(self):
-        self.combo_counter = np.maximum(0, self.combo_counter - self.linear_discount)
+        self.combo_counter = self.combo_counter * 1.0003 #np.maximum(0, self.combo_counter - self.linear_discount)
 
     def get_frame_rewards(self, delta_frame: DeltaFrame, current_action: ControllerInput, rewards: StepRewards):
         """
@@ -256,6 +257,11 @@ class RewardFunction:
                 rewards.kill_rewards += 0.2
             else:
                 rewards.kill_rewards += base_stock_reward * (1 + 0*time_ratio)
+
+            if self.combo_counter > 0:
+                self.num_combos += 1
+                self.total_combos += self.combo_counter
+            self.combo_counter = 0
         death = delta_frame.dstock[port]
         if death > 0:
             rewards.death_rewards += base_stock_reward * (1 + 0*time_ratio)
@@ -263,6 +269,11 @@ class RewardFunction:
                 self.metrics["zero_percent_suicides"] += 1.
             else:
                 self.metrics["zero_percent_suicides"] += 0.
+
+            if self.combo_counter > 0:
+                self.num_combos += 1
+                self.total_combos += self.combo_counter
+            self.combo_counter = 0
 
         self.metrics["win"] += delta_frame.win[port]
 
@@ -341,7 +352,7 @@ class RewardFunction:
             received_percents_rewards = received_percents * scale
             rewards.damage_received_rewards += received_percents_rewards
 
-            if self.total_combos > 0:
+            if self.combo_counter > 0:
                 self.num_combos += 1
                 self.total_combos += self.combo_counter
             self.combo_counter = 0
@@ -467,21 +478,21 @@ class RewardFunction:
         opp_combo_multiplier = opponent_combo_counter / self.max_combo + 1
 
         return (
-            rewards.kill_rewards
-            + (rewards.damage_inflicted_rewards + rewards.off_stage_percents_inflicted) * 0.01 * self_combo_multiplier
+            rewards.kill_rewards * self_combo_multiplier
+            + (rewards.damage_inflicted_rewards + rewards.off_stage_percents_inflicted) * 0.005 * self_combo_multiplier
             + rewards.distance_rewards * 3e-4
             + rewards.edge_guarding * 0.1
             + rewards.edge_while_opp_invulnerable * 0.05
-            + rewards.shield_pressured * 0.02
+            #+ rewards.shield_pressured * 0.02
 
-            - rewards.death_rewards
-            - (rewards.damage_received_rewards + rewards.off_stage_percents_received) * 0.01 * opp_combo_multiplier
+            - rewards.death_rewards * opp_combo_multiplier
+            - (rewards.damage_received_rewards + rewards.off_stage_percents_received) * 0.005 * opp_combo_multiplier
             - rewards.bad_edge_catches * 0.1
         )
 
     def get_metrics(self, game_length=1):
         metrics = {
-            "perf_frame_" + k: v / (game_length * 3)
+            "per_frame_" + k: v / (game_length * 3)
             for k, v in self.per_frame_metrics.items()
         }
         metrics["avg_combo_length"] = self.total_combos / (self.num_combos + 1e-8)

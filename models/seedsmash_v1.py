@@ -301,19 +301,25 @@ class SS1(BaseModel):
             prev_reward,
             state,
             seq_lens,
+            advantages,
             single_obs=False,
             **kwargs
     ):
 
 
         opp_embedded = self.get_player_embedding(
-            obs,
+            obs["ground_truth"],
             self.stage_oh,
             "2",
             single_obs
         )
 
-        return tf.reduce_mean(tf.math.square(tf.stop_gradient(opp_embedded) - self._undelayed_opp_embedded))
+        # should be normalised, therefore this should be ok.
+        advantage_weights = tf.nn.softmax(
+            advantages
+        )
+
+        return tf.reduce_sum(advantage_weights * tf.math.square(tf.stop_gradient(opp_embedded) - self._undelayed_opp_embedded))
 
 
 

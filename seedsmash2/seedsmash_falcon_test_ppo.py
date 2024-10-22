@@ -27,7 +27,7 @@ obs_config = (
     .stage()
     .max_projectiles(0)  # one falco can generate more than 3 projectiles apparently ?
     #.controller_state()
-    .delay(5) # 4 (* 3)
+    .delay(6) # 4 (* 3)
 )
 
 
@@ -134,11 +134,11 @@ def my_config():
     minibatch_size=train_batch_size//8
 
     default_policy_config = {
-        'discount': 0.992,  # 0.997
+        'discount': 0.993,  # 0.997
         'action_state_reward_scale': 1.,
 
         'gae_lambda': 0.95, # 0.98
-        'entropy_cost': 3e-3, # 1e-3 with impala, or around " 0.3, 0.4
+        'entropy_cost': 5e-3, # 1e-3 with impala, or around " 0.3, 0.4
         'lr': 5e-4,
         'fc_dims': [128, 128],
         'lstm_dim': 128,
@@ -166,7 +166,7 @@ def my_config():
     inject_new_bots_freq_s = 60
     # FSP
     update_policy_history_freq = 400
-    policy_history_length = 3
+    policy_history_length = 8
 
     checkpoint_config = dict(
         checkpoint_frequency=50,
@@ -176,7 +176,7 @@ def my_config():
     )
 
     episode_callback_class = SSBMCallbacks
-    negative_reward_scale = 0.96
+    negative_reward_scale = 0.95
 
 
 # Define a simple main function that will use the configuration

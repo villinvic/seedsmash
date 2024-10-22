@@ -1,50 +1,38 @@
-# import time
-#
-# import zmq
-#
-# ctx = zmq.Context()
-# socket = ctx.socket(zmq.PUSH)
-# socket.bind("ipc://twitchbot")
-#
-# print("ok push")
-#
-# for i in range(5):
-#
-#     print("sending", i)
-#     socket.send_pyobj(i)
-#     print('sent', i)
-#     time.sleep(1)
-import time
-
 import numpy as np
+gamma = 0.993
+def discount(r):
+    return r*gamma
 
-import numpy as np
+def discount_combo(r, c):
+    c *= 1 / 0.999
+    if c < 0:
+        c = 0.
+
+    if 50 > r > 0:
+        c+= 1
+
+    return c
 
 
-def surround_with_true(arr, n):
-    # Step 1: Get the indices of all True values in the input array
-    true_indices = np.flatnonzero(arr)
+hit_rewards = np.zeros((20*5), dtype=np.float32)
+hit_rewards[[0, 20, 40]] = 10.
+hit_rewards[95] = 100.
 
-    if len(true_indices) == 0:
-        return arr  # No True values, return original array
 
-    # Step 2: Generate the range of indices to be set to True
-    start_indices = np.maximum(true_indices - n, 0)  # Ensures index doesn't go negative
-    end_indices = np.minimum(true_indices + n, len(arr) - 1)  # Ensures index doesn't exceed array length
+c = []
+ct = 0
+for r in hit_rewards:
+    ct = discount_combo(r, ct)
+    c.append(ct)
 
-    # Step 3: Create an empty boolean array
-    output = np.zeros_like(arr, dtype=bool)
+boosted_rewards = hit_rewards * (1 + np.array(c)/5)
 
-    # Step 4: Use NumPy broadcasting to mark ranges as True
-    for start, end in zip(start_indices, end_indices):
-        output[start:end + 1] = True
+value = 0.
+values = []
+for r in reversed(boosted_rewards):
+    value = discount(value) + r
+    values.append(value)
 
-    return output
-
-arr = np.random.choice(2, size=30, p=[0.9, 0.1])
-print(arr)
-t = time.time()
-result = surround_with_true(arr, 0)
-print(result)
-print(time.time()-t)
-
+print(c)
+print(boosted_rewards)
+print(values)

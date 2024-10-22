@@ -42,13 +42,12 @@ class FictitiousMatchmaking(MatchMaking):
 
         p1 = np.random.choice(self.trainable_policies)
         other = list(params_map.keys())
-
-        if np.random.random() < 0.33:
-            p2 = p1
-        else:
-            if len(other) > 1:
-                other.remove(p1)
-            p2 = np.random.choice(other)
+        # if np.random.random() < 0.33:
+        #     p2 = p1
+        # else:
+        #     if len(other) > 1:
+        #         other.remove(p1)
+        p2 = np.random.choice(other)
 
         sampled_policies = [p1, p2]
         #np.random.shuffle(sampled_policies)
