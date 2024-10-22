@@ -315,9 +315,9 @@ class SS1(BaseModel):
         )
 
         # should be normalised, therefore this should be ok.
-        advantage_weights = tf.nn.softmax(
+        advantage_weights = tf.expand_dims(tf.nn.softmax(
             advantages
-        )
+        ), axis=-1)
 
         return tf.reduce_sum(advantage_weights * tf.math.square(tf.stop_gradient(opp_embedded) - self._undelayed_opp_embedded))
 
