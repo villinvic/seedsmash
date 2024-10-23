@@ -238,7 +238,7 @@ class RewardFunction:
         self.helper = MeleeHelper(port, bot_config.character)
 
     def discount_combo(self):
-        self.combo_counter = self.combo_counter * 1.0003 #np.maximum(0, self.combo_counter - self.linear_discount)
+        self.combo_counter = self.combo_counter #* 1.0003 #np.maximum(0, self.combo_counter - self.linear_discount)
 
     def get_frame_rewards(self, delta_frame: DeltaFrame, current_action: ControllerInput, rewards: StepRewards):
         """
