@@ -9,6 +9,7 @@ import tensorflow as tf
 
 from polaris.experience import SampleBatch
 from tensorflow.python.ops.gen_data_flow_ops import stage
+from tensorflow.python.ops.random_ops import categorical
 
 from models.modules import LayerNormLSTM, ResLSTMBlock, ResGRUBlock
 
@@ -90,8 +91,20 @@ class SS1(BaseModel):
         #self.prev_action_embeddings = snt.Embed(self.num_outputs, 16, densify_gradients=True)
 
         # undelay LSTM
-        self.undelay_encoder = snt.nets.MLP([64], activate_final=False,
-                                            name="encoder")
+        self.embed_binary_size = len([_ for _ in self.observation_space["binary"] if "1" in _])
+        self.embed_categorical_sizes = [int(obs.high[0])+1 for k, obs in self.observation_space["categorical"].items() if "1" in k]
+        self.embed_categorical_total_size = sum(self.embed_categorical_sizes)
+        self.embed_continuous_size = len([_ for _ in self.observation_space["continuous"] if "1" in _])
+        self.embedding_size = (
+            self.embed_binary_size+self.embed_categorical_total_size+self.embed_continuous_size
+        )
+
+
+        self.undelay_encoder = snt.Linear(64, name="encoder")
+        self.delta_gate = snt.Linear(self.embedding_size, b_init=tf.zeros_initializer())
+        self.new_gate = snt.Linear(self.embedding_size)
+        self.forget_gate = snt.nets.MLP([self.embedding_size], activation=tf.sigmoid, activate_final=True, b_init=tf.ones_initializer())
+
         self.undelay_rnn = snt.DeepRNN([ResGRUBlock(64) for _ in range(1)])
 
         # full game
@@ -118,7 +131,15 @@ class SS1(BaseModel):
 
         self.post_embedding_concat = tf.keras.layers.Concatenate(axis=-1, name="post_embedding_concat")
 
-    def get_player_embedding(self, obs, stage_oh, aid, single_obs):
+    def split_player_embedding(self, embedding):
+
+        continuous, binary, categorical = tf.split(embedding, [self.embed_continuous_size, self.embed_binary_size, self.embed_categorical_total_size], axis=2)
+        categoricals  = tf.split(categorical, self.embed_categorical_sizes, axis=2)
+
+        return continuous, binary, categoricals
+
+
+    def get_player_embedding(self, obs, aid, single_obs, concat=True):
         categorical_inputs = obs["categorical"]
         continuous_inputs = obs["continuous"]
         binary_inputs = obs["binary"]
@@ -129,45 +150,54 @@ class SS1(BaseModel):
         binary_inputs = [tf.cast(binary_inputs[k], dtype=tf.float32, name=k) for k in
                               self.observation_space["binary"] if aid in k]
 
-        jumps_oh = tf.one_hot(tf.cast(categorical_inputs[f"jumps_left{aid}"], tf.int32),
-                                depth=tf.cast(self.observation_space["categorical"][f"jumps_left{aid}"].high[0],
-                                              tf.int32) + 1)
-        stocks_oh = tf.one_hot(tf.cast(categorical_inputs[f"stock{aid}"], tf.int32),
-                                 depth=tf.cast(self.observation_space["categorical"][f"stock{aid}"].high[0], tf.int32) + 1)
-        action_state_oh = tf.one_hot(tf.cast(categorical_inputs[f"action{aid}"], tf.int32),
-                                       depth=tf.cast(self.observation_space["categorical"][f"action{aid}"].high[0],
-                                                     tf.int32) + 1)
-        char_oh = tf.one_hot(tf.cast(categorical_inputs[f"character{aid}"], tf.int32),
-                               depth=tf.cast(self.observation_space["categorical"][f"character{aid}"].high[0], tf.int32) + 1)
-        if not single_obs:
-            jumps_oh = jumps_oh[:, :, 0]
-            stocks_oh = stocks_oh[:, :, 0]
-            action_state_oh = action_state_oh[:, :, 0]
-            char_oh = char_oh[:, :, 0]
-        else:
-            jumps_oh = jumps_oh[0]
-            stocks_oh = stocks_oh[0]
-            action_state_oh = action_state_oh[0]
-            char_oh = char_oh[0]
 
-        all_concat = tf.concat(
-            continuous_inputs + binary_inputs + [
-                jumps_oh, stocks_oh, action_state_oh, char_oh, stage_oh
-                               ], axis=-1)
+        # jumps_oh = tf.one_hot(tf.cast(categorical_inputs[f"jumps_left{aid}"], tf.int32),
+        #                         depth=tf.cast(self.observation_space["categorical"][f"jumps_left{aid}"].high[0],
+        #                                       tf.int32) + 1)
+        # stocks_oh = tf.one_hot(tf.cast(categorical_inputs[f"stock{aid}"], tf.int32),
+        #                          depth=tf.cast(self.observation_space["categorical"][f"stock{aid}"].high[0], tf.int32) + 1)
+        # action_state_oh = tf.one_hot(tf.cast(categorical_inputs[f"action{aid}"], tf.int32),
+        #                                depth=tf.cast(self.observation_space["categorical"][f"action{aid}"].high[0],
+        #                                              tf.int32) + 1)
+        # char_oh = tf.one_hot(tf.cast(categorical_inputs[f"character{aid}"], tf.int32),
+        #                        depth=tf.cast(self.observation_space["categorical"][f"character{aid}"].high[0], tf.int32) + 1)
+        if not single_obs:
+            one_hots = [
+                tf.one_hot(tf.cast(categorical_inputs[k], tf.int32),
+                           depth=tf.cast(self.observation_space["categorical"][k].high[0],
+                                         tf.int32) + 1)[:, :, 0]
+                for k in self.observation_space["categorical"] if aid in k
+            ]
+            # jumps_oh = jumps_oh[:, :, 0]
+            # stocks_oh = stocks_oh[:, :, 0]
+            # action_state_oh = action_state_oh[:, :, 0]
+            # char_oh = char_oh[:, :, 0]
+        else:
+            one_hots = [
+                tf.one_hot(tf.cast(categorical_inputs[k], tf.int32),
+                           depth=tf.cast(self.observation_space["categorical"][k].high[0],
+                                         tf.int32) + 1)[0]
+                for k in self.observation_space["categorical"] if aid in k
+            ]
+            # jumps_oh = jumps_oh[0]
+            # stocks_oh = stocks_oh[0]
+            # action_state_oh = action_state_oh[0]
+            # char_oh = char_oh[0]
+
+        embed_player = tf.concat(
+            continuous_inputs + binary_inputs + one_hots, axis=-1)
 
         if single_obs:
-            all_concat =  tf.expand_dims(tf.expand_dims(all_concat, axis=0), axis=0)
-
-        embed_player = self.player_embeddings(all_concat)
+            embed_player =  tf.expand_dims(tf.expand_dims(embed_player, axis=0), axis=0)
 
 
         return embed_player
 
-    def get_undelayed_player_embedding(self, self_embedded, opp_embedded, rnn_state, seq_lens):
+    def get_undelayed_player_embedding(self, self_embedded, opp_embedded, stage_oh, rnn_state, seq_lens):
 
         undelay_input = self.undelay_encoder(
             tf.concat([
-                self_embedded, opp_embedded
+                self_embedded, opp_embedded, stage_oh #, time ?
             ], axis=-1)
         )
 
@@ -177,14 +207,21 @@ class SS1(BaseModel):
             initial_state=rnn_state,
             sequence_length=seq_lens
         )
-        return undelayed_opp_embedded, next_rnn_state
 
-    def get_game_embed(self, self_embedded, undelayed_op_embedded, prev_action, rnn_state, seq_lens, single_obs):
+        delta = self.delta_gate(undelayed_opp_embedded)
+        new = self.new_gate(undelayed_opp_embedded)
+        forget = self.forget_gate(undelayed_opp_embedded)
+
+        predicted_opp_embedded = forget * (opp_embedded + delta) + (1. - forget) * new
+
+        return predicted_opp_embedded, next_rnn_state
+
+    def get_game_embed(self, self_embedded, undelayed_op_embedded, stage_oh, prev_action, rnn_state, seq_lens, single_obs):
         if single_obs:
             prev_action = tf.expand_dims(tf.expand_dims(prev_action, axis=0), axis=0)
         game_embedded = self.game_embeddings(
             tf.concat(
-                [self_embedded, undelayed_op_embedded, prev_action]
+                [self_embedded, undelayed_op_embedded, stage_oh, prev_action]
             , axis=-1)
         )
 
@@ -223,7 +260,6 @@ class SS1(BaseModel):
 
         self_embedded = self.get_player_embedding(
             obs["ground_truth"],
-            stage_oh,
             "1",
             single_obs
         )
@@ -242,16 +278,16 @@ class SS1(BaseModel):
             single_obs
         )
 
-        opp_embedded, next_undelay_state = self.get_undelayed_player_embedding(
-            self_delayed_embedded, opp_delayed_embedded,
+        predicted_opp_embedded, next_undelay_state = self.get_undelayed_player_embedding(
+            self_delayed_embedded, opp_delayed_embedded, stage_oh,
             state[0], seq_lens
         )
-        self._undelayed_opp_embedded = opp_embedded
+
+        self._undelayed_opp_embedded = self.split_player_embedding(predicted_opp_embedded)
 
         lstm_out, next_lstm_state = self.get_game_embed(
-            self_embedded, opp_delayed_embedded, prev_action,
+            self_embedded, predicted_opp_embedded, stage_oh, prev_action,
             state[1], seq_lens, single_obs
-
         )
 
         action_logits = self._pi_out(lstm_out)
@@ -311,7 +347,8 @@ class SS1(BaseModel):
             obs["ground_truth"],
             self.stage_oh,
             "2",
-            single_obs
+            single_obs,
+            concat=False,
         )
 
         # should be normalised, therefore this should be ok.
@@ -319,10 +356,35 @@ class SS1(BaseModel):
             advantages
         ), axis=-1)
 
-        return tf.reduce_sum(
-            tf.reduce_mean(advantage_weights * tf.math.square(tf.stop_gradient(opp_embedded) - self._undelayed_opp_embedded),
-                           axis=-1)
+        continuous_true, binary_true, categorical_true = self.split_player_embedding(opp_embedded)
+        continous_predicted, binary_predicted, categorical_predicted = self._undelayed_opp_embedded
+
+        # stop_gradient is just there for safety
+        self.continuous_loss = tf.reduce_sum(
+            tf.reduce_mean(tf.math.square(continous_predicted - tf.stop_gradient(continuous_true)), axis=-1) * advantage_weights
         )
+
+        self.binary_loss = tf.reduce_sum(tf.keras.losses.binary_crossentropy(
+            binary_true, binary_predicted,
+            from_logits=True,
+        ) * advantage_weights)
+
+        self.categorical_loss = tf.reduce_sum([
+            tf.reduce_sum(tf.keras.losses.categorical_crossentropy(
+                t, p, from_logits=True
+            ) * advantage_weights)
+            for t, p in zip(categorical_true, categorical_predicted)
+        ])
+
+        return self.continuous_loss + self.categorical_loss + self.binary_loss
+
+
+    def get_metrics(self):
+        return {
+            "continuous_loss": self.continuous_loss,
+            "categorical_loss": self.categorical_loss,
+            "binary_loss": self.binary_loss,
+        }
 
 
 
