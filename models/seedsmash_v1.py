@@ -99,7 +99,7 @@ class SS1(BaseModel):
             self.embed_binary_size+self.embed_categorical_total_size+self.embed_continuous_size
         )
 
-        self.undelay_encoder = snt.Linear(64, name="encoder")
+        self.undelay_encoder = snt.nets.MLP([64, 64], activate_final=True, name="encoder")
         self.delta_gate = snt.Linear(self.embedding_size, b_init=tf.zeros_initializer())
         self.new_gate = snt.Linear(self.embedding_size)
         self.forget_gate = snt.nets.MLP([self.embedding_size], activation=tf.sigmoid, activate_final=True, b_init=tf.ones_initializer())
