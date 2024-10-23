@@ -256,7 +256,7 @@ class SS1(BaseModel):
         if not single_obs:
             stage_oh = stage_oh[:, :, 0]
         else:
-            stage_oh = stage_oh[0]
+            stage_oh = tf.expand_dims(stage_oh, axis=0)
 
         self_embedded = self.get_player_embedding(
             obs["ground_truth"],
@@ -343,7 +343,6 @@ class SS1(BaseModel):
 
         opp_embedded = self.get_player_embedding(
             obs["ground_truth"],
-            self.stage_oh,
             "2",
             single_obs,
         )
