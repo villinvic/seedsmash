@@ -378,7 +378,7 @@ class SS1(BaseModel):
                 t, p, from_logits=True
             ))
             for t, p in zip(categorical_true, categorical_predicted)
-        ]) / tf.cast(len(categorical_true), dtype=tf.float32)
+        ])
 
         return self.continuous_loss + self.categorical_loss + self.binary_loss
 
