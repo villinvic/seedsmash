@@ -283,7 +283,7 @@ class SS1(BaseModel):
         continuous, binary, categoricals = self.split_player_embedding(predicted_opp_embedded)
         self._undelayed_opp_embedded = (continuous, binary, categoricals)
 
-        binary_probs = tf.exp(binary)
+        binary_probs = tf.nn.sigmoid(binary)
         categorical_probs = [
             tf.nn.softmax(c)
             for c in categoricals
