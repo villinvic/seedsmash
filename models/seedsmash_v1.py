@@ -348,9 +348,9 @@ class SS1(BaseModel):
         )
 
         # should be normalised, therefore this should be ok.
-        advantage_weights = tf.expand_dims(tf.nn.softmax(
+        advantage_weights = tf.nn.softmax(
             advantages
-        ), axis=-1)
+        )
 
         continuous_true, binary_true, categorical_true = self.split_player_embedding(opp_embedded)
         continous_predicted, binary_predicted, categorical_predicted = self._undelayed_opp_embedded
