@@ -76,7 +76,7 @@ class SS1(BaseModel):
             name="adam"
         )
 
-        self.player_embeddings = snt.nets.MLP([64], activate_final=False)
+        #self.player_embeddings = snt.nets.MLP([64], activate_final=False)
 
 
         # binary
@@ -355,9 +355,8 @@ class SS1(BaseModel):
         continuous_true, binary_true, categorical_true = self.split_player_embedding(opp_embedded)
         continous_predicted, binary_predicted, categorical_predicted = self._undelayed_opp_embedded
 
-        # stop_gradient is just there for safety
         self.continuous_loss = tf.reduce_sum(
-            tf.reduce_mean(tf.math.square(continous_predicted - tf.stop_gradient(continuous_true)), axis=-1) * advantage_weights
+            tf.reduce_mean(tf.math.square(continous_predicted - continuous_true), axis=-1) * advantage_weights
         )
 
         self.binary_loss = tf.reduce_sum(tf.keras.losses.binary_crossentropy(
