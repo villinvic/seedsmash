@@ -208,9 +208,12 @@ class SS1(BaseModel):
             sequence_length=seq_lens
         )
 
+
         delta = self.delta_gate(undelayed_opp_embedded)
         new = self.new_gate(undelayed_opp_embedded)
         forget = self.forget_gate(undelayed_opp_embedded)
+
+        print(opp_embedded.shape, forget.shape)
 
         predicted_opp_embedded = forget * (opp_embedded + delta) + (1. - forget) * new
 
