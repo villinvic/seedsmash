@@ -102,7 +102,7 @@ class SS1(BaseModel):
         self.undelay_encoder = snt.nets.MLP([64, 64], activate_final=True, name="encoder")
         self.delta_gate = snt.Linear(self.embedding_size, w_init=tf.zeros_initializer())
         self.new_gate = snt.Linear(self.embedding_size)
-        self.forget_gate = snt.nets.MLP([self.embedding_size], activation=tf.sigmoid, activate_final=True, w_init=tf.zeros_initializer())
+        self.forget_gate = snt.nets.MLP([self.embedding_size], activation=tf.sigmoid, activate_final=True, w_init=tf.constant_initializer(-7.))
 
         self.undelay_rnn = snt.DeepRNN([ResGRUBlock(64) for _ in range(1)])
 
@@ -280,12 +280,21 @@ class SS1(BaseModel):
             self_delayed_embedded, opp_delayed_embedded, stage_oh,
             state[0], seq_lens
         )
+        continuous, binary, categoricals = self.split_player_embedding(predicted_opp_embedded)
+        self._undelayed_opp_embedded = (continuous, binary, categoricals)
 
-        self._undelayed_opp_embedded = self.split_player_embedding(predicted_opp_embedded)
+        binary_probs = tf.exp(binary)
+        categorical_probs = [
+            tf.nn.softmax(c)
+            for c in categoricals
+        ]
+
+        predicted_opp_embedded = tf.concat([continuous, binary_probs] + categorical_probs, axis=-1)
+        predicted_opp_embedded = tf.stop_gradient(predicted_opp_embedded)
 
         # do we want value and policy gradients backpropagate to the opp state prediction ?
         lstm_out, next_lstm_state = self.get_game_embed(
-            self_embedded, tf.stop_gradient(predicted_opp_embedded), stage_oh, prev_action,
+            self_embedded, predicted_opp_embedded, stage_oh, prev_action,
             state[1], seq_lens, single_obs
         )
 
