@@ -138,7 +138,7 @@ def my_config():
         'action_state_reward_scale': 1.,
 
         'gae_lambda': 0.95, # 0.98
-        'entropy_cost': 1e-2, # 1e-3 with impala, or around " 0.3, 0.4
+        'entropy_cost': 7e-3, # 1e-3 with impala, or around " 0.3, 0.4
         'lr': 5e-4,
         'fc_dims': [128, 128],
         'lstm_dim': 128,
@@ -155,7 +155,7 @@ def my_config():
         # Coaching
         'imitation_loss_coeff': 1.5e-2,
 
-        'aux_loss_weight': 1.,
+        'aux_loss_weight': 0.2,
         }
 
     compute_advantages_on_workers = True
