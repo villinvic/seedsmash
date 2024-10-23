@@ -100,9 +100,9 @@ class SS1(BaseModel):
         )
 
         self.undelay_encoder = snt.nets.MLP([64, 64], activate_final=True, name="encoder")
-        self.delta_gate = snt.Linear(self.embedding_size, b_init=tf.zeros_initializer())
+        self.delta_gate = snt.Linear(self.embedding_size, w_init=tf.zeros_initializer())
         self.new_gate = snt.Linear(self.embedding_size)
-        self.forget_gate = snt.nets.MLP([self.embedding_size], activation=tf.sigmoid, activate_final=True, b_init=tf.ones_initializer())
+        self.forget_gate = snt.nets.MLP([self.embedding_size], activation=tf.sigmoid, activate_final=True, w_init=tf.zeros_initializer())
 
         self.undelay_rnn = snt.DeepRNN([ResGRUBlock(64) for _ in range(1)])
 
@@ -212,7 +212,7 @@ class SS1(BaseModel):
         new = self.new_gate(undelayed_opp_embedded)
         forget = self.forget_gate(undelayed_opp_embedded)
 
-        predicted_opp_embedded = forget * (opp_embedded + delta) + (1. - forget) * new
+        predicted_opp_embedded = (1. - forget) * (opp_embedded + delta) + forget * new
 
         return predicted_opp_embedded, next_rnn_state
 
@@ -358,19 +358,19 @@ class SS1(BaseModel):
 
         self.continuous_loss = tf.reduce_sum(
             tf.reduce_mean(tf.math.square(continous_predicted - continuous_true), axis=-1) * advantage_weights
-        ) * 0.05
+        )
 
         self.binary_loss = tf.reduce_sum(tf.keras.losses.binary_crossentropy(
             binary_true, binary_predicted,
             from_logits=True,
-        ) * advantage_weights) * 0.05
+        ) * advantage_weights)
 
         self.categorical_loss = tf.reduce_sum([
             tf.reduce_sum(tf.keras.losses.categorical_crossentropy(
                 t, p, from_logits=True
             ) * advantage_weights)
             for t, p in zip(categorical_true, categorical_predicted)
-        ]) * 5e-3
+        ]) / tf.cast(len(categorical_true), dtype=tf.float32)
 
         return self.continuous_loss + self.categorical_loss + self.binary_loss
 
