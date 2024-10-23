@@ -357,19 +357,19 @@ class SS1(BaseModel):
 
         self.continuous_loss = tf.reduce_sum(
             tf.reduce_mean(tf.math.square(continous_predicted - continuous_true), axis=-1) * advantage_weights
-        )
+        ) * 0.05
 
         self.binary_loss = tf.reduce_sum(tf.keras.losses.binary_crossentropy(
             binary_true, binary_predicted,
             from_logits=True,
-        ) * advantage_weights)
+        ) * advantage_weights) * 0.05
 
         self.categorical_loss = tf.reduce_sum([
             tf.reduce_sum(tf.keras.losses.categorical_crossentropy(
                 t, p, from_logits=True
             ) * advantage_weights)
             for t, p in zip(categorical_true, categorical_predicted)
-        ])
+        ]) * 5e-3
 
         return self.continuous_loss + self.categorical_loss + self.binary_loss
 
