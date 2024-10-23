@@ -146,7 +146,7 @@ def my_config():
 
         # PPO
         'ppo_clip': 0.1, # 0.3
-        'initial_kl_coeff': 2.,
+        'initial_kl_coeff': 4.,
         'kl_coeff_speed': 1.,
         'baseline_coeff': 0.5,
         'vf_clip': 10.,
@@ -155,7 +155,7 @@ def my_config():
         # Coaching
         'imitation_loss_coeff': 1.5e-2,
 
-        'aux_loss_weight': 1.,
+        'aux_loss_weight': 0.1,
         }
 
     compute_advantages_on_workers = True
