@@ -98,6 +98,7 @@ class SS1(BaseModel):
         self.embedding_size = (
             self.embed_binary_size+self.embed_categorical_total_size+self.embed_continuous_size
         )
+        print(self.embed_binary_size, self.embed_categorical_sizes, self.embed_continuous_size, self.embedding_size)
 
 
         self.undelay_encoder = snt.Linear(64, name="encoder")
@@ -184,6 +185,9 @@ class SS1(BaseModel):
             # action_state_oh = action_state_oh[0]
             # char_oh = char_oh[0]
 
+        for l in continuous_inputs+binary_inputs+one_hots:
+            print(":", l.shape[-1])
+
         embed_player = tf.concat(
             continuous_inputs + binary_inputs + one_hots, axis=-1)
 
@@ -212,8 +216,6 @@ class SS1(BaseModel):
         delta = self.delta_gate(undelayed_opp_embedded)
         new = self.new_gate(undelayed_opp_embedded)
         forget = self.forget_gate(undelayed_opp_embedded)
-
-        print(opp_embedded.shape, forget.shape)
 
         predicted_opp_embedded = forget * (opp_embedded + delta) + (1. - forget) * new
 
