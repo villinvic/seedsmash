@@ -357,27 +357,26 @@ class SS1(BaseModel):
             single_obs,
         )
 
+        # TODO: test this again
         # should be normalised, therefore this should be ok.
-        advantage_weights = tf.nn.softmax(
-            advantages
-        )
+        # advantage_weights = tf.nn.softmax(
+        #     advantages
+        # )
 
         continuous_true, binary_true, categorical_true = self.split_player_embedding(opp_embedded)
         continous_predicted, binary_predicted, categorical_predicted = self._undelayed_opp_embedded
 
-        self.continuous_loss = tf.reduce_sum(
-            tf.reduce_mean(tf.math.square(continous_predicted - continuous_true), axis=-1) * advantage_weights
-        )
+        self.continuous_loss = tf.reduce_mean(tf.math.square(continous_predicted - continuous_true))
 
-        self.binary_loss = tf.reduce_sum(tf.keras.losses.binary_crossentropy(
+        self.binary_loss = tf.reduce_mean(tf.keras.losses.binary_crossentropy(
             binary_true, binary_predicted,
             from_logits=True,
-        ) * advantage_weights)
+        ))
 
-        self.categorical_loss = tf.reduce_sum([
-            tf.reduce_sum(tf.keras.losses.categorical_crossentropy(
+        self.categorical_loss = tf.reduce_mean([
+            tf.reduce_mean(tf.keras.losses.categorical_crossentropy(
                 t, p, from_logits=True
-            ) * advantage_weights)
+            ))
             for t, p in zip(categorical_true, categorical_predicted)
         ]) / tf.cast(len(categorical_true), dtype=tf.float32)
 
