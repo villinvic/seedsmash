@@ -283,8 +283,9 @@ class SS1(BaseModel):
 
         self._undelayed_opp_embedded = self.split_player_embedding(predicted_opp_embedded)
 
+        # do we want value and policy gradients backpropagate to the opp state prediction ?
         lstm_out, next_lstm_state = self.get_game_embed(
-            self_embedded, predicted_opp_embedded, stage_oh, prev_action,
+            self_embedded, tf.stop_gradient(predicted_opp_embedded), stage_oh, prev_action,
             state[1], seq_lens, single_obs
         )
 
