@@ -139,7 +139,7 @@ class SS1(BaseModel):
         return continuous, binary, categoricals
 
 
-    def get_player_embedding(self, obs, aid, single_obs, concat=True):
+    def get_player_embedding(self, obs, aid, single_obs):
         categorical_inputs = obs["categorical"]
         continuous_inputs = obs["continuous"]
         binary_inputs = obs["binary"]
@@ -266,14 +266,12 @@ class SS1(BaseModel):
 
         self_delayed_embedded = self.get_player_embedding(
             obs,
-            stage_oh,
             "1",
             single_obs
         )
 
         opp_delayed_embedded = self.get_player_embedding(
             obs,
-            stage_oh,
             "2",
             single_obs
         )
@@ -348,7 +346,6 @@ class SS1(BaseModel):
             self.stage_oh,
             "2",
             single_obs,
-            concat=False,
         )
 
         # should be normalised, therefore this should be ok.
