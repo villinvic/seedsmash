@@ -137,8 +137,8 @@ def my_config():
         'discount': 0.993,  # 0.997
         'action_state_reward_scale': 1.,
 
-        'gae_lambda': 0.96, # 0.98
-        'entropy_cost': 6e-3, # 1e-3 with impala, or around " 0.3, 0.4
+        'gae_lambda': 0.95, # 0.98
+        'entropy_cost': 1e-2, # 1e-3 with impala, or around " 0.3, 0.4
         'lr': 5e-4,
         'fc_dims': [128, 128],
         'lstm_dim': 128,
@@ -146,11 +146,11 @@ def my_config():
 
         # PPO
         'ppo_clip': 0.1, # 0.3
-        'initial_kl_coeff': 4.,
+        'initial_kl_coeff': 1.,
         'kl_coeff_speed': 1.,
         'baseline_coeff': 0.5,
         'vf_clip': 10.,
-        'kl_target': 1e-2,
+        'kl_target': 5e-3,
 
         # Coaching
         'imitation_loss_coeff': 1.5e-2,
