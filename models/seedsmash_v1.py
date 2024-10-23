@@ -91,15 +91,13 @@ class SS1(BaseModel):
         #self.prev_action_embeddings = snt.Embed(self.num_outputs, 16, densify_gradients=True)
 
         # undelay LSTM
-        self.embed_binary_size = len([_ for _ in self.observation_space["binary"] if "1" in _])
+        self.embed_binary_size = sum([obs.shape[-1] for k, obs in self.observation_space["binary"].items() if "1" in k])
         self.embed_categorical_sizes = [int(obs.high[0])+1 for k, obs in self.observation_space["categorical"].items() if "1" in k]
         self.embed_categorical_total_size = sum(self.embed_categorical_sizes)
-        self.embed_continuous_size = len([_ for _ in self.observation_space["continuous"] if "1" in _])
+        self.embed_continuous_size = sum([obs.shape[-1] for k, obs in self.observation_space["continuous"].items() if "1" in k])
         self.embedding_size = (
             self.embed_binary_size+self.embed_categorical_total_size+self.embed_continuous_size
         )
-        print(self.embed_binary_size, self.embed_categorical_sizes, self.embed_continuous_size, self.embedding_size)
-
 
         self.undelay_encoder = snt.Linear(64, name="encoder")
         self.delta_gate = snt.Linear(self.embedding_size, b_init=tf.zeros_initializer())
@@ -184,9 +182,6 @@ class SS1(BaseModel):
             # stocks_oh = stocks_oh[0]
             # action_state_oh = action_state_oh[0]
             # char_oh = char_oh[0]
-
-        for l in continuous_inputs+binary_inputs+one_hots:
-            print(":", l.shape[-1])
 
         embed_player = tf.concat(
             continuous_inputs + binary_inputs + one_hots, axis=-1)
