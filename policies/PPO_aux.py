@@ -168,8 +168,8 @@ class PPO_aux(ParametrisedPolicy):
             input_batch
     ):
         #B, T = tf.shape(input_batch[SampleBatch.OBS])
-        with tf.GradientTape() as tape:
-            with tf.device('/gpu:0'):
+        with tf.device('/gpu:0'):
+            with tf.GradientTape() as tape:
                 (action_logits, _), vf_preds = self.model(
                     input_batch
                 )
@@ -221,20 +221,20 @@ class PPO_aux(ParametrisedPolicy):
                     mean_kl = 0.
                     kl_loss = tf.constant(0.0)
 
+
+                total_loss = (critic_loss + policy_loss - mean_entropy * self.policy_config.entropy_cost + kl_loss)
+
+            with tf.GradientTape() as aux_tape:
                 aux_loss = self.model.aux_loss(**input_batch)
 
-                total_loss = (critic_loss + policy_loss - mean_entropy * self.policy_config.entropy_cost + kl_loss
-                              + aux_loss)
 
         gradients = tape.gradient(total_loss, self.model.trainable_variables)#+ (self.old_log_kl_coeff,))
-        gradients = [
-            g * self.policy_config.aux_loss_weight if "predict" in k else g for g, k in
-            zip(gradients, self.model.trainable_variables)
-        ]
         gradients, mean_grad_norm = tf.clip_by_global_norm(gradients, self.policy_config.grad_clip)
-
-
         self.model.optimiser.apply(gradients, self.model.trainable_variables) # + (self.log_kl_coeff,))
+
+        gradients = aux_tape.gradient(aux_loss, self.model.trainable_variables)
+        self.model.aux_optimiser.apply(gradients, self.model.trainable_variables)
+
 
         mean_entropy = tf.reduce_mean(entropy)
         explained_vf = explained_variance(

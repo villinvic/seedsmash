@@ -75,6 +75,10 @@ class SS1(BaseModel):
             learning_rate=config.lr,
             name="adam"
         )
+        self.aux_optimiser = snt.optimizers.Adam(
+            learning_rate=config.aux_lr,
+            name="adam"
+        )
 
         #self.player_embeddings = snt.nets.MLP([64], activate_final=False)
 

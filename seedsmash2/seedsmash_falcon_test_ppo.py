@@ -155,6 +155,7 @@ def my_config():
         # Coaching
         'imitation_loss_coeff': 1.5e-2,
 
+        'aux_lr': 5e-5,
         'aux_loss_weight': 0.1,
         }
 
