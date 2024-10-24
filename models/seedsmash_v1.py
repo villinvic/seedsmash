@@ -368,6 +368,7 @@ class SS1(BaseModel):
         continuous_true, binary_true, categorical_true = self.split_player_embedding(opp_embedded)
         continous_predicted, binary_predicted, categorical_predicted = self._undelayed_opp_embedded
 
+        print(continous_predicted[:, 0], continuous_true[:, 0])
         self.continuous_loss = tf.reduce_mean(tf.math.square(continous_predicted - continuous_true))
 
         self.binary_loss = tf.reduce_mean(tf.keras.losses.binary_crossentropy(
