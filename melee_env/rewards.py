@@ -478,14 +478,14 @@ class RewardFunction:
         opp_combo_multiplier = np.maximum(0, opponent_combo_counter- 1) / (self.max_combo-1) + 1
 
         return (
-            rewards.kill_rewards * self_combo_multiplier
+            rewards.kill_rewards #* self_combo_multiplier
             + (rewards.damage_inflicted_rewards + rewards.off_stage_percents_inflicted) * 0.01 #* self_combo_multiplier
             + rewards.distance_rewards * 3e-4
             + rewards.edge_guarding * 0.1
             + rewards.edge_while_opp_invulnerable * 0.05
             #+ rewards.shield_pressured * 0.02
 
-            - rewards.death_rewards * opp_combo_multiplier
+            - rewards.death_rewards #* opp_combo_multiplier
             - (rewards.damage_received_rewards + rewards.off_stage_percents_received) * 0.01 #* opp_combo_multiplier
             - rewards.bad_edge_catches * 0.1
         )
