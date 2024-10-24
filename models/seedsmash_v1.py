@@ -99,12 +99,12 @@ class SS1(BaseModel):
             self.embed_binary_size+self.embed_categorical_total_size+self.embed_continuous_size
         )
 
-        self.undelay_encoder = snt.nets.MLP([64, 64], activate_final=True, name="encoder")
-        self.delta_gate = snt.Linear(self.embedding_size, w_init=tf.zeros_initializer())
+        self.undelay_encoder = snt.nets.MLP([128, 128], activate_final=True, name="encoder")
+        self.delta_gate = snt.Linear(self.embedding_size)
         self.new_gate = snt.Linear(self.embedding_size)
-        self.forget_gate = snt.nets.MLP([self.embedding_size], activation=tf.sigmoid, activate_final=True, w_init=tf.constant_initializer(-7.))
+        self.forget_gate = snt.nets.MLP([self.embedding_size], activation=tf.sigmoid, activate_final=True, w_init=tf.constant_initializer(-1.))
 
-        self.undelay_rnn = snt.DeepRNN([ResGRUBlock(64) for _ in range(1)])
+        self.undelay_rnn = snt.DeepRNN([ResGRUBlock(128) for _ in range(1)])
 
         # full game
         self.game_embeddings = snt.nets.MLP([128, 128], activate_final=True,
@@ -290,7 +290,7 @@ class SS1(BaseModel):
         # one_hot_output = tf.one_hot(max_index, depth=num_classes)
         binary_probs = tf.cast(binary >= 0., dtype=tf.float32)# tf.nn.sigmoid(binary)
         categorical_probs = [
-            tf.one_hot(tf.argmax(c), depth=c.shape[-1], dtype=tf.float32)
+            tf.one_hot(tf.argmax(c, axis=-1), depth=c.shape[-1], dtype=tf.float32)
             #tf.nn.softmax(c)
             for c in categoricals
         ]
@@ -311,7 +311,7 @@ class SS1(BaseModel):
 
 
     def get_initial_state(self):
-        return (tuple(np.zeros((1, 64), dtype=np.float32) for _ in range(1)), tuple(snt.LSTMState(
+        return (tuple(np.zeros((1, 128), dtype=np.float32) for _ in range(1)), tuple(snt.LSTMState(
                 hidden=np.zeros((1, 128,), dtype=np.float32),
                 cell=np.zeros((1, 128,), dtype=np.float32),
         ) for _ in range(1)))
