@@ -294,7 +294,7 @@ class SS1(BaseModel):
 
         #continuous, _, _ = self.split_player_embedding(opp_delayed_embedded)
 
-        predicted_opp_embedded = tf.concat([continuous, binary_probs] + categorical_probs, axis=-1)
+        predicted_opp_embedded = tf.stop_gradient(tf.concat([continuous, binary_probs] + categorical_probs, axis=-1))
 
         # do we want value and policy gradients backpropagate to the opp state prediction ?
         lstm_out, next_lstm_state = self.get_game_embed(
