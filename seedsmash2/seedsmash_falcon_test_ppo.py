@@ -27,7 +27,7 @@ obs_config = (
     .stage()
     .max_projectiles(0)  # one falco can generate more than 3 projectiles apparently ?
     #.controller_state()
-    .delay(6) # 4 (* 3)
+    .delay(5) # 4 (* 3)
 )
 
 
