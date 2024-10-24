@@ -4,7 +4,7 @@ from typing import Dict
 
 import tree
 
-from .parametrised import ParametrisedPolicy
+from polaris.policies.parametrised import ParametrisedPolicy
 from polaris.experience import SampleBatch, get_epochs
 from polaris.models.utils import EpsilonCategorical
 from polaris.policies import VMPO
