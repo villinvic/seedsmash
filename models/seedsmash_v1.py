@@ -100,9 +100,11 @@ class SS1(BaseModel):
         )
 
         self.undelay_encoder = snt.nets.MLP([128, 128], activate_final=True, name="encoder")
-        self.delta_gate = snt.Linear(self.embedding_size)
+        self.delta_gate = snt.Linear(self.embedding_size, w_init=tf.zeros_initializer())
         self.new_gate = snt.Linear(self.embedding_size)
-        self.forget_gate = snt.nets.MLP([self.embedding_size], activation=tf.sigmoid, activate_final=True, w_init=tf.constant_initializer(-1.))
+        self.forget_gate = snt.nets.MLP([self.embedding_size], activation=tf.sigmoid, activate_final=True,
+                                        w_init=tf.zeros_initializer(),
+                                        b_init=tf.constant_initializer(-10.))
 
         self.undelay_rnn = snt.DeepRNN([ResGRUBlock(128) for _ in range(1)])
 
@@ -368,7 +370,6 @@ class SS1(BaseModel):
         continuous_true, binary_true, categorical_true = self.split_player_embedding(opp_embedded)
         continous_predicted, binary_predicted, categorical_predicted = self._undelayed_opp_embedded
 
-        print(continous_predicted[:, 0], continuous_true[:, 0])
         self.continuous_loss = tf.reduce_mean(tf.math.square(continous_predicted - continuous_true))
 
         self.binary_loss = tf.reduce_mean(tf.keras.losses.binary_crossentropy(
