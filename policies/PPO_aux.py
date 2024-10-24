@@ -169,7 +169,7 @@ class PPO_aux(ParametrisedPolicy):
     ):
         #B, T = tf.shape(input_batch[SampleBatch.OBS])
         with tf.device('/gpu:0'):
-            with tf.GradientTape() as tape:
+            with tf.GradientTape(persistent=True) as tape:
                 (action_logits, _), vf_preds = self.model(
                     input_batch
                 )
@@ -223,8 +223,6 @@ class PPO_aux(ParametrisedPolicy):
 
 
                 total_loss = (critic_loss + policy_loss - mean_entropy * self.policy_config.entropy_cost + kl_loss)
-
-            with tf.GradientTape() as aux_tape:
                 aux_loss = self.model.aux_loss(**input_batch)
 
 
@@ -232,8 +230,9 @@ class PPO_aux(ParametrisedPolicy):
         gradients, mean_grad_norm = tf.clip_by_global_norm(gradients, self.policy_config.grad_clip)
         self.model.optimiser.apply(gradients, self.model.trainable_variables) # + (self.log_kl_coeff,))
 
-        gradients = aux_tape.gradient(aux_loss, self.model.trainable_variables)
+        gradients = tape.gradient(aux_loss, self.model.trainable_variables)
         self.model.aux_optimiser.apply(gradients, self.model.trainable_variables)
+        del tape
 
 
         mean_entropy = tf.reduce_mean(entropy)
