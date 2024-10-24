@@ -305,7 +305,7 @@ class ObsBuilder:
                                                                             char_state.action_frame
                                                         )
 
-                return -1 * 50 if next_hitbox_frame == -1 else next_hitbox_frame-1
+                return next_hitbox_frame
 
 
             def iasa_or_actionable(s):
@@ -359,11 +359,12 @@ class ObsBuilder:
                                    player_port=port,
                                    config=self.config),
 
-                # is_attack=StateDataInfo(lambda s: ObsBuilder.FD.is_attack(s.players[port].character,
-                #                                                           s.players[port].action),
-                #                         StateDataInfo.BINARY,
-                #                         player_port=port,
-                #                         config=self.config),
+                is_attack=StateDataInfo(lambda s: ObsBuilder.FD.is_attack(s.players[port].character,
+                                                                          s.players[port].action),
+                                        StateDataInfo.BINARY,
+                                        player_port=port,
+                                        config=self.config),
+
                 # is_bmove=StateDataInfo(lambda s: ObsBuilder.FD.is_bmove(s.players[port].character,
                 #                                                         s.players[port].action),
                 #                        StateDataInfo.BINARY,

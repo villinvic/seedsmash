@@ -283,11 +283,6 @@ class SS1(BaseModel):
         continuous, binary, categoricals = self.split_player_embedding(predicted_opp_embedded)
         self._undelayed_opp_embedded = (continuous, binary, categoricals)
 
-        # max_index = tf.argmax(logits, axis=-1)
-        #
-        # # 2. Convert the index to a one-hot vector
-        # num_classes = logits.shape[-1]  # Number of classes
-        # one_hot_output = tf.one_hot(max_index, depth=num_classes)
         binary_probs = tf.cast(binary >= 0., dtype=tf.float32)# tf.nn.sigmoid(binary)
         categorical_probs = [
             tf.one_hot(tf.argmax(c, axis=-1), depth=c.shape[-1], dtype=tf.float32)
@@ -297,11 +292,11 @@ class SS1(BaseModel):
 
         continuous, _, _ = self.split_player_embedding(opp_delayed_embedded)
 
-        predicted_opp_embedded = tf.concat([continuous, binary_probs] + categorical_probs, axis=-1)
+        #predicted_opp_embedded = tf.concat([continuous, binary_probs] + categorical_probs, axis=-1)
 
         # do we want value and policy gradients backpropagate to the opp state prediction ?
         lstm_out, next_lstm_state = self.get_game_embed(
-            self_embedded, predicted_opp_embedded, stage_oh, prev_action,
+            self_embedded, opp_delayed_embedded, stage_oh, prev_action,
             state[1], seq_lens, single_obs
         )
 
