@@ -150,7 +150,7 @@ def my_config():
         'kl_coeff_speed': 1.,
         'baseline_coeff': 0.5,
         'vf_clip': 10.,
-        'kl_target': 5e-3,
+        'kl_target': 3e-3,
 
         # Coaching
         'imitation_loss_coeff': 1.5e-2,
