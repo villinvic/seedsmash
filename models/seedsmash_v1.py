@@ -99,14 +99,14 @@ class SS1(BaseModel):
             self.embed_binary_size+self.embed_categorical_total_size+self.embed_continuous_size
         )
 
-        self.undelay_encoder = snt.nets.MLP([128, 128], activate_final=True, name="encoder")
-        self.delta_gate = snt.Linear(self.embedding_size, w_init=tf.zeros_initializer())
-        self.new_gate = snt.Linear(self.embedding_size)
+        self.undelay_encoder = snt.nets.MLP([128, 128], activate_final=True, name="predict_encoder")
+        self.delta_gate = snt.Linear(self.embedding_size, w_init=tf.zeros_initializer(), name="predict_delta")
+        self.new_gate = snt.Linear(self.embedding_size, name="predict_new")
         self.forget_gate = snt.nets.MLP([self.embedding_size], activation=tf.sigmoid, activate_final=True,
                                         w_init=tf.zeros_initializer(),
-                                        b_init=tf.constant_initializer(-10.))
+                                        b_init=tf.constant_initializer(-10.), name="predict_forget")
 
-        self.undelay_rnn = snt.DeepRNN([ResGRUBlock(128) for _ in range(1)])
+        self.undelay_rnn = snt.DeepRNN([ResGRUBlock(128) for _ in range(1)], name="predict_rnn")
 
         # full game
         self.game_embeddings = snt.nets.MLP([128, 128], activate_final=True,
@@ -353,7 +353,6 @@ class SS1(BaseModel):
             single_obs=False,
             **kwargs
     ):
-
 
         opp_embedded = self.get_player_embedding(
             obs["ground_truth"],

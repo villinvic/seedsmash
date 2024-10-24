@@ -122,9 +122,9 @@ def my_config():
     env_config = dict(env_conf)
 
     num_workers = 64
-    policy_path = 'polaris.policies.PPO'
+    policy_path = 'policies.PPO_aux'
     model_path = 'models.seedsmash_v1'
-    policy_class = 'PPO'
+    policy_class = 'PPO_aux'
     model_class = 'SS1'
     trajectory_length = 128 # 256 ?
     max_seq_len = 32
@@ -155,7 +155,7 @@ def my_config():
         # Coaching
         'imitation_loss_coeff': 1.5e-2,
 
-        'aux_loss_weight': 5e-4,
+        'aux_loss_weight': 0.1,
         }
 
     compute_advantages_on_workers = True
