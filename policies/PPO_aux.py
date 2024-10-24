@@ -227,11 +227,12 @@ class PPO_aux(ParametrisedPolicy):
                               + aux_loss)
 
         gradients = tape.gradient(total_loss, self.model.trainable_variables)#+ (self.old_log_kl_coeff,))
+        gradients = [
+            g * self.policy_config.aux_loss_weight if "predict" in k else g for g, k in
+            zip(gradients, self.model.trainable_variables)
+        ]
         gradients, mean_grad_norm = tf.clip_by_global_norm(gradients, self.policy_config.grad_clip)
 
-        gradients = [
-            g * self.policy_config.aux_loss_weight if "predict" in k else g for g, k in zip(gradients, self.model.trainable_variables)
-        ]
 
         self.model.optimiser.apply(gradients, self.model.trainable_variables) # + (self.log_kl_coeff,))
 
