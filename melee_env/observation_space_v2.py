@@ -671,6 +671,7 @@ class ObsBuilder:
                 # Projectiles
                 # TODO : get projectiles of players, and unowned projectiles
                 # TODO: what are unowned projectiles again ?
+                # TODO: should split in two, continuous and binary!
                 projectile=StateDataInfo(lambda s: own_projectile_getter(s, port),
                                          StateDataInfo.CONTINUOUS,
                                          size=3,

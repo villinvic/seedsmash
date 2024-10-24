@@ -155,7 +155,7 @@ def my_config():
         # Coaching
         'imitation_loss_coeff': 1.5e-2,
 
-        'aux_loss_weight': 0.05,
+        'aux_loss_weight': 1.,
         }
 
     compute_advantages_on_workers = True
@@ -165,8 +165,8 @@ def my_config():
     training_metrics_smoothing = 0.8
     inject_new_bots_freq_s = 60
     # FSP
-    update_policy_history_freq = 200
-    policy_history_length = 8
+    update_policy_history_freq = 400
+    policy_history_length = 4
 
     checkpoint_config = dict(
         checkpoint_frequency=50,
