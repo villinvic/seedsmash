@@ -283,9 +283,15 @@ class SS1(BaseModel):
         continuous, binary, categoricals = self.split_player_embedding(predicted_opp_embedded)
         self._undelayed_opp_embedded = (continuous, binary, categoricals)
 
-        binary_probs = tf.nn.sigmoid(binary)
+        # max_index = tf.argmax(logits, axis=-1)
+        #
+        # # 2. Convert the index to a one-hot vector
+        # num_classes = logits.shape[-1]  # Number of classes
+        # one_hot_output = tf.one_hot(max_index, depth=num_classes)
+        binary_probs = tf.cast(binary >= 0., dtype=tf.float32)# tf.nn.sigmoid(binary)
         categorical_probs = [
-            tf.nn.softmax(c)
+            tf.one_hot(tf.argmax(c), depth=c.shape[-1], dtype=tf.float32)
+            #tf.nn.softmax(c)
             for c in categoricals
         ]
 
