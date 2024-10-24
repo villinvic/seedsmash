@@ -295,6 +295,8 @@ class SS1(BaseModel):
             for c in categoricals
         ]
 
+        continuous, _, _ = self.split_player_embedding(opp_delayed_embedded)
+
         predicted_opp_embedded = tf.concat([continuous, binary_probs] + categorical_probs, axis=-1)
 
         # do we want value and policy gradients backpropagate to the opp state prediction ?
