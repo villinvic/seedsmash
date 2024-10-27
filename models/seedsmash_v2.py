@@ -253,10 +253,10 @@ class SS2(BaseModel):
         logits = []
 
         for res_item, prev in zip(self.res_items, opp_embedded):
-            residual, logits, sample, embedded_sample = res_item.predict(residual, prev)
+            residual, logit, sample, embedded_sample = res_item.predict(residual, prev)
             samples.append(sample)
             embedded_samples.append(embedded_sample)
-            logits.append(logits)
+            logits.append(logit)
 
         return samples, embedded_samples, logits, next_rnn_state
 
