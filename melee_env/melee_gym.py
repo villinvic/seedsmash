@@ -387,7 +387,7 @@ class SSBM(PolarisEnv):
         self.game_frame = 0
         self.om.reset()
         self.om.update(state)
-        return self.om.build(self.current_aids), {i: {} for i in self.om.bot_ports}
+        return self.om.build(), {i: {} for i in self.om.bot_ports}
     def get_next_state_reward(self, every=3) \
             -> Tuple_T[Union[GameState, None], Dict_T[int, StepRewards], bool]:
         collected_rewards = {p: StepRewards() for p in self._agent_ids | self._debug_port}
@@ -494,7 +494,7 @@ class SSBM(PolarisEnv):
             # Do not give the new state, because it looks weird right now
             # Just update the game frame
             self.om.update(state, game_frame=True)
-            obs = self.om.build(self.current_aids)
+            obs = self.om.build()
         elif game_finished:
             done = self.pad_at_end <= 0
             self.pad_at_end -= 1
@@ -503,11 +503,11 @@ class SSBM(PolarisEnv):
             else:
                 self.om.update(state)
             self.reached_end = True
-            obs = self.om.build(self.current_aids)
+            obs = self.om.build()
         else:
             done = False
             self.om.update(state)
-            obs = self.om.build(self.current_aids)
+            obs = self.om.build()
         dones = {
             i: done for i in self._agent_ids
         }
