@@ -124,7 +124,7 @@ class SS2(BaseModel):
             space=v,
             residual_size=32,
         ) for k, v in self.observation_space["binary"].items() if "1" in k] + [ResItem(
-            embedder=lambda i, x: tf.clip_by_value(x, i.space.low, i.space.high),
+            embedder=lambda i, x: tf.clip_by_value(x, i.space.low[0], i.space.high[0]),
             sampler=lambda logits: GaussianDistribution(logits).sample(),
             loss_func=lambda true, pred: -GaussianDistribution(pred).logp(true),
             embedding_size=v.shape[0] * 2,
