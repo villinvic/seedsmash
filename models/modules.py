@@ -130,6 +130,7 @@ class ResItem(snt.Module):
         residual += self.decoder(sample_embedding)
 
         if tf.rank(sample) == 2:
+            print(sample)
             sample = tf.squeeze(sample)
             sample = tf.expand_dims(sample, axis=1)
         else:
