@@ -376,9 +376,8 @@ class SSBM(PolarisEnv):
     def step(self, action_dict):
 
         for port, chosen_input_sequence_index in action_dict.items():
-            curr_port = self.current_aids[port]
-            action = self.discrete_controllers[curr_port][chosen_input_sequence_index]
-            self.action_queues[curr_port].push(action)
+            action = self.discrete_controllers[port][chosen_input_sequence_index]
+            self.action_queues[port].push(action)
         for port in self._debug_port:
             action = None
             while action is None:
