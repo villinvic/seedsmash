@@ -131,7 +131,7 @@ class ResItem(snt.Module):
 
         if tf.rank(sample) == 2:
             sample = tf.squeeze(sample)
-            sample = tf.expand_dims(sample, axis=0)
+            sample = tf.expand_dims(sample, axis=1)
         else:
             sample = tf.squeeze(sample)
             if tf.rank(sample) == 0:
