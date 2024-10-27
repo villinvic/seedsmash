@@ -110,13 +110,14 @@ class LayerNormLSTM(snt.LSTM):
 
 
 class ResItem(snt.Module):
-    def __init__(self, embedder, sampler, loss_func, embedding_size, residual_size=32):
+    def __init__(self, embedder, sampler, loss_func, embedding_size, space, residual_size=32):
         super().__init__()
 
         self.embedder = embedder
         self.sampler = sampler
         self.size = embedding_size
         self.compute_loss = loss_func
+        self.space = space
 
         self.encoder = snt.Linear(embedding_size)
         self.decoder = snt.Linear(residual_size, w_init=tf.zeros_initializer())

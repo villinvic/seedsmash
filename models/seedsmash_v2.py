@@ -110,26 +110,27 @@ class SS2(BaseModel):
         self.to_residual = snt.Linear(32, name="to_residual")
 
         self.res_items = [ResItem(
-            embedder=lambda x: tf.one_hot(tf.cast(x, dtype=tf.int32), depth=tf.cast(v.high[0], tf.int32)+1, dtype=tf.float32),
+            embedder=lambda i, x: tf.one_hot(tf.cast(x, dtype=tf.int32), depth=i.size, dtype=tf.float32),
             sampler=lambda logits: CategoricalDistribution(logits).sample(),
             loss_func=lambda true, pred: tf.keras.losses.categorical_crossentropy(true, pred, from_logits=True),
             embedding_size=tf.cast(v.high[0], tf.int32)+1,
+            space=v,
             residual_size=32,
         ) for k, v in self.observation_space["categorical"].items() if "1" in k] + [ResItem(
-            embedder=lambda x: x,
+            embedder=lambda i, x: x,
             sampler=lambda logits: tf.cast(tfp.distributions.Bernoulli(logits=logits).sample(), tf.float32),
-            loss_func=lambda true, pred:  tf.keras.losses.binary_crossentropy(true, pred, from_logits=True),
+            loss_func=lambda true, pred: tf.keras.losses.binary_crossentropy(true, pred, from_logits=True),
             embedding_size=v.shape[0],
+            space=v,
             residual_size=32,
         ) for k, v in self.observation_space["binary"].items() if "1" in k] + [ResItem(
-            embedder=lambda x: tf.clip_by_value(x, v.low, v.high),
+            embedder=lambda i, x: tf.clip_by_value(x, i.space.low, i.space.high),
             sampler=lambda logits: GaussianDistribution(logits).sample(),
             loss_func=lambda true, pred: -GaussianDistribution(pred).logp(true),
             embedding_size=v.shape[0] * 2,
+            space=v,
             residual_size=32,
         ) for k, v in self.observation_space["continuous"].items() if "1" in k]
-
-        print([r.size for r in self.res_items])
 
         # full game
         self.game_embeddings = snt.nets.MLP([128, 128], activate_final=True,
