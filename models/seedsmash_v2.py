@@ -195,7 +195,7 @@ class SS2(BaseModel):
         action_dist = self.action_dist(action_logits)
         action = action_dist.sample()
         logp = action_dist.logp(action)
-        return (action_logits, state, tf.squeeze(predictions)), value, action, logp
+        return (action_logits, state, predictions), value, action, logp
 
     def get_flat_player_obs(self, obs, player_id, single_obs=False):
         categorical_inputs = obs["categorical"]
