@@ -340,7 +340,7 @@ class SSBM(PolarisEnv):
         self.delta_frame = DeltaFrame()
         self.reward_functions = {
             port: RewardFunction(port, options[port])
-            for port in self.get_agent_ids()
+            for port in self.get_agent_ids() | self._debug_port
         }
         self.episode_metrics = defaultdict(float)
         self.pad_at_end = self.config["obs"]["delay"] + 1
@@ -415,7 +415,7 @@ class SSBM(PolarisEnv):
             # Wait for the matchmaking animation to end
             time.sleep(7)
 
-        costumes = [options[p].costume for p in self.get_agent_ids()]
+        costumes = [options[p].costume for p in options]
         if len(costumes) > 1:
             if chars[0] == chars[1] and costumes[0] == costumes[1]:
                 l = [0,1,2,3]
@@ -464,7 +464,7 @@ class SSBM(PolarisEnv):
     def get_next_state_reward(self, every=3) \
             -> Tuple_T[Union[GameState, None], Dict_T[int, StepRewards], bool]:
 
-        collected_rewards = {p: StepRewards() for p in self._agent_ids}
+        collected_rewards = {p: StepRewards() for p in self._agent_ids | self._debug_port}
         active_actions = {p: None for p in self._agent_ids | self._debug_port}
 
         # Are we done ? check if one of the teams are out
@@ -529,7 +529,7 @@ class SSBM(PolarisEnv):
                     # process rewards
                     self.delta_frame.update(next_state)
 
-                    for port in self.get_agent_ids():
+                    for port in self.reward_functions:
                         self.reward_functions[port].get_frame_rewards(
                             self.delta_frame, active_actions[port], collected_rewards[port]
                         )
@@ -638,19 +638,10 @@ class SSBM(PolarisEnv):
                 self.console.stop()
                 for c in self.controllers.values():
                     c.disconnect()
-
                 del self.controllers
                 del self.console
-
-            except AttributeError as e:
-                print()
-                print(e)
-                print()
             except Exception as e:
-                print()
-                print('other')
                 print(e)
-                print()
             self.controllers = None
             self.console = None
 

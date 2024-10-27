@@ -137,8 +137,8 @@ def my_config():
         'discount': 0.992,  # 0.997
         'action_state_reward_scale': 1.,
 
-        'gae_lambda': 0.95, # 0.98
-        'entropy_cost': 7e-3, # 1e-3 with impala, or around " 0.3, 0.4
+        'gae_lambda': 0.97, # 0.98
+        'entropy_cost': 5e-3, # 1e-3 with impala, or around " 0.3, 0.4
         'lr': 5e-4,
         'fc_dims': [128, 128],
         'lstm_dim': 128,
@@ -150,12 +150,12 @@ def my_config():
         'kl_coeff_speed': 1.,
         'baseline_coeff': 0.5,
         'vf_clip': 10.,
-        'kl_target': 1e-3,
+        'kl_target': 1e-2,
 
         # Coaching
         'imitation_loss_coeff': 1.5e-2,
 
-        'aux_lr': 5e-5,
+        'aux_lr': 1e-3,
         'aux_loss_weight': 0.1,
         }
 
@@ -166,8 +166,8 @@ def my_config():
     training_metrics_smoothing = 0.8
     inject_new_bots_freq_s = 60
     # FSP
-    update_policy_history_freq = 400
-    policy_history_length = 4
+    update_policy_history_freq = 100
+    policy_history_length = 10
 
     checkpoint_config = dict(
         checkpoint_frequency=50,

@@ -615,12 +615,13 @@ def allow_shield_drop(game_state, char_state: PlayerState, curr_action: InputSeq
         curr_action.terminate()
     return allow
 
-def allow_waveland(game_state: GameState, char_state: PlayerState, curr_action: InputSequence):
+def allow_waveland(game_state: GameState, char_state: PlayerState, curr_action: InputSequence,
+                   maxdy = 5):
 
     allow = not (char_state.off_stage or char_state.on_ground)
     if allow:
         dy_ground = char_state.position.y
-        allow = dy_ground < 3
+        allow = dy_ground < maxdy
         if not allow:
             for (y, x1, x2) in [stages.top_platform_position(game_state.stage),
                                 stages.side_platform_position(False, game_state),
@@ -628,7 +629,7 @@ def allow_waveland(game_state: GameState, char_state: PlayerState, curr_action: 
             ]:
                 dy = char_state.position.y - y
                 # we are above a platform
-                allow = (dy<3 and x1 < char_state.position.x < x2)
+                allow = (-1<dy<maxdy and x1-0.5 < char_state.position.x < x2+0.5)
                 if allow:
                     break
     if not allow:
@@ -649,7 +650,11 @@ def allow_l_down(game_state, char_state: PlayerState, curr_action: InputSequence
         curr_action.terminate()
     return allow
 
-
+def allow_l_up(game_state, char_state: PlayerState, curr_action: InputSequence):
+    allow = char_state.off_stage
+    if not allow:
+        curr_action.terminate()
+    return allow
 
 # SPECIFIC TO DOC AND MARIO, multishine for fox and falco too OP
 # Tap B for other chars
@@ -767,7 +772,7 @@ class SSBMActionSpace:
 
     # using this on ground makes you jump
     L_UP = lambda _: InputSequence(
-        ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.UP, test_func=disable_on_ground))
+        ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.UP, test_func=allow_l_up))
 
     # We can use this for puff, or to waveland with no angle
     L_DOWN = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.DOWN, test_func=allow_l_down))
@@ -784,9 +789,9 @@ class SSBMActionSpace:
         ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.LEFT, test_func=disable_in_air))
 
     # Do not use those actions on ground, this is the same as L_LEFT and L_RIGHT otherwise
-    WAVELAND_LEFT = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.WAVE_LEFT,
+    WAVELAND_LEFT = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.DOWN_LEFT,
                                                             test_func=allow_waveland, energy_cost=0.))
-    WAVELAND_RIGHT = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.WAVE_RIGHT,
+    WAVELAND_RIGHT = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.DOWN_RIGHT,
                                                              test_func=allow_waveland, energy_cost=0.))
 
     # Hook, Z-cancel, NAIR
@@ -799,38 +804,40 @@ class SSBMActionSpace:
     SHIELD_GRAB = lambda _: InputSequence(
         ControllerInput(buttons=(Button.BUTTON_A, Button.BUTTON_L), test_func=disable_in_air),
     )
-    FULL_HOP_NEUTRAL = lambda _: CharDependentInputSequence(
-        {
-            character: InputSequence(
-                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames, energy_cost=0.), name=character)
-            for character, short_hop_frames in char2kneebend.items()
-        }
-    )
+    # FULL_HOP_NEUTRAL = lambda _: CharDependentInputSequence(
+    #     {
+    #         character: InputSequence(
+    #             ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames, energy_cost=0.), name=character)
+    #         for character, short_hop_frames in char2kneebend.items()
+    #     }
+    # )
     SHORT_HOP_NEUTRAL = lambda _: InputSequence(
         [ControllerInput(buttons=Button.BUTTON_X, duration=2, energy_cost=0.),
          ControllerInput(duration=1, energy_cost=0.)]
     )
-    FULL_HOP_LEFT = lambda _: CharDependentInputSequence(
-        {
-            character: InputSequence(
-                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames, stick=StickPosition.LEFT,
-                                energy_cost=0.), name=character)
-            for character, short_hop_frames in char2kneebend.items()
-        }
-    )
+    # FULL_HOP_LEFT = lambda _: CharDependentInputSequence(
+    #     {
+    #         character: InputSequence(
+    #             ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames, stick=StickPosition.LEFT,
+    #                             energy_cost=0.), name=character)
+    #         for character, short_hop_frames in char2kneebend.items()
+    #     }
+    # )
+
+    # needed for fox (can't decide jump direction after 3 frames)
     SHORT_HOP_LEFT = lambda _: InputSequence(
         [ControllerInput(buttons=Button.BUTTON_X, duration=2, stick=StickPosition.LEFT, energy_cost=0.),
          ControllerInput(duration=1, stick=StickPosition.LEFT, energy_cost=0.)]
     )
 
-    FULL_HOP_RIGHT = lambda _: CharDependentInputSequence(
-        {
-            character: InputSequence(
-                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames, stick=StickPosition.RIGHT,
-                                energy_cost=0.), name=character)
-            for character, short_hop_frames in char2kneebend.items()
-        }
-    )
+    # FULL_HOP_RIGHT = lambda _: CharDependentInputSequence(
+    #     {
+    #         character: InputSequence(
+    #             ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames, stick=StickPosition.RIGHT,
+    #                             energy_cost=0.), name=character)
+    #         for character, short_hop_frames in char2kneebend.items()
+    #     }
+    # )
     SHORT_HOP_RIGHT = lambda _: InputSequence(
         [ControllerInput(buttons=Button.BUTTON_X, duration=2, stick=StickPosition.RIGHT, energy_cost=0.),
          ControllerInput(duration=1, stick=StickPosition.RIGHT, energy_cost=0.)]

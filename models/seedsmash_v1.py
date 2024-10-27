@@ -1,3 +1,4 @@
+import time
 from typing import Optional
 
 from polaris.models import BaseModel
@@ -16,8 +17,9 @@ from models.modules import LayerNormLSTM, ResLSTMBlock, ResGRUBlock
 tf.compat.v1.enable_eager_execution()
 
 from tensorflow.keras.optimizers import RMSprop
+import tensorflow_probability as tfp
 import numpy as np
-from polaris.models.utils import CategoricalDistribution
+from polaris.models.utils import CategoricalDistribution, GaussianDistribution
 
 
 
@@ -102,11 +104,22 @@ class SS1(BaseModel):
         self.embedding_size = (
             self.embed_binary_size+self.embed_categorical_total_size+self.embed_continuous_size
         )
+        self.embedding_size_with_stds = (
+                self.embed_binary_size + self.embed_categorical_total_size + self.embed_continuous_size * 2
+        )
+        self.continuous_high = tf.expand_dims(tf.expand_dims(tf.concat(
+            [v.high for k, v in self.observation_space["continuous"].items() if "1" in k],
+            axis=0
+        ), axis=0), axis=0)
+        self.continuous_low = tf.expand_dims(tf.expand_dims(tf.concat(
+            [v.low for k, v in self.observation_space["continuous"].items() if "1" in k],
+            axis=0
+        ), axis=0), axis=0)
 
         self.undelay_encoder = snt.nets.MLP([128, 128], activate_final=True, name="predict_encoder")
-        self.delta_gate = snt.Linear(self.embedding_size, w_init=tf.zeros_initializer(), name="predict_delta")
-        self.new_gate = snt.Linear(self.embedding_size, name="predict_new")
-        self.forget_gate = snt.nets.MLP([self.embedding_size], activation=tf.sigmoid, activate_final=True,
+        self.delta_gate = snt.Linear(self.embedding_size_with_stds, w_init=tf.zeros_initializer(), name="predict_delta")
+        self.new_gate = snt.Linear(self.embedding_size_with_stds, name="predict_new")
+        self.forget_gate = snt.nets.MLP([self.embedding_size_with_stds], activation=tf.sigmoid, activate_final=True,
                                         w_init=tf.zeros_initializer(),
                                         b_init=tf.constant_initializer(-10.), name="predict_forget")
 
@@ -118,7 +131,7 @@ class SS1(BaseModel):
 
 
         # partial obs LSTM
-        self.partial_obs_lstm = snt.DeepRNN([ResLSTMBlock(128) for _ in range(1)])
+        self.partial_obs_lstm = snt.DeepRNN([ResLSTMBlock(128+self.num_outputs) for _ in range(1)])
         self._pi_out = snt.Linear(self.num_outputs, name="pi_out")
 
         # Categorical value function
@@ -136,9 +149,11 @@ class SS1(BaseModel):
 
         self.post_embedding_concat = tf.keras.layers.Concatenate(axis=-1, name="post_embedding_concat")
 
-    def split_player_embedding(self, embedding):
-
-        continuous, binary, categorical = tf.split(embedding, [self.embed_continuous_size, self.embed_binary_size, self.embed_categorical_total_size], axis=2)
+    def split_player_embedding(self, embedding, stds=False):
+        continuous_size = self.embed_continuous_size
+        if stds:
+            continuous_size = 2 * continuous_size
+        continuous, binary, categorical = tf.split(embedding, [continuous_size, self.embed_binary_size, self.embed_categorical_total_size], axis=2)
         categoricals  = tf.split(categorical, self.embed_categorical_sizes, axis=2)
 
         return continuous, binary, categoricals
@@ -213,12 +228,26 @@ class SS1(BaseModel):
             sequence_length=seq_lens
         )
 
+        # put back to logspace binary and categorical
+        continuous, binary, categorical = self.split_player_embedding(opp_embedded)
+        binary_logits = tf.math.log(binary+1e-8)
+        categorical_logits = [
+            tf.math.log(sm+1e-8)
+            for sm in categorical
+        ]
+
+        continuous_stds = tf.fill(continuous.shape, 1e-8)
+
+        opp_embedded_logits = tf.concat(
+            [continuous, continuous_stds, binary_logits] + categorical_logits,
+            axis=-1
+        )
 
         delta = self.delta_gate(undelayed_opp_embedded)
         new = self.new_gate(undelayed_opp_embedded)
         forget = self.forget_gate(undelayed_opp_embedded)
 
-        predicted_opp_embedded = (1. - forget) * (opp_embedded + delta) + forget * new
+        predicted_opp_embedded = (1. - forget) * (opp_embedded_logits + delta) + forget * new
 
         return predicted_opp_embedded, next_rnn_state
 
@@ -227,8 +256,13 @@ class SS1(BaseModel):
             prev_action = tf.expand_dims(tf.expand_dims(prev_action, axis=0), axis=0)
         game_embedded = self.game_embeddings(
             tf.concat(
-                [self_embedded, undelayed_op_embedded, stage_oh, prev_action]
+                [self_embedded, undelayed_op_embedded, stage_oh]
             , axis=-1)
+        )
+
+        game_embedded = tf.concat(
+            [game_embedded, prev_action],
+            axis=-1
         )
 
         lstm_out, next_rnn_state = snt.static_unroll(
@@ -238,6 +272,53 @@ class SS1(BaseModel):
             sequence_length=seq_lens
         )
         return lstm_out, next_rnn_state
+
+    def compute_action(
+            self,
+            input_dict: SampleBatch
+    ):
+
+        tx = []
+        t = time.time()
+        # batch_input_dict = tree.map_structure(expand_values, input_dict)
+        self.prepare_single_input(input_dict)
+
+        tx.append(time.time() - t)
+        t = time.time()
+
+        (action_logits, state, predictions), value, action, logp = self._compute_action_dist(
+            input_dict
+        )
+
+        tx.append(time.time() - t)
+        t = time.time()
+
+        out = (action.numpy(), tree.map_structure(lambda v: v.numpy(), state), logp.numpy(),
+               action_logits.numpy(), value.numpy())
+
+        tx.append(time.time() - t)
+
+        input_dict["obs"]["sampled_prediction"] = predictions.numpy()
+
+        return out + (tx,)
+
+    def compute_value(self, input_dict: SampleBatch):
+        self.prepare_single_input(input_dict)
+        return self._compute_value(input_dict).numpy()
+
+    @tf.function
+    def _compute_value(self, input_dict):
+        _, value = self(input_dict)
+        return value
+
+    @tf.function
+    def _compute_action_dist(self, input_dict):
+        (action_logits, state, predictions), value = self(input_dict)
+        action_logits = tf.squeeze(action_logits)
+        action_dist = self.action_dist(action_logits)
+        action = action_dist.sample()
+        logp = action_dist.logp(action)
+        return (action_logits, state, tf.squeeze(predictions)), value, action, logp
 
 
     def forward(self,
@@ -282,23 +363,41 @@ class SS1(BaseModel):
             single_obs
         )
 
+
         predicted_opp_embedded, next_undelay_state = self.get_undelayed_player_embedding(
             self_delayed_embedded, opp_delayed_embedded, stage_oh,
             state[0], seq_lens
         )
-        continuous, binary, categoricals = self.split_player_embedding(predicted_opp_embedded)
-        self._undelayed_opp_embedded = (continuous, binary, categoricals)
+        continuous, binary, categoricals = self.split_player_embedding(predicted_opp_embedded, stds=True)
+        continuous_dist = GaussianDistribution(continuous)
+        self._undelayed_opp_embedded = (continuous_dist, binary, categoricals)
 
-        binary_probs = tf.nn.sigmoid(binary) # tf.cast(binary >= 0., dtype=tf.float32)
-        categorical_probs = [
-            #tf.one_hot(tf.argmax(c, axis=-1), depth=c.shape[-1], dtype=tf.float32)
-            tf.nn.softmax(c)
-            for c in categoricals
-        ]
+        if "sampled_prediction" in obs:
+            # TODO: causes retracing ?
+            predicted_opp_embedded = obs["sampled_prediction"]
+        else:
 
-        #continuous, _, _ = self.split_player_embedding(opp_delayed_embedded)
+            sampled_continuous = continuous_dist.sample()
+            clipped_sampled_continuous = tf.clip_by_value(sampled_continuous, self.continuous_low, self.continuous_high)
 
-        predicted_opp_embedded = tf.stop_gradient(tf.concat([continuous, binary_probs] + categorical_probs, axis=-1))
+            sampled_binary = tf.cast(tfp.distributions.Bernoulli(logits=binary).sample(), tf.float32)
+
+            #binary_probs = tf.cast(binary >= 0., dtype=tf.float32) # tf.nn.sigmoid(binary)
+            #categorical_probs = [
+            #    tf.one_hot(tf.argmax(c, axis=-1), depth=c.shape[-1], dtype=tf.float32)
+            #    #tf.nn.softmax(c)
+            #    for c in categoricals
+            #]
+            sampled_categorical = [
+               tf.one_hot(CategoricalDistribution(c).sample(), depth=c.shape[-1], dtype=tf.float32)
+               #tf.nn.softmax(c)
+               for c in categoricals
+            ]
+
+            #continuous, _, _ = self.split_player_embedding(opp_delayed_embedded)
+
+            predicted_opp_embedded = tf.stop_gradient(tf.concat([clipped_sampled_continuous, sampled_binary]
+                                                                + sampled_categorical, axis=-1))
 
         # do we want value and policy gradients backpropagate to the opp state prediction ?
         lstm_out, next_lstm_state = self.get_game_embed(
@@ -310,13 +409,14 @@ class SS1(BaseModel):
         self._value_logits = self._value_out(lstm_out)
         self.stage_oh = stage_oh
 
-        return (action_logits, (next_undelay_state, next_lstm_state)), tf.squeeze(self.compute_predicted_values())
+        return ((action_logits, (next_undelay_state, next_lstm_state), predicted_opp_embedded),
+                tf.squeeze(self.compute_predicted_values()))
 
 
     def get_initial_state(self):
         return (tuple(np.zeros((1, 128), dtype=np.float32) for _ in range(1)), tuple(snt.LSTMState(
-                hidden=np.zeros((1, 128,), dtype=np.float32),
-                cell=np.zeros((1, 128,), dtype=np.float32),
+                hidden=np.zeros((1, 128+self.num_outputs,), dtype=np.float32),
+                cell=np.zeros((1, 128+self.num_outputs,), dtype=np.float32),
         ) for _ in range(1)))
 
 
@@ -366,24 +466,36 @@ class SS1(BaseModel):
 
         # TODO: test this again
         # should be normalised, therefore this should be ok.
-        # advantage_weights = tf.nn.softmax(
-        #     advantages
+        # advantage_weights = tf.keras.activations.softmax(
+        #     tf.math.abs(advantages), axis=[0,1]
         # )
 
         continuous_true, binary_true, categorical_true = self.split_player_embedding(opp_embedded)
-        continous_predicted, binary_predicted, categorical_predicted = self._undelayed_opp_embedded
+        continuous_predicted_dist, binary_predicted, categorical_predicted = self._undelayed_opp_embedded
 
-        self.continuous_loss = tf.reduce_mean(tf.math.square(continous_predicted - continuous_true))
+        # self.continuous_loss = tf.reduce_sum(advantage_weights*tf.reduce_mean(tf.math.square(continous_predicted - continuous_true),
+        #                                                                       axis=-1))
+        self.continuous_loss = - tf.reduce_mean(
+            #advantage_weights *
+            continuous_predicted_dist.logp(continuous_true)
+        )
 
-        self.binary_loss = tf.reduce_mean(tf.keras.losses.binary_crossentropy(
+        self.binary_loss = tf.reduce_mean(
+            #advantage_weights*
+            tf.keras.losses.binary_crossentropy(
             binary_true, binary_predicted,
             from_logits=True,
         ))
 
+        self.tmp1 = continuous_true[0, 0]
+        self.tmp2 = continuous_predicted_dist.means[0, 0]
+
         self.categorical_loss = tf.reduce_mean([
-            tf.reduce_mean(tf.keras.losses.categorical_crossentropy(
+            #tf.reduce_mean(advantage_weights *
+                           tf.keras.losses.categorical_crossentropy(
                 t, p, from_logits=True
-            ))
+            )
+                           #)
             for t, p in zip(categorical_true, categorical_predicted)
         ])
 
@@ -395,6 +507,9 @@ class SS1(BaseModel):
             "continuous_loss": self.continuous_loss,
             "categorical_loss": self.categorical_loss,
             "binary_loss": self.binary_loss,
+            "tmp1": self.tmp1,
+            "tmp2": self.tmp2,
+
         }
 
 

@@ -134,6 +134,7 @@ class PPO_aux(ParametrisedPolicy):
             metrics = self._train(
                 input_batch=minibatch
             )
+            print(metrics)
 
         sampled_kl = metrics["kl"]
         kl_coeff_val = self.kl_coeff.value()
@@ -170,7 +171,7 @@ class PPO_aux(ParametrisedPolicy):
         #B, T = tf.shape(input_batch[SampleBatch.OBS])
         with tf.device('/gpu:0'):
             with tf.GradientTape(persistent=True) as tape:
-                (action_logits, _), vf_preds = self.model(
+                (action_logits, _, _), vf_preds = self.model(
                     input_batch
                 )
                 mask = tf.transpose(tf.sequence_mask(input_batch[SampleBatch.SEQ_LENS], maxlen=self.config.max_seq_len), [1, 0])

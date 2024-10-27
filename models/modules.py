@@ -109,3 +109,26 @@ class LayerNormLSTM(snt.LSTM):
         return next_hidden, snt.LSTMState(hidden=next_hidden, cell=next_cell)
 
 
+class ResItem(snt.Module):
+    def __init__(self, embedder, sampler, loss_func, embedding_size, residual_size=32):
+        super().__init__()
+
+        self.embedder = embedder
+        self.sampler = sampler
+        self.size = residual_size
+        self.compute_loss = loss_func
+
+        self.encoder = snt.Linear(embedding_size)
+        self.decoder = snt.Linear(residual_size, w_init=tf.zeros_initializer())
+
+    def predict(self, residual, prev_embedding):
+        residual_and_prev = tf.concat([residual, prev_embedding], -1)
+        logits = self.encoder(residual_and_prev)
+        sample = self.sampler(logits)
+        sample_embedding = tf.cast(self.embedder(sample), tf.float32)
+        residual += self.decoder(sample_embedding)
+        return residual, logits, sample, sample_embedding
+
+
+
+

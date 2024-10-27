@@ -30,3 +30,6 @@ scale down helper function rewards as it gets them more frequently:
 r = r_base * np.maximum((1 - freq) / (1 - freq_threshold), 0)
 
 - add damage reward landscape as customization (constant, linear, sinus, exp decay, noisy)
+
+- debug retracing
+- cleanup

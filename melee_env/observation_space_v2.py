@@ -51,7 +51,7 @@ class StateDataInfo:
     HARD_BOUNDS = (-10., 10)
 
     def __init__(
-            self, extractor, nature, name="UNSET", scale=1., size=1, player_port=None, config={}
+            self, extractor, nature, name="UNSET", scale=1., size=1, bounds=None, player_port=None, config={}
     ):
         self.name = name
         self.base_name = None  # utility for player dependency
@@ -59,6 +59,7 @@ class StateDataInfo:
         self.nature = nature
         self.scale = scale
         self.size = size if nature != StateDataInfo.CATEGORICAL else 1
+        self.bounds = StateDataInfo.HARD_BOUNDS if bounds is None else tuple(b*scale for b in bounds)
         self.n_values = None if nature != StateDataInfo.CATEGORICAL else size
         self.delay = config["obs"]["delay"]
         self.debug = config["debug"]
@@ -93,7 +94,7 @@ class StateDataInfo:
             print(self.name, self.value[self.delay_idx % (self.delay + 1)], "(undelayed)", self.value[observed], "(observed)")
 
         if self.nature == StateDataInfo.CONTINUOUS:
-            return np.clip(self.value[observed] * self.scale, *StateDataInfo.HARD_BOUNDS)
+            return np.clip(self.value[observed] * self.scale, *self.bounds)
 
         return self.value[observed]
 
@@ -103,7 +104,7 @@ class StateDataInfo:
 
     def get_gym_space(self):
         if self.nature == StateDataInfo.CONTINUOUS:
-            return Box(*StateDataInfo.HARD_BOUNDS, (self.size,), dtype=np.float32)
+            return Box(*self.bounds, (self.size,), dtype=np.float32)
         elif self.nature == StateDataInfo.CATEGORICAL:
             return Box(0, self.n_values - 1, (1,), dtype=np.float32)
         elif self.nature == StateDataInfo.BINARY:
@@ -344,18 +345,20 @@ class ObsBuilder:
                 #                                    config=self.config),
 
                 # hitbox_count
-                iasa=StateDataInfo(lambda s: np.maximum(0., ObsBuilder.FD.iasa[s.players[port].character][
+                iasa=StateDataInfo(lambda s: ObsBuilder.FD.iasa[s.players[port].character][
                                                                     s.players[port].action]
-                                                                     - s.players[port].action_frame),
+                                                                     - s.players[port].action_frame,
                                    StateDataInfo.CONTINUOUS,
                                    scale=self.FRAME_SCALE,
+                                   bounds=(0., 180.),
                                    player_port=port,
                                    config=self.config),
-                frames_before_next_hitbox=StateDataInfo(lambda s: np.minimum(frames_before_next_hitbox(
+                frames_before_next_hitbox=StateDataInfo(lambda s: frames_before_next_hitbox(
                     s.players[port]
-                ), 50.),
+                ),
                                    StateDataInfo.CONTINUOUS,
                                    scale=ObsBuilder.FRAME_SCALE,
+                                   bounds=(0., 180.),
                                    player_port=port,
                                    config=self.config),
 
@@ -476,11 +479,13 @@ class ObsBuilder:
                                       # however, action_frame, action and other stuff is leaking info about ourself
                                       StateDataInfo.CONTINUOUS,
                                       scale=ObsBuilder.PERCENT_SCALE,
+                                      bounds=(0., 300.),
                                       player_port=port,
                                       config=self.config),
                 shield_strength=StateDataInfo(lambda s: s.players[port].shield_strength,
                                               StateDataInfo.CONTINUOUS,
                                               scale=0.017,
+                                              bounds=(0., 60.),
                                               player_port=port,
                                               config=self.config),
                 stock=StateDataInfo(lambda s: s.players[port].stock,
@@ -488,11 +493,12 @@ class ObsBuilder:
                                     size=5,
                                     player_port=port,
                                     config=self.config),
-                action_frame=StateDataInfo(lambda s: np.clip(self.FFD.remaining_frame(s.players[port].character,
+                action_frame=StateDataInfo(lambda s: self.FFD.remaining_frame(s.players[port].character,
                                                                               s.players[port].action,
-                                                                              s.players[port].action_frame),1, 51) - 1,
+                                                                              s.players[port].action_frame),
                                            StateDataInfo.CONTINUOUS,
                                            scale=ObsBuilder.FRAME_SCALE,
+                                           bounds=(0., 180.),
                                            player_port=port,
                                            config=self.config),
                 facing=StateDataInfo(lambda s: np.int32(s.players[port].facing),
@@ -508,15 +514,17 @@ class ObsBuilder:
                 #                                    scale=ObsBuilder.FRAME_SCALE,
                 #                                    player_port=port,
                 #                                    config=self.config),
-                hitlag_left=StateDataInfo(hitlag_or_actionable,
+                hitlag_left=StateDataInfo(lambda s: s.players[port].hitlag_left,
                                           StateDataInfo.CONTINUOUS,
                                           scale=ObsBuilder.FRAME_SCALE,
                                           player_port=port,
+                                          bounds=(0., 180.),
                                           config=self.config),
-                hitstun_left=StateDataInfo(hitstun_or_actionable,
+                hitstun_left=StateDataInfo(lambda s: s.players[port].hitstun_frames_left,
                                            StateDataInfo.CONTINUOUS,
                                            scale=ObsBuilder.FRAME_SCALE,
                                            player_port=port,
+                                           bounds=(0., 180.),
                                            config=self.config),
                 on_ground=StateDataInfo(lambda s: s.players[port].on_ground,
                                         StateDataInfo.BINARY,
