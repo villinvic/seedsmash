@@ -336,6 +336,7 @@ class SS2(BaseModel):
         )
 
         if "sampled_prediction" in obs:
+            print(obs["sampled_prediction"])
             embedded_samples = self.embed_flat_player_obs(obs["sampled_prediction"])
 
         self._undelayed_opp_logits = logits
