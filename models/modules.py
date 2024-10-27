@@ -115,7 +115,7 @@ class ResItem(snt.Module):
 
         self.embedder = embedder
         self.sampler = sampler
-        self.size = residual_size
+        self.size = embedding_size
         self.compute_loss = loss_func
 
         self.encoder = snt.Linear(embedding_size)
