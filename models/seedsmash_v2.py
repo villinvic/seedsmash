@@ -225,7 +225,7 @@ class SS2(BaseModel):
 
     def embed_flat_player_obs(self, flat):
         return [
-           res_item.embedder(v) for res_item, v in zip(self.res_items, flat)
+           res_item.embedder(res_item, v) for res_item, v in zip(self.res_items, flat)
         ]
 
     def get_undelayed_player_embedding(self, self_delayed_flat, opp_delayed_flat, stage_oh, rnn_state, seq_lens):

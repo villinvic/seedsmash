@@ -126,7 +126,7 @@ class ResItem(snt.Module):
         residual_and_prev = tf.concat([residual, prev_embedding], -1)
         logits = self.encoder(residual_and_prev)
         sample = self.sampler(logits)
-        sample_embedding = tf.cast(self.embedder(sample), tf.float32)
+        sample_embedding = tf.cast(self.embedder(self, sample), tf.float32)
         residual += self.decoder(sample_embedding)
         return residual, logits, tf.squeeze(sample), sample_embedding
 
