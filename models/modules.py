@@ -129,9 +129,9 @@ class ResItem(snt.Module):
         sample_embedding = tf.cast(self.embedder(self, sample), tf.float32)
         residual += self.decoder(sample_embedding)
         sample = tf.squeeze(sample)
-        if tf.rank(sample) == 0:
+        if self.size == 1:
             sample = tf.expand_dims(sample, axis=0)
-        print(tf.shape(sample))
+
         return residual, logits, sample, sample_embedding
 
 
