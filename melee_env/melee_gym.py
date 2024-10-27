@@ -387,7 +387,7 @@ class SSBM(PolarisEnv):
                     if not action:
                         action = self.discrete_controllers[port].RESET_CONTROLLER
                     else:
-                        action = self.discrete_controllers[port][int(action)]
+                        action = self.discrete_controllers[port].get(int(action), self.discrete_controllers[port].RESET_CONTROLLER)
                 except Exception as e:
                     print(e)
 
@@ -421,18 +421,18 @@ class SSBM(PolarisEnv):
             self.om.FFD.save()
 
         self.to_close = True
-        if self.console is None:
-            return
-        try:
-            self.console.stop()
-            for c in self.controllers.values():
-                c.disconnect()
-            del self.controllers
-            del self.console
-        except Exception as e:
-            print(e)
-            self.controllers = None
-            self.console = None
+        if self.console is not None:
+            try:
+                self.console.stop()
+                for c in self.controllers.values():
+                    c.disconnect()
+                del self.controllers
+                del self.console
+            except Exception as e:
+                print(e)
+
+        self.controllers = None
+        self.console = None
 
     def get_gamestate(self) -> GameState:
         if self.console is None:
@@ -479,6 +479,6 @@ class SSBM(PolarisEnv):
         return self.episode_metrics
 
     def dump_bad_combination_and_raise_error(self, errnum):
-        self.bad_combinations.dump_on_error(*self.current_matchup, errnum)
+        #self.bad_combinations.dump_on_error(*self.current_matchup, errnum)
         raise ResetNeeded(f"Dolphin {self.env_index} crashed with {self.current_matchup} [error:{errnum}]")
 
