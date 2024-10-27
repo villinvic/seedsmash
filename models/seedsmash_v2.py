@@ -113,7 +113,7 @@ class SS2(BaseModel):
             embedder=lambda x: tf.one_hot(tf.cast(x, dtype=tf.int32), depth=tf.cast(v.high[0], tf.int32)+1, dtype=tf.float32),
             sampler=lambda logits: CategoricalDistribution(logits).sample(),
             loss_func=lambda true, pred: tf.keras.losses.categorical_crossentropy(true, pred, from_logits=True),
-            embedding_size=v.high[0]+1,
+            embedding_size=tf.cast(v.high[0], tf.int32)+1,
             residual_size=32,
         ) for k, v in self.observation_space["categorical"].items() if "1" in k] + [ResItem(
             embedder=lambda x: x,
