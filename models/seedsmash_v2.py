@@ -90,7 +90,7 @@ class SS2(BaseModel):
         self.observation_keys = {
             aid: {
                 obs_type: [k for k in self.observation_space[obs_type] if aid in k]
-                for obs_type in ["categorical, binary, continuous"]
+                for obs_type in ["categorical", "binary", "continuous"]
             }
             for aid in ["1", "2"]
         }
