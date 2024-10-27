@@ -123,9 +123,9 @@ def my_config():
 
     num_workers = 64
     policy_path = 'policies.PPO_aux'
-    model_path = 'models.seedsmash_v1'
+    model_path = 'models.seedsmash_v2'
     policy_class = 'PPO_aux'
-    model_class = 'SS1'
+    model_class = 'SS2'
     trajectory_length = 128 # 256 ?
     max_seq_len = 32
     train_batch_size = 32768
