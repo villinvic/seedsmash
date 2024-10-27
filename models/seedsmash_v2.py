@@ -175,7 +175,7 @@ class SS2(BaseModel):
 
         tx.append(time.time() - t)
 
-        input_dict["obs"]["sampled_prediction"] = predictions.numpy()
+        input_dict["obs"]["sampled_prediction"] = tree.map_structure(lambda v: v.numpy(), predictions)
 
         return out + (tx,)
 
