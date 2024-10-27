@@ -129,6 +129,8 @@ class SS2(BaseModel):
             residual_size=32,
         ) for k, v in self.observation_space["continuous"].items() if "1" in k]
 
+        print([r.size for r in self.res_items])
+
         # full game
         self.game_embeddings = snt.nets.MLP([128, 128], activate_final=True,
                                             name="game_embeddings")
