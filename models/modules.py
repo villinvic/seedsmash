@@ -131,6 +131,7 @@ class ResItem(snt.Module):
         sample = tf.squeeze(sample)
         if tf.rank(sample) == 0:
             sample = tf.expand_dims(sample, axis=0)
+        print(sample.shape)
         return residual, logits, sample, sample_embedding
 
 
