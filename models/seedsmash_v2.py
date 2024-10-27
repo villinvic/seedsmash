@@ -23,6 +23,10 @@ import numpy as np
 from polaris.models.utils import CategoricalDistribution, GaussianDistribution
 
 
+def add_batch_time_dimensions(v):
+    return tf.expand_dims(tf.expand_dims(v, axis=0), axis=0)
+
+
 class SS2(BaseModel):
     is_recurrent = True
 
@@ -91,22 +95,22 @@ class SS2(BaseModel):
             for aid in ["1", "2"]
         }
 
-        self.continuous_high = tf.expand_dims(tf.expand_dims(tf.concat(
+        self.continuous_high = add_batch_time_dimensions(tf.concat(
             [self.observation_space["continuous"][k].high for k in self.observation_keys["1"]["continuous"]],
             axis=0
-        ), axis=0), axis=0)
+        ))
 
-        self.continuous_high = tf.expand_dims(tf.expand_dims(tf.concat(
+        self.continuous_high =add_batch_time_dimensions(tf.concat(
             [self.observation_space["continuous"][k].low for k in self.observation_keys["1"]["continuous"]],
             axis=0
-        ), axis=0), axis=0)
+        ))
 
         self.undelay_encoder = snt.nets.MLP([128, 128], activate_final=True, name="predict_encoder")
         self.undelay_rnn = snt.DeepRNN([ResGRUBlock(128) for _ in range(1)], name="predict_rnn")
         self.to_residual = snt.Linear(32, name="to_residual")
 
         self.res_items = [ResItem(
-            embedder=lambda x: tf.one_hot(tf.cast(x, dtype=tf.int32), depth=v.high[0]+1)[:, :, 0],
+            embedder=lambda x: tf.one_hot(tf.cast(x, dtype=tf.int32), depth=v.high[0]+1),
             sampler=lambda logits: CategoricalDistribution(logits).sample(),
             loss_func=lambda true, pred: tf.keras.losses.categorical_crossentropy(true, pred, from_logits=True),
             embedding_size=v.high[0]+1,
@@ -138,7 +142,7 @@ class SS2(BaseModel):
         self.num_bins = 50
         self.v_min, self.v_max = (-5., 5.)
         self.bin_width = (self.v_max - self.v_min) / self.num_bins
-        self.support = tf.cast(tf.expand_dims(tf.expand_dims(tf.linspace(self.v_min, self.v_max, self.num_bins + 1), axis=0), axis=0),
+        self.support = tf.cast(add_batch_time_dimensions(tf.linspace(self.v_min, self.v_max, self.num_bins + 1)),
                                tf.float32)
         self.centers = (self.support[0, :, :-1] + self.support[0, :, 1:]) / 2.
         smoothing_ratio = 0.75
@@ -193,17 +197,26 @@ class SS2(BaseModel):
         logp = action_dist.logp(action)
         return (action_logits, state, tf.squeeze(predictions)), value, action, logp
 
-    def get_flat_player_obs(self, obs, player_id):
+    def get_flat_player_obs(self, obs, player_id, single_obs):
         categorical_inputs = obs["categorical"]
         continuous_inputs = obs["continuous"]
         binary_inputs = obs["binary"]
 
-        continuous_inputs = [continuous_inputs[k] for k in
-                             self.observation_keys[player_id]["continuous"]]
-        binary_inputs = [tf.cast(binary_inputs[k], dtype=tf.float32, name=k) for k in
-                         self.observation_keys[player_id]["binary"]]
-        categorical_inputs = [tf.cast(categorical_inputs[k], dtype=tf.int32, name=k) for k in
-                         self.observation_keys[player_id]["categorical"]]
+        if single_obs:
+            continuous_inputs = [add_batch_time_dimensions(continuous_inputs[k]) for k in
+                                 self.observation_keys[player_id]["continuous"]]
+            binary_inputs = [add_batch_time_dimensions(tf.cast(binary_inputs[k], dtype=tf.float32, name=k)) for k in
+                             self.observation_keys[player_id]["binary"]]
+            categorical_inputs = [tf.cast(tf.expand_dims(categorical_inputs[k], axis=0), dtype=tf.int32, name=k) for k in
+                             self.observation_keys[player_id]["categorical"]]
+        else:
+
+            continuous_inputs = [continuous_inputs[k] for k in
+                                 self.observation_keys[player_id]["continuous"]]
+            binary_inputs = [tf.cast(binary_inputs[k], dtype=tf.float32, name=k) for k in
+                             self.observation_keys[player_id]["binary"]]
+            categorical_inputs = [tf.cast(tf.squeeze(categorical_inputs[k]), dtype=tf.int32, name=k) for k in
+                             self.observation_keys[player_id]["categorical"]]
 
         return categorical_inputs + binary_inputs + continuous_inputs
 
@@ -215,18 +228,21 @@ class SS2(BaseModel):
     def get_undelayed_player_embedding(self, self_delayed_flat, opp_delayed_flat, stage_oh, rnn_state, seq_lens):
 
         opp_embedded = self.embed_flat_player_obs(opp_delayed_flat)
-        undelay_input = self.undelay_encoder(
-            tf.concat(
+
+        undelay_input = tf.concat(
                 self.embed_flat_player_obs(self_delayed_flat)
                 + opp_embedded
                 + [
                  stage_oh #, time ?
              ], axis=-1)
+
+        undelay_post_mlp = self.undelay_encoder(
+            undelay_input
         )
 
         undelayed_opp_embedded, next_rnn_state = snt.static_unroll(
             self.undelay_rnn,
-            input_sequence=undelay_input,
+            input_sequence=undelay_post_mlp,
             initial_state=rnn_state,
             sequence_length=seq_lens
         )
@@ -280,12 +296,18 @@ class SS2(BaseModel):
     ):
 
         stage = obs["ground_truth"]["categorical"]["stage"]
-
         stage_oh = tf.one_hot(tf.cast(stage, tf.int32),
                                    depth=tf.cast(self.observation_space["categorical"]["stage"].high[0],
-                                                 tf.int32) + 1, dtype=tf.float32, name="stage_one_hot")[:, :, 0]
+                                                 tf.int32) + 1, dtype=tf.float32, name="stage_one_hot")
+
+        if single_obs:
+            stage_oh = tf.expand_dims(stage_oh, axis=0)
+        else:
+            stage_oh = stage_oh[:, :, 0]
 
         prev_action = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs)
+        if single_obs:
+            prev_action = add_batch_time_dimensions(prev_action)
 
         # TODO: handle cleanly single-step and batch
         self_flat = self.get_flat_player_obs(
@@ -298,19 +320,17 @@ class SS2(BaseModel):
             "1",
         )
 
-        opp_flat_delayed = self.get_player_embedding(
+        opp_flat_delayed = self.get_flat_player_obs(
             obs,
             "2",
         )
 
-
-        # TODO: split single action computation and batch training
         samples, embedded_samples, logits, next_undelay_state = self.get_undelayed_player_embedding(
             self_flat_delayed, opp_flat_delayed, stage_oh,
-            state[0], seq_lens
+            state[0], seq_lens,
         )
 
-        if "sampled_prediciton" in obs:
+        if "sampled_prediction" in obs:
             embedded_samples = self.embed_flat_player_obs(obs["sampled_prediction"])
 
         self._undelayed_opp_logits = logits

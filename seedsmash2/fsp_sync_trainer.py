@@ -319,6 +319,9 @@ class FSP(Checkpointable):
 
                 train_results["action_state_counts"] = self.action_state_counts[policy_name].get_metrics()
 
+                tmp = train_results.pop("continuous_debug")
+                print(tmp)
+
                 training_metrics[f"{policy_name}"] = train_results
                 GlobalCounter.incr(GlobalCounter.STEP)
 
