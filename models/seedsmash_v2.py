@@ -110,7 +110,7 @@ class SS2(BaseModel):
         self.to_residual = snt.Linear(32, name="to_residual")
 
         self.res_items = [ResItem(
-            embedder=lambda x: tf.one_hot(tf.cast(x, dtype=tf.int32), depth=v.high[0]+1, dtype=tf.float32),
+            embedder=lambda x: tf.one_hot(tf.cast(x, dtype=tf.int32), depth=tf.cast(v.high[0], tf.int32)+1, dtype=tf.float32),
             sampler=lambda logits: CategoricalDistribution(logits).sample(),
             loss_func=lambda true, pred: tf.keras.losses.categorical_crossentropy(true, pred, from_logits=True),
             embedding_size=v.high[0]+1,
