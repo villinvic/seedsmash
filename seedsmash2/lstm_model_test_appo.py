@@ -4,7 +4,7 @@ from functools import partial
 import numpy as np
 from melee.enums import Character, Stage
 from melee_env.enums import PlayerType
-from melee_env.melee_gym_v2 import SSBM
+from melee_env.melee_gym import SSBM
 from melee_env.ssbm_config import SSBMConfig, SSBM_OBS_Config
 from seedsmash2.game_metrics_callbacks import SSBMCallbacks
 

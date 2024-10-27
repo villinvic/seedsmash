@@ -1,7 +1,7 @@
 from melee import Character, Stage
 
 from melee_env.enums import PlayerType
-from melee_env.melee_gym_v2 import SSBM
+from melee_env.melee_gym import SSBM
 from melee_env.ssbm_config import SSBM_OBS_Config, SSBMConfig
 from seedsmash2.submissions.bot_config import BotConfig
 
