@@ -197,7 +197,7 @@ class SS2(BaseModel):
         logp = action_dist.logp(action)
         return (action_logits, state, tf.squeeze(predictions)), value, action, logp
 
-    def get_flat_player_obs(self, obs, player_id, single_obs):
+    def get_flat_player_obs(self, obs, player_id, single_obs=False):
         categorical_inputs = obs["categorical"]
         continuous_inputs = obs["continuous"]
         binary_inputs = obs["binary"]
@@ -313,16 +313,19 @@ class SS2(BaseModel):
         self_flat = self.get_flat_player_obs(
             obs["ground_truth"],
             "1",
+            single_obs
         )
 
         self_flat_delayed = self.get_flat_player_obs(
             obs,
             "1",
+            single_obs
         )
 
         opp_flat_delayed = self.get_flat_player_obs(
             obs,
             "2",
+            single_obs
         )
 
         samples, embedded_samples, logits, next_undelay_state = self.get_undelayed_player_embedding(
@@ -392,7 +395,7 @@ class SS2(BaseModel):
             **kwargs
     ):
 
-        opp_embedded = self.get_player_embedding(
+        opp_embedded = self.get_flat_player_obs(
             obs["ground_truth"],
             "2",
             single_obs,
