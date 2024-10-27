@@ -117,7 +117,7 @@ class SS2(BaseModel):
             residual_size=32,
         ) for k, v in self.observation_space["categorical"].items() if "1" in k] + [ResItem(
             embedder=lambda x: x,
-            sampler=lambda logits: tfp.distributions.Bernoulli(logits=logits).sample(),
+            sampler=lambda logits: tf.cast(tfp.distributions.Bernoulli(logits=logits).sample(), tf.float32),
             loss_func=lambda true, pred:  tf.keras.losses.binary_crossentropy(true, pred, from_logits=True),
             embedding_size=v.shape[0],
             residual_size=32,
