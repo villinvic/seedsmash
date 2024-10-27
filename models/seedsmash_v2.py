@@ -119,13 +119,13 @@ class SS2(BaseModel):
             embedder=lambda x: x,
             sampler=lambda logits: tfp.distributions.Bernoulli(logits=logits).sample(),
             loss_func=lambda true, pred:  tf.keras.losses.binary_crossentropy(true, pred, from_logits=True),
-            embedding_size=v.high.shape[0] * 2,
+            embedding_size=v.shape[0],
             residual_size=32,
         ) for k, v in self.observation_space["binary"].items() if "1" in k] + [ResItem(
             embedder=lambda x: tf.clip_by_value(x, v.low, v.high),
             sampler=lambda logits: GaussianDistribution(logits).sample(),
             loss_func=lambda true, pred: -GaussianDistribution(pred).logp(true),
-            embedding_size=v.high.shape[0] * 2,
+            embedding_size=v.shape[0] * 2,
             residual_size=32,
         ) for k, v in self.observation_space["continuous"].items() if "1" in k]
 
