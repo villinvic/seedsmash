@@ -205,7 +205,7 @@ def main(_config):
     # print("Experiment Configuration:")
     # print(c)
 
-    trainer = FSP(c, restore=False)
+    trainer = FSP(c, restore=True)
     trainer.run()
 
 
