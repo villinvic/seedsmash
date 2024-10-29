@@ -145,7 +145,7 @@ class ActionStacking(BaseModel):
         self.action_embedding = snt.Embed(self.num_outputs, 16)
 
         #self.delay_transformer = snt.nets.
-        self.policy = snt.nets.MLP([128, 128], activate_final=True)
+        self.policy = snt.nets.MLP([128, 128, self.num_outputs])
         self.value_function = CategoricalValueModel()
 
     def get_flat_player_obs(self, obs, player_id, single_obs=False):
