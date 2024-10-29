@@ -210,7 +210,7 @@ class ActionStacking(BaseModel):
                 axis=0
             )
             embed_action_history = self.action_embedding(all_last_actions)
-            print(prev_action.shape, all_last_actions.shape, embed_action_history.shape)
+            print(prev_action.shape, all_last_actions.shape, last_k_actions.shape)
 
 
         self_true = self.get_flat_player_obs(obs["ground_truth"], "1")
