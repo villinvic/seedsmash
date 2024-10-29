@@ -234,7 +234,7 @@ class ActionStacking(BaseModel):
 
 
     def get_initial_state(self):
-        return np.zeros((self.action_history_length,), dtype=np.int32)
+        return np.zeros((1, self.action_history_length,), dtype=np.int32)
 
     def critic_loss(self, targets):
         return self.value_function.loss(targets)
