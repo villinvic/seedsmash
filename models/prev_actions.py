@@ -26,7 +26,7 @@ class CategoricalValueModel(snt.Module):
 
     def __init__(
             self,
-            num_bins=30,
+            num_bins=50,
             value_bounds=(-5., 5.),
             smoothing_ratio=0.75
     ):
