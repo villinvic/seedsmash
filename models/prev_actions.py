@@ -168,7 +168,8 @@ class ActionStacking(BaseModel):
                                  self.observation_keys[player_id]["continuous"]]
             binary_inputs = [tf.cast(binary_inputs[k], dtype=tf.float32, name=k) for k in
                              self.observation_keys[player_id]["binary"]]
-            categorical_inputs = [tf.cast(tf.squeeze(categorical_inputs[k]), dtype=tf.int32, name=k) for k in
+            categorical_inputs = [tf.one_hot(tf.cast(tf.squeeze(categorical_inputs[k]), dtype=tf.int32, name=k),
+                           depth=tf.cast(self.observation_space["categorical"][k].high[0], tf.int32)+1, dtype=tf.float32) for k in
                              self.observation_keys[player_id]["categorical"]]
 
         return categorical_inputs + binary_inputs + continuous_inputs
