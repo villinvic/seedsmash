@@ -252,9 +252,11 @@ class ActionStacking(BaseModel):
     def critic_loss(self, targets):
         return self.value_function.loss(targets)
 
-
     def get_metrics(self):
         return {}
+
+    def aux_loss(self, **k):
+        return 0.
 
 
 
