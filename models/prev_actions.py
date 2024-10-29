@@ -228,8 +228,8 @@ class ActionStacking(BaseModel):
 
         if single_obs:
             print(player_obs)
-            player_obs = [add_batch_time_dimensions(player_obs)]
-            true_player_obs = [add_batch_time_dimensions(true_player_obs)]
+            player_obs = [add_batch_time_dimensions(tf.concat(player_obs, axis=0))]
+            true_player_obs = [add_batch_time_dimensions(tf.concat(true_player_obs, axis=0))]
 
         pi_input = tf.concat(
             player_obs + [stage_oh, embed_action_history],
