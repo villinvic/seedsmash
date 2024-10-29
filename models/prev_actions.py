@@ -227,6 +227,7 @@ class ActionStacking(BaseModel):
         true_player_obs = self_true + opp_true
 
         if single_obs:
+            print(player_obs)
             player_obs = [add_batch_time_dimensions(player_obs)]
             true_player_obs = [add_batch_time_dimensions(true_player_obs)]
 
