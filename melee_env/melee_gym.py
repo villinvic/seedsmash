@@ -460,6 +460,7 @@ class SSBM(PolarisEnv):
             next_state = self.get_gamestate()
         return next_state, collected_rewards, game_is_finished
     def step(self, action_dict):
+        print(action_dict)
         for port, chosen_input_sequence_index in action_dict.items():
             curr_port = self.current_aids[port]
             action = self.discrete_controllers[curr_port][chosen_input_sequence_index]
