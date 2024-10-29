@@ -212,8 +212,8 @@ class ActionStacking(BaseModel):
 
             embed_action_history = self.action_embedding(last_actions)
 
-
-        T, B = tf.shape(embed_action_history)[:2]
+        T = prev_action.shape[0]
+        B = prev_action.shape[1]
         embed_action_history = tf.reshape(embed_action_history, (T, B, -1))
 
 
