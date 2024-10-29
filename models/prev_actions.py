@@ -195,10 +195,10 @@ class ActionStacking(BaseModel):
             stage_oh = tf.expand_dims(stage_oh, axis=0)
 
             last_actions = tf.concat(
-                [state[1:], [prev_action]],
-                axis=0
+                [state[: , 1:], [[prev_action]]],
+                axis=-1
             )
-            last_actions_t_b = add_batch_time_dimensions(last_actions)
+            last_actions_t_b = tf.expand_dims(last_actions, axis=0)
             embed_action_history = self.action_embedding(last_actions_t_b)
         else:
             stage_oh = stage_oh[:, :, 0]
@@ -212,8 +212,8 @@ class ActionStacking(BaseModel):
 
             embed_action_history = self.action_embedding(last_actions)
 
-        T = prev_action.shape[0]
-        B = prev_action.shape[1]
+        T = embed_action_history.shape[0]
+        B = embed_action_history.shape[1]
         embed_action_history = tf.reshape(embed_action_history, (T, B, -1))
 
 
