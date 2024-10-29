@@ -190,8 +190,6 @@ class ActionStacking(BaseModel):
         stage_oh = tf.one_hot(tf.cast(stage, tf.int32),
                              depth=tf.cast(self.observation_space["categorical"]["stage"].high[0],
                                            tf.int32) + 1, dtype=tf.float32, name="stage_one_hot")
-        prev_action = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs)
-
         if single_obs:
             stage_oh = stage_oh[:, :, 0]
 
@@ -205,7 +203,7 @@ class ActionStacking(BaseModel):
             stage_oh = tf.expand_dims(stage_oh, axis=0)
 
             last_k_actions = tf.transpose(tf.signal.frame(prev_action, frame_length=self.action_history_length, frame_step=1, axis=0),
-                                          [0, 2, 1, 3])
+                                          [0, 2, 1])
 
             all_last_actions = tf.concat(
                 [tf.expand_dims(state, axis=0), last_k_actions],
