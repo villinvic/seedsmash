@@ -205,7 +205,7 @@ class ActionStacking(BaseModel):
             stage_oh = tf.expand_dims(stage_oh, axis=0)
 
             last_k_actions = tf.transpose(tf.signal.frame(prev_action, frame_length=self.action_history_length, frame_step=1, axis=0),
-                                          [0, 2, 1])
+                                          [0, 2, 1, 3])
 
             all_last_actions = tf.concat(
                 [tf.expand_dims(state, axis=0), last_k_actions],
