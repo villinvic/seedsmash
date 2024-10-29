@@ -213,6 +213,10 @@ class ActionStacking(BaseModel):
             embed_action_history = self.action_embedding(last_actions)
 
 
+        T, B = tf.shape(embed_action_history)[:2]
+        embed_action_history = tf.reshape(embed_action_history, (T, B, -1))
+
+
         self_true = self.get_flat_player_obs(obs["ground_truth"], "1")
         opp_true = self.get_flat_player_obs(obs["ground_truth"], "2")
 
