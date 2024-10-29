@@ -54,7 +54,7 @@ class CategoricalValueModel(snt.Module):
     def targets_to_probs(self, targets):
 
         # this may occur on rare occasion that targets are outside of the set interval.
-        targets = tf.clip_by_value(targets, *self.value_bounds)
+        #targets = tf.clip_by_value(targets, *self.value_bounds)
 
         cdf_evals = tf.math.erf(
             (self.support - tf.expand_dims(targets, axis=2))
