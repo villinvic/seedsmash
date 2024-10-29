@@ -33,7 +33,7 @@ class CategoricalValueModel(snt.Module):
         super().__init__(name='CategoricalValueModel')
         self.num_bins = num_bins
         self.value_bounds = value_bounds
-        self.bin_width = (self.value_bounds[1] - self.value_bounds[1]) / self.num_bins
+        self.bin_width = (self.value_bounds[1] - self.value_bounds[0]) / self.num_bins
         self.support = tf.cast(tf.expand_dims(tf.expand_dims(tf.linspace(*self.value_bounds, self.num_bins + 1), axis=0), axis=0),
                                tf.float32)
         self.centers = (self.support[0, :, :-1] + self.support[0, :, 1:]) / 2.
@@ -54,7 +54,7 @@ class CategoricalValueModel(snt.Module):
     def targets_to_probs(self, targets):
 
         # this may occur on rare occasion that targets are outside of the set interval.
-        #targets = tf.clip_by_value(targets, *self.value_bounds)
+        targets = tf.clip_by_value(targets, *self.value_bounds)
 
         cdf_evals = tf.math.erf(
             (self.support - tf.expand_dims(targets, axis=2))
