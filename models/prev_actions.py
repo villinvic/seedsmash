@@ -192,7 +192,7 @@ class ActionStacking(BaseModel):
                              depth=tf.cast(self.observation_space["categorical"]["stage"].high[0],
                                            tf.int32) + 1, dtype=tf.float32, name="stage_one_hot")
         if single_obs:
-            stage_oh = stage_oh[:, :, 0]
+            stage_oh = tf.expand_dims(stage_oh, axis=0)
 
             last_actions = tf.concat(
                 [state[1:], [prev_action]],
@@ -201,8 +201,7 @@ class ActionStacking(BaseModel):
             last_actions_t_b = add_batch_time_dimensions(last_actions)
             embed_action_history = self.action_embedding(last_actions_t_b)
         else:
-            stage_oh = tf.expand_dims(stage_oh, axis=0)
-
+            stage_oh = stage_oh[:, :, 0]
             last_k_actions = tf.transpose(tf.signal.frame(prev_action, frame_length=self.action_history_length, frame_step=1, axis=0),
                                           [0, 2, 1])
 
@@ -211,6 +210,8 @@ class ActionStacking(BaseModel):
                 axis=0
             )
             embed_action_history = self.action_embedding(all_last_actions)
+            print(all_last_actions.shape, embed_action_history.shape)
+
 
         self_true = self.get_flat_player_obs(obs["ground_truth"], "1")
         opp_true = self.get_flat_player_obs(obs["ground_truth"], "2")
