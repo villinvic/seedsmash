@@ -223,15 +223,22 @@ class ActionStacking(BaseModel):
         #self_delayed = self.get_flat_player_obs(obs, "1")
         opp_delayed = self.get_flat_player_obs(obs, "2")
 
+        player_obs = self_true + opp_delayed
+        true_player_obs = self_true + opp_true
+
+        if single_obs:
+            player_obs = add_batch_time_dimensions(player_obs)
+            true_player_obs = add_batch_time_dimensions(true_player_obs)
+
         pi_input = tf.concat(
-            [add_batch_time_dimensions([self_true + opp_delayed]), stage_oh, embed_action_history],
+            [player_obs, stage_oh, embed_action_history],
             axis = -1
         )
+
         action_logits = self.policy(pi_input)
-        self.stage_oh = stage_oh
 
         v_input = tf.concat(
-            [add_batch_time_dimensions([self_true + opp_true]), stage_oh, embed_action_history],
+            [true_player_obs, stage_oh, embed_action_history],
             axis = -1
         )
         value = self.value_function(v_input)
