@@ -202,6 +202,8 @@ class ActionStacking(BaseModel):
             embed_action_history = self.action_embedding(last_actions_t_b)
         else:
             stage_oh = stage_oh[:, :, 0]
+            print(prev_action.shape, state.shape)
+
             last_k_actions = tf.transpose(tf.signal.frame(prev_action, frame_length=self.action_history_length, frame_step=1, axis=0),
                                           [0, 2, 1])
 
@@ -210,7 +212,6 @@ class ActionStacking(BaseModel):
                 axis=0
             )
             embed_action_history = self.action_embedding(all_last_actions)
-            print(prev_action.shape, all_last_actions.shape, last_k_actions.shape)
 
 
         self_true = self.get_flat_player_obs(obs["ground_truth"], "1")
