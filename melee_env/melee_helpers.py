@@ -65,7 +65,7 @@ class TechSkillHelper(Helper):
                          Action.JUMPING_FORWARD, Action.JUMPING_FORWARD)
     weights = {
         "ledge_canceling": 0.03,
-        "dashdance": 0.003,
+        "dashdance": 0.01,
         "wavelanding": 0.02,
         "wavedash": 0.01,
         "wavedash_off_platform": 0.01,

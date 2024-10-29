@@ -27,7 +27,7 @@ obs_config = (
     .stage()
     .max_projectiles(0)  # one falco can generate more than 3 projectiles apparently ?
     #.controller_state()
-    .delay(5) # 4 (* 3)
+    .delay(4) # 4 (* 3)
 )
 
 
@@ -122,10 +122,10 @@ def my_config():
     env_config = dict(env_conf)
 
     num_workers = 64
-    policy_path = 'policies.PPO_aux'
-    model_path = 'models.seedsmash_v1'
-    policy_class = 'PPO_aux'
-    model_class = 'SS1'
+    policy_path = 'polaris.policies.PPO'
+    model_path = 'models.prev_actions'
+    policy_class = 'PPO'
+    model_class = 'ActionStacking'
     trajectory_length = 128 # 256 ?
     max_seq_len = 32
     train_batch_size = 32768
@@ -137,15 +137,15 @@ def my_config():
         'discount': 0.992,  # 0.997
         'action_state_reward_scale': 1.,
 
-        'gae_lambda': 0.97, # 0.98
-        'entropy_cost': 5e-3, # 1e-3 with impala, or around " 0.3, 0.4
+        'gae_lambda': 0.98, # 0.98
+        'entropy_cost': 2e-3, # 1e-3 with impala, or around " 0.3, 0.4
         'lr': 5e-4,
         'fc_dims': [128, 128],
         'lstm_dim': 128,
         'grad_clip': 5.,
 
         # PPO
-        'ppo_clip': 0.2, # 0.3
+        'ppo_clip': 0.1, # 0.3
         'initial_kl_coeff': 1.,
         'kl_coeff_speed': 1.,
         'baseline_coeff': 0.5,
@@ -177,7 +177,7 @@ def my_config():
     )
 
     episode_callback_class = SSBMCallbacks
-    negative_reward_scale = 0.95
+    negative_reward_scale = 0.99
 
 
 # Define a simple main function that will use the configuration
@@ -198,7 +198,7 @@ def main(_config):
         project="Seedsmash",
         mode='online',
         group="debug",
-        name="fictitious_play_multi_stage_2",
+        name="fictitious_action_stacking",
         notes=None,
         dir=c.wandb_logdir
     )
