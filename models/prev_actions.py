@@ -10,7 +10,6 @@ import tensorflow as tf
 
 from polaris.experience import SampleBatch
 from tensorflow.python.ops.gen_data_flow_ops import stage
-from tensorflow.python.ops.random_ops import categorical
 
 from models.modules import LayerNormLSTM, ResLSTMBlock, ResGRUBlock
 from models.seedsmash_v2 import add_batch_time_dimensions
@@ -185,6 +184,8 @@ class ActionStacking(BaseModel):
             **kwargs
 
     ):
+
+        stage = obs["ground_truth"]["categorical"]["stage"]
 
         stage_oh = tf.one_hot(tf.cast(stage, tf.int32),
                              depth=tf.cast(self.observation_space["categorical"]["stage"].high[0],
