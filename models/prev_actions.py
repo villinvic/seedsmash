@@ -196,7 +196,7 @@ class ActionStacking(BaseModel):
 
             last_actions = tf.concat(
                 [state[: , 1:], [[prev_action]]],
-                axis=0
+                axis=-1
             )
             last_actions_t_b = tf.expand_dims(last_actions, axis=0)
             embed_action_history = self.action_embedding(last_actions_t_b)
