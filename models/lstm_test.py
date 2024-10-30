@@ -195,7 +195,6 @@ class LSTMT(BaseModel):
                                            tf.int32) + 1, dtype=tf.float32, name="stage_one_hot")
         if single_obs:
             stage_oh = tf.expand_dims(stage_oh, axis=0)
-            state = tf.expand_dims(state, axis=0)
             prev_action = add_batch_time_dimensions(prev_action)
         else:
             stage_oh = stage_oh[:, :, 0]
