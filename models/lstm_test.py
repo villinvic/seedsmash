@@ -189,9 +189,7 @@ class LSTMT(BaseModel):
 
     ):
 
-
         stage = obs["ground_truth"]["categorical"]["stage"]
-
         stage_oh = tf.one_hot(tf.cast(stage, tf.int32),
                              depth=tf.cast(self.observation_space["categorical"]["stage"].high[0],
                                            tf.int32) + 1, dtype=tf.float32, name="stage_one_hot")
@@ -202,7 +200,10 @@ class LSTMT(BaseModel):
         else:
             stage_oh = stage_oh[:, :, 0]
 
-        embed_action_history = self.action_embedding(prev_action)
+        last_action_one_hot = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs, dtype=tf.float32,
+                                         name="prev_action_one_hot")
+
+        embed_action_history = self.action_embedding(last_action_one_hot)
 
 
         self_true = self.get_flat_player_obs(obs["ground_truth"], "1")
