@@ -203,7 +203,7 @@ class LSTMT(BaseModel):
         last_action_one_hot = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs, dtype=tf.float32,
                                          name="prev_action_one_hot")
 
-        embed_action_history = self.action_embedding(last_action_one_hot)
+        embed_prev_action = self.action_embedding(last_action_one_hot)
 
 
         self_true = self.get_flat_player_obs(obs["ground_truth"], "1")
@@ -225,7 +225,7 @@ class LSTMT(BaseModel):
         )
         pi_core_out = self.policy_core(pi_input)
         rnn_input = tf.concat(
-            [pi_core_out, embed_action_history]
+            [pi_core_out, embed_prev_action]
             , axis=-1)
 
         pi_lstm_out, next_state = snt.static_unroll(
@@ -238,12 +238,12 @@ class LSTMT(BaseModel):
         action_logits = self.policy_head(pi_input)
 
         v_input = tf.concat(
-            true_player_obs + [stage_oh, embed_action_history],
+            true_player_obs + [stage_oh, embed_prev_action],
             axis = -1
         )
 
         v_core_out = self.value_core(v_input)
-        value = self.value_function(v_core_out)
+        value = self.value_head(v_core_out)
 
         return ((action_logits, next_state), tf.squeeze(value)), {}
 
@@ -255,7 +255,7 @@ class LSTMT(BaseModel):
         )
 
     def critic_loss(self, targets):
-        return self.value_function.loss(targets)
+        return self.value_head.loss(targets)
 
     def get_metrics(self):
         return {}
