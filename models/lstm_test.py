@@ -235,7 +235,7 @@ class LSTMT(BaseModel):
             sequence_length=seq_lens
         )
 
-        action_logits = self.policy(pi_input)
+        action_logits = self.policy_head(pi_input)
 
         v_input = tf.concat(
             true_player_obs + [stage_oh, embed_action_history],
