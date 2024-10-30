@@ -123,9 +123,9 @@ def my_config():
 
     num_workers = 64
     policy_path = 'polaris.policies.PPO'
-    model_path = 'models.prev_actions'
+    model_path = 'models.lstm_test'
     policy_class = 'PPO'
-    model_class = 'ActionStacking'
+    model_class = 'LSTMT'
     trajectory_length = 128 # 256 ?
     max_seq_len = 32
     train_batch_size = 32768
