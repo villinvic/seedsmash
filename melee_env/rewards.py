@@ -310,7 +310,6 @@ class RewardFunction:
         if shield_interaction or damage_interaction:
             self.metrics["interacting"] += 1.
 
-
         # closeup
         closeup = delta_frame.ddist[port]
         if closeup > 0 and delta_frame.last_frame.players[port].action not in (Action.ROLL_FORWARD, Action.ROLL_BACKWARD):
@@ -327,9 +326,9 @@ class RewardFunction:
         self.discount_combo()
         if inflicted_percents > 0:
             # max percent 200
-            scale = 1 - np.clip(opponent_percents / 200, 0, 1)
+            scale = 1. #1 - np.clip(opponent_percents / 200, 0, 1)
             # add a customisable scale here
-            scale = scale / np.sqrt(1+0.007*self.landed_hits[delta_frame.last_frame.players[port].action])
+            scale = scale / np.sqrt(1+0.01*self.landed_hits[delta_frame.last_frame.players[port].action])
             inflicted_percents_rewards = inflicted_percents * scale
             self.landed_hits[delta_frame.last_frame.players[port].action] += inflicted_percents
             rewards.damage_inflicted_rewards += inflicted_percents_rewards
@@ -348,7 +347,7 @@ class RewardFunction:
         percents = delta_frame.last_frame.players[port].percent
         if received_percents > 0 or delta_frame.dstock[port] > 0:
             # max percent 200
-            scale = 1 - np.clip(percents / 200, 0, 1)
+            scale = 1.#1 - np.clip(percents / 200, 0, 1)
             received_percents_rewards = received_percents * scale
             rewards.damage_received_rewards += received_percents_rewards
 
@@ -384,7 +383,7 @@ class RewardFunction:
         if (delta_frame.last_frame.players[port].off_stage and delta_frame.last_frame.players[other_port].off_stage
             and inflicted_percents > 0):
             rewards.off_stage_percents_inflicted += inflicted_percents_rewards
-            scale = 1 - np.clip(opponent_percents / 200, 0, 1)
+            scale = 1. # 1 - np.clip(opponent_percents / 200, 0, 1)
             rewards.off_stage_percents_received += received_percents * scale
 
         # helper rewards
