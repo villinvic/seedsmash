@@ -47,7 +47,7 @@ class CategoricalValueModel(snt.Module):
             self,
             input_
     ):
-        self._logits = self.net(input_)
+        self._logits = self.head(input_)
         return tf.reduce_sum(self.centers * tf.nn.softmax(self._logits),
                               axis=-1)
 
