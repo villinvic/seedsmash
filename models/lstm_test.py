@@ -244,7 +244,7 @@ class LSTMT(BaseModel):
         v_core_out = self.value_core(v_input)
         value = self.value_head(v_core_out)
 
-        return ((action_logits, next_state), tf.squeeze(value)), {}
+        return (action_logits, next_state), tf.squeeze(value), {}
 
 
     def get_initial_state(self):
