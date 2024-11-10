@@ -66,19 +66,26 @@ class ResNetCatVF(BaseModel):
 
         self.num_outputs = action_space.n
 
-        self.optimiser = snt.optimizers.Adam(
+        # self.optimiser = snt.optimizers.Adam(
+        #     learning_rate=config.lr,
+        #     name="adam"
+        # )
+
+        self.optimiser = snt.optimizers.RMSProp(
             learning_rate=config.lr,
-            name="adam"
+            epsilon=1e-5,
+            decay=0.99,
+            momentum=0.,
         )
 
         self.encoder = snt.nets.MLP([256, 256], activate_final=True, name="encoder_mlp")
-        self.deep_rnn = snt.DeepRNN([ResLSTMBlock(256) for _ in range(1)])
+        self.deep_rnn = snt.DeepRNN([snt.LSTM(256) for _ in range(1)])
         self._pi_out = snt.Linear(self.num_outputs, name="pi_out")
 
         # Categorical value function
 
-        self.num_bins = 32
-        self.v_min, self.v_max = (-4., 4.)
+        self.num_bins = 50
+        self.v_min, self.v_max = (-5., 5.)
         self.bin_width = (self.v_max - self.v_min) / self.num_bins
         self.support = tf.cast(tf.expand_dims(tf.expand_dims(tf.linspace(self.v_min, self.v_max, self.num_bins + 1), axis=0), axis=0),
                                tf.float32)
@@ -185,19 +192,20 @@ class ResNetCatVF(BaseModel):
             #     +[last_action_one_hot]
             #     )
 
-        f = self.encoder(obs_input_post_embedding)
 
         lstm_out, states_out = snt.static_unroll(
             self.deep_rnn,
-            input_sequence=f,
+            input_sequence=obs_input_post_embedding,
             initial_state=state,
             sequence_length=seq_lens
         )
 
-        action_logits = self._pi_out(lstm_out)
-        self._value_logits = self._value_out(lstm_out)
+        f = self.encoder(lstm_out)
 
-        return (action_logits, states_out), tf.squeeze(self.compute_predicted_values())
+        action_logits = self._pi_out(f)
+        self._value_logits = self._value_out(f)
+
+        return (action_logits, states_out), tf.squeeze(self.compute_predicted_values()), {}
 
 
     def get_initial_state(self):
@@ -229,4 +237,11 @@ class ResNetCatVF(BaseModel):
             y_pred=self._value_logits,
             from_logits=True,
         )
+
+
+    def aux_loss(self, **k):
+        return 0.
+
+    def get_metrics(self):
+        return {}
 

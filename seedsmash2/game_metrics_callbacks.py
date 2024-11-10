@@ -109,6 +109,8 @@ class SSBMCallbacks(
         super().__init__(config)
         self.negative_reward_scale = config.negative_reward_scale
         self.action_state_counts = defaultdict(lambda: np.zeros((len(Action),), dtype=np.int32))
+        self.action_state_hit_counts = defaultdict(lambda: np.zeros((len(Action),), dtype=np.int32))
+
         self.landed_hits = defaultdict(lambda: {
             action.name: 0. for action in Action
         })
@@ -137,33 +139,58 @@ class SSBMCallbacks(
 
         action_states = batch[SampleBatch.OBS]["categorical"]["action1"][:, 0]
 
+        dist = np.sqrt(
+            np.sum(np.square((batch[SampleBatch.OBS]["continuous"]["position1"][:-1]
+                             - batch[SampleBatch.OBS]["continuous"]["position2"][:-1])/ObsBuilder.POS_SCALE), axis=-1)
+        )
+        dealt_damage_steps = batch[SampleBatch.OBS]["continuous"]["percent2"][1:, 0] - \
+                             batch[SampleBatch.OBS]["continuous"]["percent2"][:-1, 0] > 0
+        valid_hit_timesteps = np.float32(np.logical_and(dist < 50, dealt_damage_steps))
+
+        as_bonus = 0.
+
         if "action_state_values" in policy.stats:
             action_state_rewards = policy.stats["action_state_values"].get_rewards(
                 action_states[1:]
             )
-            # TODO this may be wrong if the model uses prev reward !
-
-            # scale linearly as the players get farther
-            #scale = np.clip((200 - distance) / 200, 0., 1.)
-            #print("as scale", scale, distance)
-
-            scale = 1.
-            total_bonus = np.sum(action_state_rewards)
-            if total_bonus > 1:
-                scale = 1./total_bonus
-
-            batch[SampleBatch.REWARD][:-1] += scale * action_state_rewards * policy.policy_config["action_state_reward_scale"] #* scale
+            as_bonus += action_state_rewards
+            total_action_state_rewards = np.sum(action_state_rewards)
 
             as_bonus_metric_name = f"{policy.name}/action_state_bonus"
             if as_bonus_metric_name not in metrics:
-                metrics[as_bonus_metric_name] = total_bonus * scale
+                metrics[as_bonus_metric_name] = total_action_state_rewards
             else:
-                metrics[as_bonus_metric_name] += total_bonus * scale
+                metrics[as_bonus_metric_name] += total_action_state_rewards
+
+        if "action_state_hit_values" in policy.stats:
+
+            action_state_hit_rewards = policy.stats["action_state_hit_values"].get_rewards(
+                action_states[:-1], mask=valid_hit_timesteps
+            )
+
+            as_bonus += action_state_hit_rewards
+
+            total_action_state_hit_rewards = np.sum(action_state_hit_rewards)
+
+            as_hit_bonus_metric_name = f"{policy.name}/action_state_hit_bonus"
+            if as_hit_bonus_metric_name not in metrics:
+
+                metrics[as_hit_bonus_metric_name] = total_action_state_hit_rewards
+            else:
+                metrics[as_hit_bonus_metric_name] += total_action_state_hit_rewards
+
+
+        batch[SampleBatch.REWARD][:-1] += as_bonus * policy.policy_config["action_state_reward_scale"]
 
         not_dones = np.logical_not(batch[SampleBatch.DONE])
         uniques, counts = np.unique(batch[SampleBatch.OBS]["categorical"]["action1"][not_dones, 0], return_counts=True)
-
         self.action_state_counts[policy.name][uniques] += counts
+
+        hit_uniques, hit_counts = np.unique(batch[SampleBatch.OBS]["categorical"]["action1"][:-1][
+                                                np.logical_and(not_dones[:-1], valid_hit_timesteps)
+                                                , 0], return_counts=True)
+
+        self.action_state_hit_counts[policy.name][hit_uniques] += hit_counts
 
 
     def on_step(
@@ -219,9 +246,13 @@ class SSBMCallbacks(
                 metrics[metric_name] = metric
 
         for policy in agents_to_policies.values():
-            metrics[f"{policy.name}/to_pop/action_states_and_counts"] = self.action_state_counts[policy.name].copy()
-            # TODO: del this ?
-            self.action_state_counts[policy.name][:] = 0
+            if f"{policy.name}/to_pop/action_states_counts" not in metrics:
+                metrics[f"{policy.name}/to_pop/action_states_counts"] = self.action_state_counts[policy.name].copy()
+                metrics[f"{policy.name}/to_pop/action_states_hit_counts"] = self.action_state_hit_counts[policy.name].copy()
+                # TODO: del this ?
+                self.action_state_counts[policy.name][:] = 0
+                self.action_state_hit_counts[policy.name][:] = 0
+
 
             # if ditto, sends one with double count
             landed_hits_metric = f"{policy.name}/landed_hits"

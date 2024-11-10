@@ -26,7 +26,8 @@ import psutil
 
 from seedsmash2.submissions.bot_config import BotConfig
 from seedsmash2.submissions.generate_form import load_filled_form
-from seedsmash2.utils import ActionStateCounts, inject_botconfig
+from seedsmash2.utils import ActionStateCounts, inject_botconfig, ActionStateHitCounts
+
 
 class FictitiousMatchmaking(MatchMaking):
 
@@ -37,17 +38,19 @@ class FictitiousMatchmaking(MatchMaking):
     def next(
             self,
             params_map: Dict[str, "PolicyParams"],
+            wid,
+            num_workers,
             **kwargs,
     ) -> Dict[str, "PolicyParams"]:
 
         p1 = np.random.choice(self.trainable_policies)
         other = list(params_map.keys())
-        # if np.random.random() < 0.33:
-        #     p2 = p1
-        # else:
-        #     if len(other) > 1:
-        #         other.remove(p1)
-        p2 = np.random.choice(other)
+        if wid < num_workers//2:
+            p2 = p1
+        else:
+            if len(other) > 1:
+                other.remove(p1)
+            p2 = np.random.choice(other)
 
         sampled_policies = [p1, p2]
         #np.random.shuffle(sampled_policies)
@@ -71,26 +74,17 @@ class FSP(Checkpointable):
             with_spectator=True,
         )
 
-
         # Init environment
         self.env = PolarisEnv.make(self.config.env, env_index=-1, **self.config.env_config)
-
 
         self.discarded_policies = []
         self.trainable_policies = []
         self.old_policies = defaultdict(list)
 
-
-
-
         self.PolicylCls = getattr(importlib.import_module(self.config.policy_path), self.config.policy_class)
         self.policy_map: Dict[str, Policy] = {}
         self.action_state_counts: Dict[str, ActionStateCounts] = {}
-
-        self.matchmaking = FictitiousMatchmaking(
-            agent_ids=self.env.get_agent_ids(),
-            trainable_policies=self.trainable_policies
-        )
+        self.action_state_hit_counts: Dict[str, ActionStateHitCounts] = {}
 
 
         self.params_map = ParamsMap()
@@ -102,7 +96,8 @@ class FSP(Checkpointable):
             trainable_policies=self.trainable_policies
         )
 
-        self.running_jobs = []
+        self.running_experience_jobs = []
+        self.running_spectate_jobs = []
 
         self.metricbank = MetricBank(
             report_freq=self.config.report_freq
@@ -125,6 +120,7 @@ class FSP(Checkpointable):
                 "params_map": self.params_map,
                 "metrics": self.metrics,
                 "action_state_counts": self.action_state_counts,
+                "action_state_hit_counts": self.action_state_hit_counts,
                 "discarded_policies": self.discarded_policies,
                 "old_policies": self.old_policies,
                 "trainable_policies": self.trainable_policies,
@@ -136,6 +132,9 @@ class FSP(Checkpointable):
                 self.restore(restore_path=restore)
             else:
                 self.restore()
+
+            # override user config
+            self.config = config
 
             # Need to pass the restored references afterward
             self.metricbank.metrics = self.metrics
@@ -158,6 +157,9 @@ class FSP(Checkpointable):
                 )
                 self.policy_map[policy_name].setup(params)
                 self.experience_queue[policy_name] = ExperienceQueue(self.config)
+
+                # self.action_state_counts[policy_name] = ActionStateCounts(self.policy_map[policy_name].policy_config)
+                # self.action_state_hit_counts[policy_name] = ActionStateHitCounts(self.policy_map[policy_name].policy_config)
 
         self.inject_bot_configs()
         GlobalTimer["inject_new_bots_timer"] = time.time()
@@ -199,6 +201,8 @@ class FSP(Checkpointable):
 
                     self.experience_queue[pid] = ExperienceQueue(self.config)
                     self.action_state_counts[pid] = ActionStateCounts(self.policy_map[pid].policy_config)
+                    self.action_state_hit_counts[pid] = ActionStateHitCounts(self.policy_map[pid].policy_config)
+
                     self.trainable_policies.append(pid)
 
     def training_step(self):
@@ -213,16 +217,26 @@ class FSP(Checkpointable):
         iteration_dt = GlobalTimer.dt(GlobalTimer.PREV_ITERATION)
 
         t.append(time.time())
-        jobs = [self.matchmaking.next(self.params_map) for wid in self.worker_set.available_workers]
+
+        experience_jobs = [self.matchmaking.next(self.params_map, wid, len(self.worker_set.workers)) for wid in self.worker_set.available_workers if wid != 0]
+        spectate_jobs = [] if 0 not in self.worker_set.available_workers else [self.matchmaking.next(self.params_map, 0, len(self.worker_set.workers))]
         t.append(time.time())
 
-        self.running_jobs += self.worker_set.push_jobs(self.params_map, jobs)
+        self.running_experience_jobs += self.worker_set.push_jobs(self.params_map, experience_jobs)
+        self.running_spectate_jobs += self.worker_set.push_jobs(self.params_map, spectate_jobs)
+
         experience_metrics = []
         t.append(time.time())
         frames = 0
         env_steps = 0
 
-        experience, self.running_jobs = self.worker_set.wait(self.params_map, self.running_jobs)
+        experience, self.running_experience_jobs = self.worker_set.wait(self.params_map, self.running_experience_jobs, timeout=1e-2)
+        if len(experience)>0:
+            print("collected ", len(experience), "experiences")
+
+        spectate_experience, self.running_spectate_jobs = self.worker_set.wait(self.params_map, self.running_spectate_jobs, timeout=1e-2)
+        experience += spectate_experience
+
         enqueue_time_start = time.time()
         num_batch = 0
 
@@ -232,10 +246,14 @@ class FSP(Checkpointable):
                     # If this fails, it means the episode exited early
                     for pid in exp_batch.policy_metrics.keys():
                         if pid in self.trainable_policies:
-                            action_state_counts = exp_batch.custom_metrics.pop(f"{pid}/to_pop/action_states_and_counts", None)
-                            if action_state_counts is not None:
+                            action_state_counts = exp_batch.custom_metrics.pop(f"{pid}/to_pop/action_states_counts", None)
+                            action_state_hit_counts = exp_batch.custom_metrics.pop(f"{pid}/to_pop/action_states_hit_counts", None)
+                            if action_state_counts is not None and action_state_hit_counts is not None:
                                 self.action_state_counts[pid].push_samples(action_state_counts)
                                 self.policy_map[pid].stats["action_state_values"] = self.action_state_counts[pid].get_values()
+                                self.action_state_hit_counts[pid].push_samples(action_state_hit_counts)
+                                self.policy_map[pid].stats["action_state_hit_values"] = self.action_state_hit_counts[
+                                    pid].get_values()
                             else:
                                 print("???", exp_batch.custom_metrics)
 
@@ -318,6 +336,8 @@ class FSP(Checkpointable):
                 )
 
                 train_results["action_state_counts"] = self.action_state_counts[policy_name].get_metrics()
+                train_results["action_state_hit_counts"] = self.action_state_hit_counts[policy_name].get_metrics()
+
 
                 training_metrics[f"{policy_name}"] = train_results
                 GlobalCounter.incr(GlobalCounter.STEP)
@@ -325,9 +345,7 @@ class FSP(Checkpointable):
                 params = self.policy_map[policy_name].get_params()
                 self.params_map[policy_name] = params
 
-                print(params.version)
-
-                if params.version % self.config.update_policy_history_freq == 0:
+                if params.version == 2 or params.version % self.config.update_policy_history_freq == 0:
                     pid = f"{policy_name}_version_{params.version}"
                     new_params = PolicyParams(
                         name=pid,
@@ -372,6 +390,9 @@ class FSP(Checkpointable):
                                        smoothing=self.config.training_metrics_smoothing)
         if len(experience_metrics) > 0:
             for metrics in experience_metrics:
+
+                # flattened_metrics = [(p, m) for p, m in tree.flatten_with_path(metrics)
+                #                      if ("debug" in m or "agent_debug" in m)]
 
                 self.metricbank.update(tree.flatten_with_path(metrics), prefix=f"experience/",
                                        smoothing=self.config.episode_metrics_smoothing)

@@ -2,6 +2,7 @@ import inspect
 from collections import defaultdict
 
 import numpy as np
+from melee import LCancelState
 from melee.enums import Character, Action
 from melee.gamestate import GameState, PlayerState
 
@@ -14,6 +15,8 @@ class Helper:
     """
 
     weights = {}
+
+    decay = 20.
 
     def __init__(self, hist_len=6):
 
@@ -36,8 +39,13 @@ class Helper:
         bonus = 0.
         for func_name, func in self.funcs.items():
             func_bonus = float(func(player_state, is_near))
+
+            total_collected = self.metrics[func_name] * self.weights.get(func_name, 0.0)
+            scaled_bonus = func_bonus * self.weights.get(func_name, 0.0) / (1 + 1e-2 * np.exp(total_collected * self.decay))
+
             self.metrics[func_name] += func_bonus
-            bonus += func_bonus * self.weights.get(func_name, 0.0)
+
+            bonus += scaled_bonus
         self._advance(player_state)
         return bonus
 
@@ -64,17 +72,24 @@ class TechSkillHelper(Helper):
                         Action.FALLING_AERIAL_BACKWARD, Action.JUMPING_ARIAL_BACKWARD, Action.JUMPING_ARIAL_FORWARD,
                          Action.JUMPING_FORWARD, Action.JUMPING_FORWARD)
     weights = {
+        "dashing": 0.01,
         "ledge_canceling": 0.03,
-        "dashdance": 0.01,
+        "lcanceling": 0.01,
         "wavelanding": 0.02,
-        "wavedash": 0.01,
-        "wavedash_off_platform": 0.01,
-        "walljump": 0.03,
+        "wavedash": 0.003, # easy action
+        "wavedash_off_platform": 0.02,
+        "walljump": 0.05,
         "moonwalk": 0.03
     }
 
     def __init__(self):
         super().__init__(hist_len=19)
+
+
+    def dashing(self, player_state: PlayerState, is_near: bool):
+        old_state = self.previous_player_states[-1]
+
+        return player_state.action == Action.DASHING and old_state.action != Action.DASHING
 
     def ledge_canceling(self, player_state: PlayerState, is_near: bool):
         # in landing-lag > in air
@@ -85,10 +100,17 @@ class TechSkillHelper(Helper):
         and not player_state.on_ground
         )
 
-    def dashdance(self, player_state: PlayerState, is_near: bool):
-        # todo: here this encourages fast ddance
-        return (player_state.action == Action.DASHING and  self.previous_player_states[-1].action == Action.TURNING and
-            self.previous_player_states[-2].action == Action.DASHING)
+    def lcanceling(self, player_state: PlayerState, is_near: bool):
+        prev_state = self.previous_player_states[-1]
+
+        return (player_state.lcancel_status == LCancelState.SUCCESSFUL
+                and player_state.lcancel_status != prev_state.lcancel_status)
+
+    # def dashdance(self, player_state: PlayerState, is_near: bool):
+    #     # todo: here this encourages fast ddance
+    #     return (player_state.action == Action.DASHING and  self.previous_player_states[-1].action == Action.TURNING and
+    #         self.previous_player_states[-2].action == Action.DASHING
+    #         and self.previous_player_states[-3].action == Action.DASHING)
 
     def wavelanding(self, player_state: PlayerState, is_near: bool):
         # todo: check again
@@ -107,10 +129,11 @@ class TechSkillHelper(Helper):
             and was_in_air)
 
     def wavedash(self, player_state: PlayerState, is_near: bool):
-        old_state = self.previous_player_states[-1]
+        old_state = self.previous_player_states[-2]
         not_hit = player_state.percent == old_state.percent
         return (
             not_hit and
+            player_state.action_frame == 1 and
             player_state.action == Action.LANDING_SPECIAL
             and (old_state.action == Action.KNEE_BEND)
         )
@@ -144,7 +167,7 @@ class TechSkillHelper(Helper):
 class CptFalconHelper(Helper):
 
     weights = {
-        "gentleman": 0.05,
+        "gentleman": 0.1,
     }
 
     def __init__(self):

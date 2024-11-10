@@ -208,7 +208,7 @@ class CompiledFrameData:
 
     def frames_before_next_hitbox(self, character, action, curr_frame):
 
-        frames_before_next_hitbox = 0
+        frames_before_next_hitbox = 180
         for frame in self.hitbox_frames[character][action]:
             if frame > curr_frame:
                 frames_before_next_hitbox = frame - curr_frame

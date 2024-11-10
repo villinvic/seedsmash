@@ -342,7 +342,7 @@ class SS0(BaseModel):
         action_logits = self._pi_out(lstm_out)
         self._value_logits = self._value_out(lstm_out)
 
-        return (action_logits, (undelayed_opp_state, states_out)), tf.squeeze(self.compute_predicted_values())
+        return (action_logits, (undelayed_opp_state, states_out)), tf.squeeze(self.compute_predicted_values()), {}
 
 
     def get_initial_state(self):

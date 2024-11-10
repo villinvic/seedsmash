@@ -27,7 +27,7 @@ obs_config = (
     .stage()
     .max_projectiles(0)  # one falco can generate more than 3 projectiles apparently ?
     #.controller_state()
-    .delay(4) # 4 (* 3)
+    .delay(0) # 4 (* 3)
 )
 
 
@@ -103,14 +103,16 @@ dummy_ssbm = SSBM(**dict(env_conf))
 # TODO: change projectile obs
 # TODO: improve visual of scrolling matchup + new challenger approaching ?
 
-# TODO:     next_state = self.step_nones()
-#   File "/home/goji/seedsmash/melee_env/melee_gym_v2.py", line 241, in step_nones
-#     state = self.console.step()
-#   File "/home/goji/libmelee/melee/console.py", line 623, in step
-#     message = self._slippstream.dispatch(
-#   File "/home/goji/libmelee/melee/slippstream.py", line 171, in dispatch
-#     raise EnetDisconnected()
-# melee.slippstream.EnetDisconnected
+# TODO :
+# take as input belief state, for ex...:
+# - distance travelled
+# - actions picked
+# - habits: techs
+# - option habits: shielding, grabbing, dd, dash back, etc ? list of things ???
+# - off stage
+# - prefered move
+# - moves that hit them
+# - make this small !
 
 
 @ex.config
@@ -121,31 +123,32 @@ def my_config():
     del env_obj
     env_config = dict(env_conf)
 
-    num_workers = 64
+    # TODO: try batched inference
+    num_workers = 64+1
     policy_path = 'polaris.policies.PPO'
-    model_path = 'models.lstm_test'
+    model_path = 'models.debug3'
     policy_class = 'PPO'
-    model_class = 'LSTMT'
-    trajectory_length = 128 # 256 ?
+    model_class = 'Debug3'
+    trajectory_length = 64 # 256 ?
     max_seq_len = 32
-    train_batch_size = 32768
+    train_batch_size = 12288 #7680
     max_queue_size = train_batch_size * 10
-    n_epochs=8
-    minibatch_size=train_batch_size//8
+    n_epochs=3
+    minibatch_size= train_batch_size//8
 
     default_policy_config = {
-        'discount': 0.992,  # 0.997
+        'discount': 0.993,  # 0.997
         'action_state_reward_scale': 1.,
 
-        'gae_lambda': 0.98, # 0.98
-        'entropy_cost': 5e-3, # 1e-3 with impala, or around " 0.3, 0.4
+        'gae_lambda': 0.99, # 0.98
+        'entropy_cost': 2.5e-3,#5e-4, # 1e-3 with impala, or around " 0.3, 0.4
         'lr': 5e-4,
         'fc_dims': [128, 128],
         'lstm_dim': 128,
         'grad_clip': 5.,
 
         # PPO
-        'ppo_clip': 0.3, # 0.3
+        'ppo_clip': 0.1, # 0.3
         'initial_kl_coeff': 1.,
         'kl_coeff_speed': 1.,
         'baseline_coeff': 0.5,
@@ -155,8 +158,7 @@ def my_config():
         # Coaching
         'imitation_loss_coeff': 1.5e-2,
 
-        'aux_lr': 1e-3,
-        'aux_loss_weight': 0.1,
+        'aux_loss_weight': 0.2,
         }
 
     compute_advantages_on_workers = True
@@ -166,7 +168,7 @@ def my_config():
     training_metrics_smoothing = 0.8
     inject_new_bots_freq_s = 60
     # FSP
-    update_policy_history_freq = 100
+    update_policy_history_freq = 400
     policy_history_length = 10
 
     checkpoint_config = dict(
@@ -177,7 +179,7 @@ def my_config():
     )
 
     episode_callback_class = SSBMCallbacks
-    negative_reward_scale = 0.8
+    negative_reward_scale = 0.95
 
 
 # Define a simple main function that will use the configuration
@@ -205,7 +207,7 @@ def main(_config):
     # print("Experiment Configuration:")
     # print(c)
 
-    trainer = FSP(c, restore=False)
+    trainer = FSP(c, restore=True)
     trainer.run()
 
 

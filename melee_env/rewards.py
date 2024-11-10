@@ -4,11 +4,12 @@ from dataclasses import dataclass, asdict
 from typing import Union, Dict
 
 from Cython import other_types
-from melee import GameState, Character, Action
+from melee import GameState, Character, Action, InvulnerabilityType
 import numpy as np
 
 from melee_env.action_space import ControllerInput
 from melee_env.melee_helpers import MeleeHelper
+from melee_env.observation_space_v2 import ObsBuilder
 
 
 @dataclass
@@ -57,7 +58,6 @@ class StepRewards(
     Off-stage percents inflicted when both players are off-stage
     """
     off_stage_percents_inflicted: np.float32 = 0.
-    off_stage_percents_received: np.float32 = 0.
 
     bad_edge_catches: np.float32 = 0.
     edge_while_opp_invulnerable: np.float32 = 0.
@@ -66,6 +66,10 @@ class StepRewards(
     shield_pressuring: np.float32 = 0.
 
     helper_bonus: np.float32 = 0.
+
+
+    # could help
+    non_hitting_attacks: np.float32 = 0.
 
 
     # TODO: add a possibility to add a scaling between damage and stocks
@@ -148,8 +152,7 @@ class DeltaFrame:
             dx_before = (self.last_frame.players[1].position.x - self.last_frame.players[2].position.x)
             dx2 = dx_before**2
             dy2 = (self.last_frame.players[1].position.y - self.last_frame.players[2].position.y)**2
-            dist_before = np.sqrt(dx2 + dy2) #np.sqrt(dx2 + 0.1 * dy2)
-
+            dist_before = np.sqrt(dx2 + 0.5*dy2) #np.sqrt(dx2 + 0.1 * dy2)
 
             for port in self.ports:
                 other_port = 1 + (port % 2)
@@ -158,7 +161,7 @@ class DeltaFrame:
                 # dy_now = np.abs(frame.players[port].position.y - self.last_frame.players[other_port].position.y)
                 dx_now = frame.players[port].position.x - self.last_frame.players[other_port].position.x
                 dist_now = np.sqrt(
-                    dx_now**2 + (frame.players[port].position.y - self.last_frame.players[other_port].position.y) ** 2)
+                    dx_now**2 + 0.5*((frame.players[port].position.y - self.last_frame.players[other_port].position.y) ** 2))
                 # 0.1
 
                 self.dstock[port] = np.clip(self.last_frame.players[port].stock - frame.players[port].stock, 0., 1.)
@@ -177,7 +180,7 @@ class DeltaFrame:
                 #     self.ddist[port] = np.clip(np.minimum(ddist, 0), -10, 10)
                 # else:
                 #     self.ddist[port] = np.clip(ddist, -10, 10)
-                self.ddist[port] = np.clip(np.abs(dx_before)-np.abs(dx_now), 0, 15)
+                self.ddist[port] = np.clip(dist_before-dist_now, -2, 2)
 
                 self.action[port] = self.last_frame.players[port].action
 
@@ -212,18 +215,21 @@ class RewardFunction:
         self.energy_cost_scale = 0.0003
 
         # combos are important, as it encourages bot to not get hit, as well as learn setups.
-        self.combo_counter = 0.
         self.last_hit_action_state = Action.UNKNOWN_ANIMATION
-        self.max_combo = 5
-        self.combo_bonus = 0.
-        #self.linear_discount = 1/120
 
         self.total_kills = 0
         self.previous_last_hit_frame = -120
 
+        self.smooth_stocks = {p: 4 for p in {1, 2}}
+
+
         self.num_combos = 0
         self.total_combos = 0
+        self.prev_combo_counters = {p: 0 for p in {1, 2}}
+        self.combo_counters = {p: 0 for p in {1, 2}}
 
+        self.self_combo_multiplier = 0
+        self.opp_combo_multiplier = 0
 
         self.landed_hits = {
             a: 0 for a in Action
@@ -234,53 +240,50 @@ class RewardFunction:
 
         self.helper = MeleeHelper(port, bot_config.character)
 
-    def discount_combo(self):
-        self.combo_counter = self.combo_counter #* 1.0003 #np.maximum(0, self.combo_counter - self.linear_discount)
-
-    def get_frame_rewards(self, delta_frame: DeltaFrame, current_action: ControllerInput, rewards: StepRewards):
+    def get_frame_rewards(self, delta_frame: DeltaFrame, current_action: ControllerInput, rewards: StepRewards,
+                          combo_counters: dict):
         """
         Executed every frame
         """
         port = self.port
         other_port = 1 + (port % 2)
-        time_ratio = np.clip((1 -  delta_frame.last_frame.frame / 60 * 60 * 8), 0, 1)
 
+        # advantage should be reflected by stock then percent advantage
+        # if at equal stocks, but different percents,
+        #clutch_scale = np.clip(delta_frame.last_frame.players[port].percent - 80, 0, 150)
+
+        lr = 0.0045
+        # 3 sec interval for stock trading
+        for p in self.smooth_stocks:
+            self.smooth_stocks[p] = self.smooth_stocks[p] * (1-lr) + delta_frame.last_frame.players[p].stock * lr
+
+
+        self_value = round(self.smooth_stocks[port]) - np.clip(delta_frame.last_frame.players[port].percent / 150, 0, 0.8)
+        other_value = round(self.smooth_stocks[other_port]) - np.clip(delta_frame.last_frame.players[other_port].percent / 150, 0, 0.8)
+
+        max_advantage = 3.8
+        norm_advantage = (self_value - other_value) / max_advantage
 
         # reward kills/deaths
         kill = delta_frame.dstock[other_port]
-        base_stock_reward = 1
+        base_stock_reward = 1.
+
         if kill > 0:
             if delta_frame.last_frame.players[other_port].percent <= 5:
                 rewards.kill_rewards += 0.2
             else:
-                rewards.kill_rewards += base_stock_reward * (1 + 0*time_ratio)
+                rewards.kill_rewards += base_stock_reward
 
-            if self.combo_counter > 0:
-                self.num_combos += 1
-                self.total_combos += self.combo_counter
-            self.combo_counter = 0
         death = delta_frame.dstock[port]
         if death > 0:
-            rewards.death_rewards += base_stock_reward * (1 + 0*time_ratio)
+            rewards.death_rewards += np.clip(base_stock_reward - norm_advantage, 0.3, 1.7)
             if delta_frame.last_frame.players[port].percent <= 5:
                 self.metrics["zero_percent_suicides"] += 1.
             else:
                 self.metrics["zero_percent_suicides"] += 0.
 
-            if self.combo_counter > 0:
-                self.num_combos += 1
-                self.total_combos += self.combo_counter
-            self.combo_counter = 0
-
         self.metrics["win"] += delta_frame.win[port]
 
-        # Encourage Interactions
-        # How ?
-        # Maintain high IPS
-        # Interactions:
-        # - inflict damage
-        # - put pressure (close distance)
-        # - shieldstun (both players)
 
         has_dealt_damage = delta_frame.dpercent[other_port] > 0
         has_suffered_damage = delta_frame.dpercent[port] > 0
@@ -312,53 +315,60 @@ class RewardFunction:
 
         # closeup
         closeup = delta_frame.ddist[port]
-        if closeup > 0 and delta_frame.last_frame.players[port].action not in (Action.ROLL_FORWARD, Action.ROLL_BACKWARD):
-            air_multiplier = 1.15
-            if not delta_frame.last_frame.players[port].on_ground:
-                closeup *= air_multiplier
-            rewards.distance_rewards += closeup #/ np.sqrt(1 + 1e-3 * self.game_stats["closeup"])
+        if (closeup > 0 and delta_frame.last_frame.players[port].action not in (Action.ROLL_FORWARD, Action.ROLL_BACKWARD)) or closeup < 0:
+
+            p = delta_frame.last_frame.players[port]
+            non_attack_speed = abs(p.speed_y_self) + abs(p.speed_air_x_self + p.speed_ground_x_self)
+            non_attack_speed_ratio = (
+                non_attack_speed
+            ) / (
+                abs(p.speed_y_attack) + abs(p.speed_x_attack) + non_attack_speed + 1e-8
+            )
+            closeup *= non_attack_speed_ratio
+
+            if (delta_frame.last_frame.players[other_port].invulnerability_type == InvulnerabilityType.INVULNERABLE
+                    and delta_frame.last_frame.players[port].invulnerability_type != InvulnerabilityType.INVULNERABLE):
+                closeup = -closeup
+
+            rewards.distance_rewards += closeup
         self.metrics["closeup"] += closeup
+
+
+        # todo: how are we encouraged to make early kills ?
+        # equal percent / stocks
+        #   low percent:
+        #       deal damage
+        #   high percent:
+        #       kill
+        # equal stocks
+        #   low percent:
+        #
 
         # Damage / Combos
         inflicted_percents = delta_frame.dpercent[other_port]
         opponent_percents = delta_frame.last_frame.players[other_port].percent
         inflicted_percents_rewards = 0
-        self.discount_combo()
         if inflicted_percents > 0:
             # max percent 200
-            scale = 1. #1 - np.clip(opponent_percents / 200, 0, 1)
+            scale = 1.
             # add a customisable scale here
-            scale = scale / np.sqrt(1+0.01*self.landed_hits[delta_frame.last_frame.players[port].action])
+            #scale = scale / (1 + 3e-3 * np.exp(0.08*self.landed_hits[delta_frame.last_frame.players[port].action]))
             inflicted_percents_rewards = inflicted_percents * scale
             self.landed_hits[delta_frame.last_frame.players[port].action] += inflicted_percents
             rewards.damage_inflicted_rewards += inflicted_percents_rewards
 
-            combo_increment = 1.
-            if (self.last_hit_action_state == delta_frame.last_frame.players[port].action
-                    or
-                inflicted_percents < 4
-            ):
-                combo_increment += 1/6
-            self.last_hit_action_state = delta_frame.last_frame.players[port].action
-            self.combo_counter = np.minimum(self.combo_counter + combo_increment, self.max_combo)
-
-
         received_percents = delta_frame.dpercent[port]
         percents = delta_frame.last_frame.players[port].percent
-        if received_percents > 0 or delta_frame.dstock[port] > 0:
+        if received_percents > 0:
             # max percent 200
-            scale = 1.#1 - np.clip(percents / 200, 0, 1)
+            scale = 1. - norm_advantage * 0.25
+            if percents > 100:
+                scale *= np.clip(1 - (percents - 100) / 75, 0, 1)
+            if percents > 35 and delta_frame.last_frame.players[port].off_stage:
+                scale *= np.clip(1 - (percents - 35) / 55, 0, 1)
+
             received_percents_rewards = received_percents * scale
             rewards.damage_received_rewards += received_percents_rewards
-
-            if self.combo_counter > 0:
-                self.num_combos += 1
-                self.total_combos += self.combo_counter
-            self.combo_counter = 0
-            self.last_hit_action_state = Action.UNKNOWN_ANIMATION
-
-
-
 
         # Edgeguarding
         # - on edge when other is offstage but same side
@@ -368,7 +378,9 @@ class RewardFunction:
                       and delta_frame.action[port] != Action.EDGE_CATCHING)
         edge_guarding = (edge_catch and delta_frame.last_frame.players[other_port].off_stage
                          and (delta_frame.dist[port] < 55))
-        edge_while_opp_invulnerable = (edge_catch and delta_frame.last_frame.players[other_port].invulnerable)
+        edge_while_opp_invulnerable = (edge_catch and delta_frame.last_frame.players[other_port].invulnerability_type
+                                       == InvulnerabilityType.INVULNERABLE and
+                                       delta_frame.last_frame.players[port].invulnerability_type != InvulnerabilityType.INVULNERABLE)
 
         bad_edge = (edge_catch and not (edge_guarding or edge_while_opp_invulnerable))
         self.metrics["bad_edge"] += int(bad_edge)
@@ -384,34 +396,53 @@ class RewardFunction:
             and inflicted_percents > 0):
             rewards.off_stage_percents_inflicted += inflicted_percents_rewards
             scale = 1. # 1 - np.clip(opponent_percents / 200, 0, 1)
-            rewards.off_stage_percents_received += received_percents * scale
+
+        self.metrics["off_stage_damages"] += rewards.off_stage_percents_inflicted
 
         # helper rewards
         rewards.helper_bonus += self.helper(delta_frame.last_frame)
 
         self.per_frame_metrics["distance"] += delta_frame.dist[port]
 
+        self.prev_combo_counters = self.combo_counters
+        self.combo_counters = combo_counters
+        if self.prev_combo_counters[port] - self.combo_counters[port] > 0:
+            self.num_combos += 1
+            self.total_combos += self.prev_combo_counters[port]
+
+        self.self_combo_multiplier = (self.prev_combo_counters[port] / ObsBuilder.MAX_COMBO) + 1
+        self.opp_combo_multiplier = (self.prev_combo_counters[other_port] / ObsBuilder.MAX_COMBO) + 1
 
 
-    def compute(self, rewards: StepRewards, opponent_combo_counter):
 
-        self_combo_multiplier = np.maximum(0, self.combo_counter - 1)  / (self.max_combo-1) + 1
-        opp_combo_multiplier = np.maximum(0, opponent_combo_counter- 1) / (self.max_combo-1) + 1
+    def compute(self, rewards: StepRewards):
 
-        return (
-            rewards.kill_rewards #* self_combo_multiplier
-            + (rewards.damage_inflicted_rewards + 2.*rewards.off_stage_percents_inflicted) * 0.01 #* self_combo_multiplier
-            #+ rewards.distance_rewards * 2e-4
-            + rewards.edge_guarding * 0.1
+        total = (
+            rewards.kill_rewards * self.self_combo_multiplier
+            + (rewards.damage_inflicted_rewards + rewards.off_stage_percents_inflicted) * 0.01 * self.self_combo_multiplier
+            + rewards.distance_rewards * 5e-4
+            + rewards.edge_guarding * 0.15
             + rewards.edge_while_opp_invulnerable * 0.05
             #+ rewards.shield_pressured * 0.02
             #
-            - rewards.death_rewards #* opp_combo_multiplier
-            - (rewards.damage_received_rewards + 2.*rewards.off_stage_percents_received) * 0.01 #* opp_combo_multiplier
-            - rewards.bad_edge_catches * 0.1
-
+            - rewards.death_rewards * self.opp_combo_multiplier
+            - (rewards.damage_received_rewards) * 0.01 * self.opp_combo_multiplier
+            - rewards.bad_edge_catches * 0.05
             + rewards.helper_bonus
         )
+
+        # print(
+        #     self.port,
+        #     self.combo_counters,
+        #     self.smooth_stocks,
+        #     total,
+        #     rewards
+        #       )
+        # if self.port == 2:
+        #     input()
+
+
+        return total
 
     def get_metrics(self, game_length=1):
         metrics = {

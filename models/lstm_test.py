@@ -141,39 +141,31 @@ class LSTMT(BaseModel):
             momentum=0.,
         )
 
+        # self.optimiser = snt.optimizers.Adam(
+        #     learning_rate=config.lr
+        # )
+
         self.state_dim = 256
-        self.action_embedding = snt.nets.MLP([16], activate_final=True)
 
         #self.delay_transformer = snt.nets.
-        self.policy_core = snt.nets.MLP([256, 256-16], activate_final=True)
+        self.policy_head = snt.nets.MLP([128, 128, self.num_outputs])
         self.policy_rnn = snt.LSTM(self.state_dim)
-        self.policy_head = snt.Linear(self.num_outputs, name="policy_head")
-        self.value_core = snt.nets.MLP([256, 256], activate_final=True)
+        self.value_core = snt.nets.MLP([128, 128], activate_final=True)
         self.value_head = CategoricalValueModel()
 
-    def get_flat_player_obs(self, obs, player_id, single_obs=False):
+    def get_flat_player_obs(self, obs, player_id):
         categorical_inputs = obs["categorical"]
         continuous_inputs = obs["continuous"]
         binary_inputs = obs["binary"]
 
-        if single_obs:
-            continuous_inputs = [add_batch_time_dimensions(continuous_inputs[k]) for k in
-                                 self.observation_keys[player_id]["continuous"]]
-            binary_inputs = [add_batch_time_dimensions(tf.cast(binary_inputs[k], dtype=tf.float32, name=k)) for k in
-                             self.observation_keys[player_id]["binary"]]
-            categorical_inputs = [
-                tf.one_hot(tf.cast(categorical_inputs[k], dtype=tf.int32, name=k),
-                           depth=tf.cast(self.observation_space["categorical"][k].high[0], tf.int32)+1, dtype=tf.float32) for k in
-                             self.observation_keys[player_id]["categorical"]
-            ]
-        else:
-            continuous_inputs = [continuous_inputs[k] for k in
-                                 self.observation_keys[player_id]["continuous"]]
-            binary_inputs = [tf.cast(binary_inputs[k], dtype=tf.float32, name=k) for k in
-                             self.observation_keys[player_id]["binary"]]
-            categorical_inputs = [tf.one_hot(tf.cast(tf.squeeze(categorical_inputs[k]), dtype=tf.int32, name=k),
-                           depth=tf.cast(self.observation_space["categorical"][k].high[0], tf.int32)+1, dtype=tf.float32) for k in
-                             self.observation_keys[player_id]["categorical"]]
+
+        continuous_inputs = [continuous_inputs[k] for k in
+                             self.observation_keys[player_id]["continuous"]]
+        binary_inputs = [tf.cast(binary_inputs[k], dtype=tf.float32, name=k) for k in
+                         self.observation_keys[player_id]["binary"]]
+        categorical_inputs = [tf.one_hot(tf.cast(tf.squeeze(categorical_inputs[k]), dtype=tf.int32, name=k),
+                       depth=tf.cast(self.observation_space["categorical"][k].high[0], tf.int32)+1, dtype=tf.float32) for k in
+                         self.observation_keys[player_id]["categorical"]]
 
         return categorical_inputs + binary_inputs + continuous_inputs
 
@@ -202,42 +194,38 @@ class LSTMT(BaseModel):
         last_action_one_hot = tf.one_hot(tf.cast(prev_action, tf.int32), depth=self.num_outputs, dtype=tf.float32,
                                          name="prev_action_one_hot")
 
-        embed_prev_action = self.action_embedding(last_action_one_hot)
-
 
         self_true = self.get_flat_player_obs(obs["ground_truth"], "1")
+        print(self_true)
         opp_true = self.get_flat_player_obs(obs["ground_truth"], "2")
 
         #self_delayed = self.get_flat_player_obs(obs, "1")
         opp_delayed = self.get_flat_player_obs(obs, "2")
 
         player_obs = self_true + opp_delayed
-        true_player_obs = self_true + opp_true
+        true_player_obs = opp_true # self_true
 
         if single_obs:
             player_obs = [add_batch_time_dimensions(tf.concat(player_obs, axis=0))]
-            true_player_obs = [add_batch_time_dimensions(tf.concat(true_player_obs, axis=0))]
+            true_player_obs = [add_batch_time_dimensions(tf.concat(opp_true, axis=0))]
 
-        pi_input = tf.concat(
-            player_obs + [stage_oh],
+        rnn_input = tf.concat(
+            player_obs + [stage_oh, last_action_one_hot],
             axis = -1
         )
-        pi_core_out = self.policy_core(pi_input)
-        rnn_input = tf.concat(
-            [pi_core_out, embed_prev_action]
-            , axis=-1)
 
-        pi_lstm_out, next_state = snt.static_unroll(
+        #rnn_input = self.rnn_encoder(pi_input)
+        lstm_out, next_state = snt.static_unroll(
             self.policy_rnn,
             input_sequence=rnn_input,
             initial_state=state,
             sequence_length=seq_lens
         )
-
-        action_logits = self.policy_head(pi_input)
+        #next_state = state
+        action_logits = self.policy_head(lstm_out)
 
         v_input = tf.concat(
-            true_player_obs + [stage_oh, embed_prev_action],
+            true_player_obs + [lstm_out],
             axis = -1
         )
 

@@ -1,7 +1,8 @@
 import copy
 from sortedcontainers import SortedDict
 from gymnasium.spaces.dict import Dict
-from melee import Stage, PlayerState, Character, Action, stages, enums, Projectile, GameState, AttackState
+from melee import Stage, PlayerState, Character, Action, stages, enums, Projectile, GameState, AttackState, \
+    left_platform_position, right_platform_position, top_platform_position
 
 from melee_env.compiled_libmelee_framedata import CompiledFrameData
 import numpy as np
@@ -185,6 +186,8 @@ class ObsBuilder:
         }
     }
 
+    MAX_COMBO = 5
+
     def __init__(self, config, player_types):
 
         self.config = config
@@ -229,6 +232,49 @@ class ObsBuilder:
                 return nearest_own_projectile.position.x, nearest_own_projectile.position.y, 1.
             else:
                 return 0., 0., 0.
+
+        def get_nearest_platform(state, port):
+            """
+            gets the  left/right edges or nearest platform ledges.
+            """
+
+            x, y = state.players[port].position.x,  state.players[port].position.y
+            n_p_y, n_p_x1, n_p_x2 = left_platform_position(state)
+            no_plat = (
+                n_p_y== 0.0 and  n_p_x1 == 0.0 and  n_p_x2 == 0.0
+            )
+            if no_plat:
+                n_dist = np.inf
+            else:
+                n_dist = np.minimum(
+                        ( (x - n_p_x1) ** 2 + 0.3*(y - n_p_y) ** 2) ** 0.5,
+                        ( (x - n_p_x2) ** 2 + 0.3*(y - n_p_y) ** 2) ** 0.5,
+                    )
+
+            for p_y, p_x1, p_x2 in (right_platform_position(state), top_platform_position(state),
+                                    randall_position(state.frame, state.stage)):
+                no_plat = (
+                        p_y == 0.0 and p_x1 == 0.0 and p_x2 == 0.0
+                )
+                if no_plat:
+                    dist = np.inf
+                else:
+                    dist = np.minimum(
+                        ((x - p_x1) ** 2 + 0.3*(y - p_y) ** 2) ** 0.5,
+                        ((x - p_x2) ** 2 + 0.3*(y - p_y) ** 2) ** 0.5,
+                    )
+
+                if dist < n_dist:
+                    n_p_x1, n_p_y, n_p_x2 = p_x1, p_y, p_x2
+
+            right_edge = stages.EDGE_POSITION[state.stage]
+            left_edge = -right_edge
+            dist = np.minimum(((x - left_edge) ** 2 + 0.3*y ** 2) ** 0.5,
+                              ((x - right_edge) ** 2 + 0.3*y ** 2) ** 0.5)
+            if dist < n_dist:
+                n_p_x1, n_p_y, n_p_x2 = left_edge, 0., right_edge
+
+            return n_p_y, n_p_x1, n_p_x2
 
 
         stage_value_dict = dict(
@@ -308,8 +354,9 @@ class ObsBuilder:
                                      StateDataInfo.BINARY,
                                      player_port=port,
                                      config=self.config),
-                invulnerable=StateDataInfo(lambda s: s.players[port].invulnerable,
-                                           StateDataInfo.BINARY,
+                invulnerability_type=StateDataInfo(lambda s: s.players[port].invulnerability_type.value,
+                                           StateDataInfo.CATEGORICAL,
+                                           size=3,
                                            player_port=port,
                                            config=self.config),
                 # invulnerability_left=StateDataInfo(lambda s: s.players[port].invulnerability_left,
@@ -334,31 +381,31 @@ class ObsBuilder:
                                         size=1,
                                         player_port=port,
                                         config=self.config),
-                # speed_air_x_self=StateDataInfo(lambda s: s.players[port].speed_air_x_self,
-                #                                StateDataInfo.CONTINUOUS,
-                #                                scale=ObsBuilder.SPEED_SCALE,
-                #                                player_port=port,
-                #                                config=self.config),
-                # speed_y_self=StateDataInfo(lambda s: s.players[port].speed_y_self,
-                #                            StateDataInfo.CONTINUOUS,
-                #                            scale=ObsBuilder.SPEED_SCALE,
-                #                            player_port=port,
-                #                            config=self.config),
-                # speed_x_attack=StateDataInfo(lambda s: s.players[port].speed_x_attack,
-                #                              StateDataInfo.CONTINUOUS,
-                #                              scale=ObsBuilder.SPEED_SCALE,
-                #                              player_port=port,
-                #                              config=self.config),
-                # speed_y_attack=StateDataInfo(lambda s: s.players[port].speed_y_attack,
-                #                              StateDataInfo.CONTINUOUS,
-                #                              scale=ObsBuilder.SPEED_SCALE,
-                #                              player_port=port,
-                #                              config=self.config),
-                # speed_ground_x_self=StateDataInfo(lambda s: s.players[port].speed_ground_x_self,
-                #                                   StateDataInfo.CONTINUOUS,
-                #                                   scale=ObsBuilder.SPEED_SCALE,
-                #                                   player_port=port,
-                #                                   config=self.config),
+                speed_air_x_self=StateDataInfo(lambda s: s.players[port].speed_air_x_self,
+                                               StateDataInfo.CONTINUOUS,
+                                               scale=ObsBuilder.SPEED_SCALE,
+                                               player_port=port,
+                                               config=self.config),
+                speed_y_self=StateDataInfo(lambda s: s.players[port].speed_y_self,
+                                           StateDataInfo.CONTINUOUS,
+                                           scale=ObsBuilder.SPEED_SCALE,
+                                           player_port=port,
+                                           config=self.config),
+                speed_x_attack=StateDataInfo(lambda s: s.players[port].speed_x_attack,
+                                             StateDataInfo.CONTINUOUS,
+                                             scale=ObsBuilder.SPEED_SCALE,
+                                             player_port=port,
+                                             config=self.config),
+                speed_y_attack=StateDataInfo(lambda s: s.players[port].speed_y_attack,
+                                             StateDataInfo.CONTINUOUS,
+                                             scale=ObsBuilder.SPEED_SCALE,
+                                             player_port=port,
+                                             config=self.config),
+                speed_ground_x_self=StateDataInfo(lambda s: s.players[port].speed_ground_x_self,
+                                                  StateDataInfo.CONTINUOUS,
+                                                  scale=ObsBuilder.SPEED_SCALE,
+                                                  player_port=port,
+                                                  config=self.config),
                 # off_stage=StateDataInfo(lambda s: s.players[port].off_stage,
                 #                         StateDataInfo.BINARY,
                 #                         player_port=port,
@@ -367,10 +414,11 @@ class ObsBuilder:
                 #                        StateDataInfo.BINARY,
                 #                        player_port=port,
                 #                        config=self.config),
-                powershield=StateDataInfo(lambda s: s.players[port].is_powershield,
-                                          StateDataInfo.BINARY,
-                                          player_port=port,
-                                          config=self.config),
+                # this appears bugged
+                # powershield=StateDataInfo(lambda s: s.players[port].is_powershield,
+                #                           StateDataInfo.BINARY,
+                #                           player_port=port,
+                #                           config=self.config),
                 jumps_left=StateDataInfo(lambda s: s.players[port].jumps_left,
                                          StateDataInfo.CATEGORICAL,
                                          size=6,
@@ -434,6 +482,12 @@ class ObsBuilder:
                                        scale=ObsBuilder.POS_SCALE,
                                        player_port=port,
                                        config=self.config),
+                nearest_platform=StateDataInfo(lambda s: get_nearest_platform(s, port),
+                                       StateDataInfo.CONTINUOUS,
+                                       size=3,
+                                       scale=ObsBuilder.POS_SCALE,
+                                       player_port=port,
+                                       config=self.config),
                 character=StateDataInfo(lambda s: all_chars_to_used.get(s.players[port].character, 0),
                                         StateDataInfo.CATEGORICAL,
                                         size=n_characters,
@@ -452,6 +506,14 @@ class ObsBuilder:
                                          StateDataInfo.CONTINUOUS,
                                          size=3,
                                          scale=np.array([ObsBuilder.POS_SCALE, ObsBuilder.POS_SCALE, 1], dtype=np.float32),
+                                         player_port=port,
+                                         config=self.config
+                                         ),
+
+                consecutive_hits=StateDataInfo(lambda s: 0. if "combo_counters" not in s.custom else s.custom["combo_counters"][port],
+                                         StateDataInfo.CONTINUOUS,
+                                         scale=1/self.MAX_COMBO,
+                                         bounds=(0, self.MAX_COMBO),
                                          player_port=port,
                                          config=self.config
                                          ),
