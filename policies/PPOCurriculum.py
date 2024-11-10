@@ -15,7 +15,7 @@ import tensorflow as tf
 from polaris.policies.utils.return_based_scaling import ReturnBasedScaling
 from polaris.policies.utils.popart import Popart
 
-from seedsmash2.curriculum import Curriculum
+from seedsmash.curriculum import Curriculum
 
 tf.compat.v1.enable_eager_execution()
 
