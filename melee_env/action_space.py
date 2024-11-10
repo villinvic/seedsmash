@@ -637,8 +637,7 @@ def allow_waveland(game_state: GameState, char_state: PlayerState, curr_action: 
     return allow
 
 def allow_wavedash(game_state, char_state: PlayerState, curr_action: InputSequence):
-    dist_from_ledge = abs(abs(char_state.position.x)-stages.EDGE_GROUND_POSITION[game_state.stage])
-    allow = char_state.action == Action.KNEE_BEND and (dist_from_ledge > 4)
+    allow = char_state.action == Action.KNEE_BEND
     if not allow:
         curr_action.terminate()
     return allow
@@ -849,7 +848,7 @@ class SSBMActionSpace:
     WAVEDASH_LEFT = lambda _: CharDependentInputSequence(
         {
             character: InputSequence([
-                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+1, stick=StickPosition.WAVE_LEFT,
+                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames, stick=StickPosition.WAVE_LEFT,
                                 test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.WAVE_LEFT,
                                 test_func=allow_wavedash, energy_cost=0.),
@@ -860,7 +859,7 @@ class SSBMActionSpace:
     WAVEDASH_RIGHT = lambda _: CharDependentInputSequence(
         {
             character: InputSequence([
-                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+1, stick=StickPosition.WAVE_RIGHT,
+                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames, stick=StickPosition.WAVE_RIGHT,
                                 test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.WAVE_RIGHT,
                                 test_func=allow_wavedash, energy_cost=0.),
@@ -871,7 +870,7 @@ class SSBMActionSpace:
     WAVEDASH_NEUTRAL = lambda _: CharDependentInputSequence(
         {
             character: InputSequence([
-                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+1, stick=StickPosition.DOWN,
+                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames, stick=StickPosition.DOWN,
                                 test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.DOWN,
                                 test_func=check_kneebend, energy_cost=0.),
@@ -882,7 +881,7 @@ class SSBMActionSpace:
     WAVEDASH_SLIGHT_LEFT = lambda _: CharDependentInputSequence(
         {
             character: InputSequence([
-                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+1, stick=StickPosition.DOWN_LEFT,
+                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames, stick=StickPosition.DOWN_LEFT,
                                 test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.DOWN_LEFT,
                                 test_func=allow_wavedash, energy_cost=0.),
@@ -893,7 +892,7 @@ class SSBMActionSpace:
     WAVEDASH_SLIGHT_RIGHT = lambda _: CharDependentInputSequence(
         {
             character: InputSequence([
-                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+1, stick=StickPosition.DOWN_RIGHT,
+                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames, stick=StickPosition.DOWN_RIGHT,
                                 test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.DOWN_RIGHT,
                                 test_func=allow_wavedash, energy_cost=0.),
@@ -939,11 +938,14 @@ class SSBMActionSpace:
         self.n = len(to_register)
         self.gym_spec = Discrete(self.n)
 
+
     def __getitem__(self, item):
         if isinstance(item, (np.int64, np.int32, int)):
             return self._by_idx.get(item, None)
         elif isinstance(item, str):
             return self._by_name.get(item, None)
+        elif hasattr(item, "name"):
+            return self._by_name.get(item.name, None)
         else:
             print(item)
             raise NotImplementedError

@@ -9,7 +9,7 @@ import numpy as np
 
 from melee_env.action_space import ControllerInput
 from melee_env.melee_helpers import MeleeHelper
-from melee_env.observation_space_v2 import ObsBuilder
+from melee_env.observation_space import ObsBuilder
 
 
 @dataclass

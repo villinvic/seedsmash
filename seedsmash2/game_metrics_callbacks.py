@@ -6,7 +6,7 @@ from polaris.experience.episode_callbacks import EpisodeCallbacks
 from polaris.experience import SampleBatch
 from tensorflow.python.keras.backend import dtype
 
-from melee_env.observation_space_v2 import ObsBuilder, idx_to_action
+from melee_env.observation_space import ObsBuilder, idx_to_action
 import numpy as np
 
 from seedsmash2.utils import ActionStateCounts, ActionStateValues

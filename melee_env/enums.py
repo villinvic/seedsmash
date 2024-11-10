@@ -46,5 +46,5 @@ class UsedStage(Enum):
     BATTLEFIELD = 1
     POKEMON_STADIUM = 2
     DREAMLAND = 3
-    FOUNTAIN_OF_DREAMS = 4  # not used for now
+    FOUNTAIN_OF_DREAMS = 4
     YOSHIS_STORY = 5

@@ -23,9 +23,9 @@ from melee_env.general_model import SSBMModelAux
 from melee_env.seedsmash_model import SeedSmashModel
 from melee_env.random_encoder import RandomEncoder
 from melee_env.simple_action_model import EpsilonCategorical, SSBMModel
-from melee_env.melee_gym import SSBM
+from melee_env.polaris_melee import SSBM
 from melee_env.rllib_utils import SSBMCallbacks, TraceMallocCallback, LeagueImpala, SpectateWorkerTest, SpectateWorker, MultiCharConfig
-from melee_env.ssbm_config import SSBMConfig, SSBM_OBS_Config
+from melee_env.configs import SSBMConfig, SSBM_OBS_Config
 
 
 obs_config = (

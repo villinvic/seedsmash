@@ -1,52 +1,23 @@
-import os
-from pprint import pprint
-from time import time
-from typing import List
+import copy
+from copy import deepcopy
+
+from sortedcontainers import SortedDict
 from gymnasium.spaces.dict import Dict
+from melee import Stage, PlayerState, Character, Action, stages, enums, Projectile, GameState, AttackState, \
+    left_platform_position, right_platform_position, top_platform_position
 
-import pandas as pd
-
-import melee
-from melee import Stage, PlayerState, Character, Action, stages, enums, Projectile, GameState, AttackState
-from melee_env.enums import UsedCharacter, UsedStage
-from melee.framedata import FrameData
+from melee_env.compiled_libmelee_framedata import CompiledFrameData
 import numpy as np
 from gymnasium.spaces import Box, Discrete, MultiBinary, Tuple, MultiDiscrete
 
 from melee_env.enums import PlayerType
 from melee_env.make_data import FrameData as FastFrameData
-from melee_env.ssbm_config import SSBMConfig, SSBM_OBS_Config
-
-
-all_stages_to_used = {
-    Stage.YOSHIS_STORY: 0,
-    Stage.BATTLEFIELD: 1,
-    Stage.FINAL_DESTINATION: 2,
-    Stage.POKEMON_STADIUM: 3,
-    Stage.DREAMLAND: 4,
-    Stage.FOUNTAIN_OF_DREAMS: 5
-}
-all_chars_to_used = {
-    Character.MARIO: 0,
-    Character.DOC: 1,
-    Character.LINK: 2,
-    Character.YLINK: 3,
-    Character.MARTH: 4,
-    Character.ROY: 5,
-    Character.FALCO: 6,
-    Character.FOX: 7,
-    Character.CPTFALCON: 8,
-    Character.GANONDORF: 9,
-    Character.JIGGLYPUFF: 10,
-}
-
-#print(used_character_idx)
-
-n_characters = len(all_chars_to_used)
-n_stages = len(all_stages_to_used)
 
 action_idx = {
     s: i for i, s in enumerate(Action)
+}
+idx_to_action = {
+    i: s for i, s in enumerate(Action)
 }
 
 action_state_idx = {
@@ -54,7 +25,6 @@ action_state_idx = {
 }
 
 n_actions = len(action_idx)
-
 
 def randall_position(frame, stage):
     y, x1, x2 = stages.randall_position(frame)
@@ -66,790 +36,594 @@ def randall_position(frame, stage):
 
     return y, x1, x2
 
+class StateDataInfo:
+    CONTINUOUS = "continuous"
+    BINARY = "binary"
+    CATEGORICAL = "categorical"
 
-class StateBlock:
+    HARD_BOUNDS = (-10., 10)
 
     def __init__(
-            self,
-            name,
-            value_dict: dict,
-            delay=0,
-            debug=False,
+            self, extractor, nature, name="UNSET", scale=1., size=1, bounds=None, player_port=None, config={}
     ):
-        # value_dict = {v: (nature, size, scale) for v in values}
         self.name = name
-        self.size = {
-            "continuous": 0,
-            "binary": 0,
-            #"discrete": [],
-        }
-        self.registered = {}
-        self.idxs = {}
-        self.items = {}
-        self.relative_idxs = {}
-
-        for v, info in value_dict.items():
-            self.register(v, info)
-
+        self.base_name = None  # utility for player dependency
+        self.extractor = extractor
+        self.nature = nature
+        self.scale = scale
+        self.size = size if nature != StateDataInfo.CATEGORICAL else 1
+        self.bounds = StateDataInfo.HARD_BOUNDS if bounds is None else tuple(b*scale for b in bounds)
+        self.n_values = None if nature != StateDataInfo.CATEGORICAL else size
+        self.delay = config["obs_config"]["delay"]
+        self.debug = config["debug"]
         self.delay_idx = 0
-        self.delay = delay
-        self.debug = debug
-        self.values = {
-            "continuous": np.zeros((delay + 1, self.size["continuous"]), dtype=np.float32),
-            "binary": np.zeros((delay + 1, self.size["binary"]), dtype=np.int8),
-            #"discrete": np.zeros((delay + 1, len(self.size["discrete"])), dtype=np.int16),
-        }
+        self.init_values()
+        self.gym_space = self.get_gym_space()
+        self.update = self.build_op()
+        self.player = player_port
 
+    def is_player_dependent(self):
+        return not self.player is None
 
-    def register(self, v, info):
-        self.idxs[v] = self.size[info["nature"]]
-        self.items[v] = info
+    def init_values(self):
+        if self.nature == StateDataInfo.CONTINUOUS:
+            dtype = np.float32
+        elif self.nature in (StateDataInfo.BINARY, StateDataInfo.CATEGORICAL):
+            dtype = np.int32
+        else:
+            dtype = np.float32
+        #dtype = np.float32 if self.nature in (StateDataInfo.CONTINUOUS, StateDataInfo.CATEGORICAL) else np.int8
 
-        def op(self, state):
-            value = info["extractor"](state)
-            # if np.max(np.abs(value)) * info["scale"] > 15:
-            #     print("BIG VALUE", self.name, v, info, value)
-            d = self.delay_idx % (self.delay+1)
-            if info["nature"] == "continuous":
-                self.values[info["nature"]][d, self.idxs[v]: self.idxs[v] + info["size"]]\
-                    = np.float32(value) * info["scale"]
-            else: # binary
-                if info["size"]>1:
-                    self.values[info["nature"]][d, self.idxs[v]: self.idxs[v] + info["size"]] = 0
-                    if value >= 0:
-                        try:
-                            self.values[info["nature"]][d, self.idxs[v] + np.int32(value)] = 1
-                        except:
-                            print(value, self.name, v)
-                else:
-                    self.values[info["nature"]][d, self.idxs[v]] = np.int8(value)
+        self.value = np.zeros(
+            (self.delay + 1, self.size), dtype=dtype,
+        )
 
-            if self.debug:
-                observed = (self.delay_idx % (self.delay + 1))
-                observed -= self.delay
-                print(self.name , v, self.relative_idxs.get(v), ":", value, "(Undelayed) -- ",
-                      self.values[info["nature"]][observed, self.idxs[v]: self.idxs[v] + info["size"]], "(Observed)",
-                      info["nature"])
-
-
-        self.registered[v] = op
-
-        self.size[info["nature"]] += info["size"]
-
-    def update(self, state):
-
-        for v, op in self.registered.items():
-            op(self, state)
-
-    def __call__(self, obs_c, idx_c, obs_b, idx_b, undelay=False):
-
-        idx_c_next = idx_c + self.size["continuous"]
-        idx_b_next = idx_b + self.size["binary"]
-        
-        observed = (self.delay_idx % (self.delay+1))
+    def observe(self, undelay=False):
+        observed = (self.delay_idx % (self.delay + 1))
         if not undelay:
             observed -= self.delay
-        if not self.relative_idxs:
-            self.relative_idxs = {}
-            for k, idx in self.idxs.items():
-                if self.items[k]["nature"] == ObsBuilder.CONTINOUS:
-                    self.relative_idxs[k] = (self.items[k]["nature"], np.arange(idx+idx_c, idx+idx_c+self.items[k]["size"]))
-                else:
-                    self.relative_idxs[k] = (self.items[k]["nature"], np.arange(idx+idx_b, idx+idx_b+self.items[k]["size"]))
 
-        obs_c[idx_c: idx_c_next] = self.values["continuous"][observed]
+        if self.debug:
+            print(self.name, self.value[self.delay_idx % (self.delay + 1)], "(undelayed)", self.value[observed], "(observed)")
 
-        obs_b[idx_b: idx_b_next] = self.values["binary"][observed]
+        if self.nature == StateDataInfo.CONTINUOUS:
+            return np.clip(self.value[observed] * self.scale, *self.bounds)
 
-        return idx_c_next, idx_b_next
+        return self.value[observed]
+
+    def reset(self):
+        self.value[:] = 0
+        self.delay_idx = 0
+
+    def get_gym_space(self):
+        if self.nature == StateDataInfo.CONTINUOUS:
+            return Box(*self.bounds, (self.size,), dtype=np.float32)
+        elif self.nature == StateDataInfo.CATEGORICAL:
+            return Box(0, self.n_values - 1, (1,), dtype=np.float32)
+        elif self.nature == StateDataInfo.BINARY:
+            return MultiBinary(self.size)
+        else:
+            raise NotImplementedError
+
+    def build_op(self):
+        def op(state):
+            extracted = self.extractor(state)
+            self.value[self.delay_idx % (self.delay + 1), :] = extracted
+        return op
 
     def advance(self):
         self.delay_idx += 1
 
 
-class StateDataInfo(dict):
+class PostProcessFeature:
 
     def __init__(
-            self,
-            extractor, nature, scale=1., size=1
+            self, extractor, nature, name="UNSET", scale=1., size=1, config={}
     ):
-        super().__init__()
-        self["extractor"] = extractor
-        self["nature"] = nature
-        self["scale"] = scale
-        self["size"] = size
+        self.name = name
+        self.base_name = None  # utility for player dependency
+        self.nature = nature
+        self.scale = scale
+        self.size = size if nature != StateDataInfo.CATEGORICAL else 1
+        self.n_values = None if nature != StateDataInfo.CATEGORICAL else size
+        self.debug = config["debug"]
+        self.gym_space = self.get_gym_space()
+        self.extractor = extractor
+
+    def observe(self, features):
+        value = self.extractor(features)
+        if self.nature == StateDataInfo.CONTINUOUS:
+            value = np.clip(value * self.scale, *StateDataInfo.HARD_BOUNDS)
+        return value
+
+    def get_gym_space(self):
+        if self.nature == StateDataInfo.CONTINUOUS:
+            return Box(*StateDataInfo.HARD_BOUNDS, (self.size,), dtype=np.float32)
+        elif self.nature == StateDataInfo.CATEGORICAL:
+            return Box(0, self.n_values - 1, (1,), dtype=np.float32)
+        elif self.nature == StateDataInfo.BINARY:
+            return MultiBinary(self.size)
+        else:
+            raise NotImplementedError
 
 
 class ObsBuilder:
-    FRAME_SCALE = 0.01
+    FRAME_SCALE = 0.02
     SPEED_SCALE = 0.5
-    POS_SCALE = 0.01
+    POS_SCALE = 0.05
     HITBOX_SCALE = 0.1
-    PERCENT_SCALE = 0.009
-    CHARDATA_SCALE = np.array([
-        0.1, 16., 0.23, 0.05, 1.6, 4.2, 3.5, 1.35, 0.05, 0.7, 1.2
-    ], dtype=np.float32)
-    FD = FrameData()
+    PERCENT_SCALE = 0.01
+    FD = CompiledFrameData()
     FFD = FastFrameData()
+
     CONTINOUS = "continuous"
     BINARY = "binary"
     DISCRETE = "discrete"
-
     STAGE = "stage"
     PROJECTILE = "projectile"
     ECB = "ecb"
     PLAYER = "player"
     PLAYERS = {
-        i: "player" + "_" + str(i) for i in range(1,5)
+        i: "player" + "_" + str(i) for i in range(1, 5)
     }
 
     PLAYER_EMBED = "player_embedding"
     CONTROLLER_STATE = "controller_state"
     EXTRA = "extra"
 
+    player_permuts = {
+        1: {
+            1: "1", 2: "2", 3: "3", 4: "4"
+        },
+        2: {
+            1: "2", 2: "1", 3: "4", 4: "3"
+        },
+        3: {
+            1: "3", 2: "4", 3: "1", 4: "2"
+        },
+        4: {
+            1: "4", 2: "3", 3: "2", 4: "1"
+        }
+    }
 
-    def __init__(self, config, player_types):
+    MAX_COMBO = 5
+
+    def __init__(
+            self,
+            config: dict,
+    ):
 
         self.config = config
-        self.name2idx = None
-
-
-        # TODO online port assignement
-
-
-        self.bot_ports = [i + 1 for i, p in enumerate(player_types) if p == PlayerType.BOT]
-        # self.player_state_idxs = None if len(self.bot_ports) < 2 else {
-        #     p: None for p in range(1, 5)
-        # }
-
-        dummy_console = melee.Console(path="tmp")
-
-        self.char_data = {
-            Character(c): np.array(list(v.values())[2:], dtype=np.float32) / ObsBuilder.CHARDATA_SCALE
-            for c, v in dummy_console.characterdata.items()
+        all_stages_to_used = {
+            s: i
+            for i, s in enumerate(config["playable_stages"])
+        }
+        all_chars_to_used = {
+            s: i
+            for i, s in enumerate(config["playable_characters"])
         }
 
-        dummy_console.stop()
+        n_characters = len(all_chars_to_used)
+        n_stages = len(all_stages_to_used)
 
+        # TODO online port assignement
+        self.bot_ports = [i + 1 for i, p_type in enumerate(config["player_types"]) if p_type == PlayerType.BOT]
 
-        self.num_players = len(self.config["players"])
+        self.num_players = len(config["player_types"])
+
+        def projectile_dist(p: Projectile, player: PlayerState):
+            return np.sqrt(np.square(p.position.x - player.position.x) + np.square(p.position.y - player.position.y))
+
+        def own_projectile_getter(state, port):
+            other_port = 1 + port % 2
+            # we want the projectile that is the closest to other_port
+            own_projectiles = [
+                p for p in state.projectiles if p.owner in (port, -1)
+            ]
+            if len(own_projectiles) > 0:
+                nearest_own_projectile = sorted(
+                    own_projectiles, key=lambda p: projectile_dist(p, state.players[other_port])
+                )[0]
+                return nearest_own_projectile.position.x, nearest_own_projectile.position.y, 1.
+            else:
+                return 0., 0., 0.
+
+        def get_nearest_platform(state, port):
+            """
+            gets the  left/right edges or nearest platform ledges.
+            """
+
+            x, y = state.players[port].position.x,  state.players[port].position.y
+            n_p_y, n_p_x1, n_p_x2 = left_platform_position(state)
+            no_plat = (
+                n_p_y== 0.0 and  n_p_x1 == 0.0 and  n_p_x2 == 0.0
+            )
+            if no_plat:
+                n_dist = np.inf
+            else:
+                n_dist = np.minimum(
+                        ( (x - n_p_x1) ** 2 + 0.3*(y - n_p_y) ** 2) ** 0.5,
+                        ( (x - n_p_x2) ** 2 + 0.3*(y - n_p_y) ** 2) ** 0.5,
+                    )
+
+            for p_y, p_x1, p_x2 in (right_platform_position(state), top_platform_position(state),
+                                    randall_position(state.frame, state.stage)):
+                no_plat = (
+                        p_y == 0.0 and p_x1 == 0.0 and p_x2 == 0.0
+                )
+                if no_plat:
+                    dist = np.inf
+                else:
+                    dist = np.minimum(
+                        ((x - p_x1) ** 2 + 0.3*(y - p_y) ** 2) ** 0.5,
+                        ((x - p_x2) ** 2 + 0.3*(y - p_y) ** 2) ** 0.5,
+                    )
+
+                if dist < n_dist:
+                    n_p_x1, n_p_y, n_p_x2 = p_x1, p_y, p_x2
+
+            right_edge = stages.EDGE_POSITION[state.stage]
+            left_edge = -right_edge
+            dist = np.minimum(((x - left_edge) ** 2 + 0.3*y ** 2) ** 0.5,
+                              ((x - right_edge) ** 2 + 0.3*y ** 2) ** 0.5)
+            if dist < n_dist:
+                n_p_x1, n_p_y, n_p_x2 = left_edge, 0., right_edge
+
+            return n_p_y, n_p_x1, n_p_x2
+
 
         stage_value_dict = dict(
-                stage=                  StateDataInfo(lambda s: all_stages_to_used[s.stage],
-                                        ObsBuilder.BINARY,
-                                        size=n_stages,
-                                        ),
-                blastzone=              StateDataInfo(lambda s: stages.BLASTZONES[s.stage],
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.POS_SCALE,
-                                        size=4,
-                                        ),
-                edge_position=          StateDataInfo(lambda s: stages.EDGE_POSITION[s.stage],
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.POS_SCALE,
-                                        ),
-                edge_ground_position =  StateDataInfo(lambda s: stages.EDGE_GROUND_POSITION[s.stage],
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.POS_SCALE,
-                                        ),
-                # tweaked side_platfrom and top_platform functions to return 0s instead of Nones
-                platform_position =     StateDataInfo(lambda s: (stages.top_platform_position(s.stage)
-                                        + stages.side_platform_position(right_platform=True, stage=s.stage)
-                                        + stages.side_platform_position(right_platform=False, stage=s.stage)),
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.POS_SCALE,
-                                        size=9,
-                                        ),
-                randall_position =      StateDataInfo(lambda s: randall_position(s.frame, s.stage),
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.POS_SCALE,
-                                        size=3,
-                                        )
+            stage=StateDataInfo(lambda s: all_stages_to_used.get(s.stage, 0),
+                                StateDataInfo.CATEGORICAL,
+                                size=n_stages,
+                                config=self.config,
+                                ),
+        )
 
-            )
-
-        def make_projectile_dict(i):
-            return dict(
-                speed=                  StateDataInfo(lambda s: 0. if len(s.projectiles) <= i else (
-                                            s.projectiles[i].speed.x,
-                                            s.projectiles[i].speed.y,
-                                        ),
-                                        ObsBuilder.CONTINOUS,
-                                        size=2,
-                                        scale=ObsBuilder.SPEED_SCALE
-                                        ),
-                position=               StateDataInfo(lambda s: 0. if len(s.projectiles) <= i else (
-                                            s.projectiles[i].position.x,
-                                            s.projectiles[i].position.y,
-                                        ),
-                                        ObsBuilder.CONTINOUS,
-                                        size=2,
-                                        scale=ObsBuilder.POS_SCALE
-                                        ),
-                frame_remaining=         StateDataInfo(lambda s: 0. if len(s.projectiles) <= i else
-                                        np.clip(s.projectiles[i].frame, 0, 100.),
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.FRAME_SCALE
-                                        ),
-                owner=                  StateDataInfo(lambda s: -1 if len(s.projectiles) <= i else
-                                        int(s.projectiles[i].owner) - 1,
-                                        ObsBuilder.BINARY,
-                                        size=4
-                                        ),
-
-            )
-
-        projectile_value_dict = [make_projectile_dict(i) for i in range(self.config["obs"]["max_projectiles"])]
-
-        
         def make_player_dict(port):
             """
             Helper function for indexing in lambda functions
             """
             # FD.frame_count is slower that our FFD.remaining_frame ?
             # iasa also iterates over dicts...
-            frame_data_info = dict(
-                attack_state=           StateDataInfo(lambda s: action_state_idx[ObsBuilder.FD.attack_state(
-                                                      s.players[port].character,
-                                                      s.players[port].action,
-                                                      s.players[port].action_frame
-                                                      )],
-                                        ObsBuilder.BINARY,
-                                        size=4
-                                        ),
-                # dj_height
-                # first_hitbox_frame
-                # frame_count
-                frames_until_dj_apex=   StateDataInfo(lambda s: ObsBuilder.FD.frames_until_dj_apex(s.players[port]),
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.FRAME_SCALE,
-                                        ),
-                # hitbox_count
-                iasa=                   StateDataInfo(lambda s: max(ObsBuilder.FD.iasa(s.players[port].character,
-                                                                                   s.players[port].action
-                                                                                   ) - s.players[port].action_frame, 0.),
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.FRAME_SCALE,
-                                        ),
-                is_attack=              StateDataInfo(lambda s: ObsBuilder.FD.is_attack(s.players[port].character,
-                                                                                        s.players[port].action),
-                                        ObsBuilder.BINARY,
-                                        ),
-                is_bmove=               StateDataInfo(lambda s: ObsBuilder.FD.is_bmove(s.players[port].character,
+            def frames_before_next_hitbox(char_state):
+                next_hitbox_frame = ObsBuilder.FD.frames_before_next_hitbox(char_state.character,
+                                                                            char_state.action,
+                                                                            char_state.action_frame
+                                                        )
+
+                return next_hitbox_frame
+
+            return dict(
+                iasa=StateDataInfo(lambda s: ObsBuilder.FD.iasa[s.players[port].character][
+                                                                    s.players[port].action]
+                                                                     - s.players[port].action_frame,
+                                   StateDataInfo.CONTINUOUS,
+                                   scale=self.FRAME_SCALE,
+                                   bounds=(0., 180.),
+                                   player_port=port,
+                                   config=self.config),
+                frames_before_next_hitbox=StateDataInfo(lambda s: frames_before_next_hitbox(
+                    s.players[port]
+                ),
+                                   StateDataInfo.CONTINUOUS,
+                                   scale=ObsBuilder.FRAME_SCALE,
+                                   bounds=(0., 180.),
+                                   player_port=port,
+                                   config=self.config),
+
+                is_attack=StateDataInfo(lambda s: ObsBuilder.FD.is_attack(s.players[port].character,
                                                                           s.players[port].action),
-                                        ObsBuilder.BINARY,
-                                        ),
-                is_grab=                StateDataInfo(lambda s: ObsBuilder.FD.is_grab(s.players[port].character,
-                                                                      s.players[port].action),
-                                        ObsBuilder.BINARY,
-                                        ),
-                is_roll=                StateDataInfo(lambda s: ObsBuilder.FD.is_roll(s.players[port].character,
-                                                                        s.players[port].action),
-                                        ObsBuilder.BINARY,
-                                        ),
-                is_shield=              StateDataInfo(lambda s: ObsBuilder.FD.is_shield(s.players[port].action),
-                                        ObsBuilder.BINARY,
-                                        ),
-                project_hit_location=   StateDataInfo(lambda s: ObsBuilder.FD.project_hit_location(s.players[port],
-                                                                                                   s.stage,
-                                                                                                   ),
-                                        ObsBuilder.CONTINOUS,
-                                        size=3,
-                                        scale=ObsBuilder.POS_SCALE
-                                        ),
-                # range_backward
-                # range_forward
-                roll_end_position=      StateDataInfo(lambda s: ObsBuilder.FD.roll_end_position(s.players[port],
-                                                                                                s.stage,
-                                                                                                ),
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.POS_SCALE
-                                        ),
-
-                # slide_distance=         StateDataInfo(lambda s: ObsBuilder.FD.slide_distance(s.players[port],
-                #                                                                              s.players[port].speed_ground_x_self +
-                #                                                                              s.players[port].speed_x_attack,
-                #                                                                                 10),
-                #                         ObsBuilder.CONTINOUS,
-                #                         scale=ObsBuilder.POS_SCALE
-                #                         ),
-
-            )
-            in_range_attack = {
-                f"in_range_{other_port}": StateDataInfo(lambda s: ObsBuilder.FD.in_range(s.players[port],
-                                                                                       s.players[other_port],
-                                                                                       s.stage
-                                                                                       ),
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.FRAME_SCALE
-                                        )
-                for other_port in range(1, self.num_players+1) if other_port != port
-            }
-
-            
-            return dict(
-                character_info=         StateDataInfo(lambda s: self.char_data[s.players[port].character],
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.CHARDATA_SCALE,
-                                        size=11,
-                                        ),
-                percent=                StateDataInfo(lambda s: s.players[port].percent,
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.PERCENT_SCALE,
-                                        ),
-                shield_strength=        StateDataInfo(lambda s: s.players[port].shield_strength,
-                                        ObsBuilder.CONTINOUS,
-                                        scale=0.017,
-                                        ),
-                stock=                  StateDataInfo(lambda s: s.players[port].stock,
-                                        ObsBuilder.CONTINOUS,
-                                        scale=0.25,
-                                        ),
-                action_frame=           StateDataInfo(lambda s: self.FFD.remaining_frame(s.players[port].character,
-                                                                             s.players[port].action,
-                                                                             s.players[port].action_frame),
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.FRAME_SCALE
-                                        ),
-                facing=                 StateDataInfo(lambda s: np.int32(s.players[port].facing),
-                                        ObsBuilder.BINARY,
-                                        size=2,
-                                        ),
-                invulnerable=           StateDataInfo(lambda s: s.players[port].invulnerable,
-                                        ObsBuilder.BINARY,
-                                        ),
-                invulnerability_left=   StateDataInfo(lambda s: s.players[port].invulnerability_left,
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.FRAME_SCALE
-                                        ),
-                hitlag_left=            StateDataInfo(lambda s: s.players[port].hitlag_left,
-                                        ObsBuilder.CONTINOUS,
-                                        scale=0.1
-                                        ),
-                hitstun_left=           StateDataInfo(lambda s: s.players[port].hitstun_frames_left,
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.FRAME_SCALE
-                                        ),
-                on_ground=              StateDataInfo(lambda s: s.players[port].on_ground,
-                                        ObsBuilder.BINARY,
-                                        size=2,
-                                        ),
-                speed_air_x_self=       StateDataInfo(lambda s: s.players[port].speed_air_x_self,
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.SPEED_SCALE,
-                                        ),
-                speed_y_self=           StateDataInfo(lambda s: s.players[port].speed_y_self,
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.SPEED_SCALE,
-                                        ),
-                speed_x_attack=         StateDataInfo(lambda s: s.players[port].speed_x_attack,
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.SPEED_SCALE,
-                                        ),
-                speed_y_attack=         StateDataInfo(lambda s: s.players[port].speed_y_attack,
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.SPEED_SCALE,
-                                        ),
-                speed_ground_x_self=    StateDataInfo(lambda s: s.players[port].speed_ground_x_self,
-                                        ObsBuilder.CONTINOUS,
-                                        scale=ObsBuilder.SPEED_SCALE,
-                                        ),
-                off_stage=              StateDataInfo(lambda s: s.players[port].off_stage,
-                                        ObsBuilder.BINARY,
-                                        ),
-                moonwalk=               StateDataInfo(lambda s: s.players[port].moonwalkwarning,
-                                        ObsBuilder.BINARY,
-                                        ),
-                powershield=            StateDataInfo(lambda s: s.players[port].is_powershield,
-                                        ObsBuilder.BINARY,
-                                        ),
-                jumps_left=             StateDataInfo(lambda s: s.players[port].jumps_left,
-                                        ObsBuilder.BINARY,
-                                        size=7
-                                        ),
-                button_a=               StateDataInfo(lambda s:
-                                        s.players[port].controller_state.button[enums.Button.BUTTON_A],
-                                        ObsBuilder.BINARY
-                                        ),
-                button_b=               StateDataInfo(lambda s:
-                                        s.players[port].controller_state.button[enums.Button.BUTTON_B],
-                                        ObsBuilder.BINARY
-                                        ),
-                button_jump=            StateDataInfo(lambda s:
-                                        int(
-                                            s.players[port].controller_state.button[enums.Button.BUTTON_X]
-                                            or
-                                            s.players[port].controller_state.button[enums.Button.BUTTON_Y]
-                                        ),
-                                        ObsBuilder.BINARY
-                                        ),
-                button_shield=          StateDataInfo(lambda s:
-                                        int(
-                                            s.players[port].controller_state.button[enums.Button.BUTTON_L]
-                                            or
-                                            s.players[port].controller_state.button[enums.Button.BUTTON_R]
-                                        ),
-                                        ObsBuilder.BINARY
-                                        ),
-                button_z=               StateDataInfo(lambda s:
-                                        s.players[port].controller_state.button[enums.Button.BUTTON_Z],
-                                        ObsBuilder.BINARY
-                                        ),
-                sticks=                 StateDataInfo(lambda s:
-                                        s.players[port].controller_state.main_stick
-                                        +s.players[port].controller_state.c_stick,
-                                        ObsBuilder.CONTINOUS,
-                                        size=4
-                                        ),
-                ecb=                    StateDataInfo(lambda s: (
-                                        s.players[port].ecb.top.y, s.players[port].ecb.top.x,
-                                        s.players[port].ecb.right.y, s.players[port].ecb.right.x,
-                                        s.players[port].ecb.bottom.y, s.players[port].ecb.bottom.x,
-                                        s.players[port].ecb.left.y, s.players[port].ecb.left.x,
-                                        ),
-                                        ObsBuilder.CONTINOUS,
-                                        size=8,
-                                        scale=ObsBuilder.POS_SCALE
-                                        ),
-                position=               StateDataInfo(lambda s: (s.players[port].position.x, s.players[port].position.y),
-                                        ObsBuilder.CONTINOUS,
-                                        size=2,
-                                        scale=ObsBuilder.POS_SCALE
-                                        ),
-                **frame_data_info,
-                **in_range_attack
-            )
-        
-        player_value_dict = [make_player_dict(idx+1) for idx in range(self.num_players)]
-
-        def make_player_char_embed_dict(port):
-            return dict(
-                character=              StateDataInfo(lambda s: all_chars_to_used[s.players[port].character],
-                                        ObsBuilder.CONTINOUS,
+                                        StateDataInfo.BINARY,
+                                        player_port=port,
+                                        config=self.config),
+                percent=StateDataInfo(lambda s: s.players[port].percent,
+                                      # putting other_port inseast could be a trick to help combos,
+                                      # but prevents overreacting to hitstun, etc.
+                                      # however, action_frame, action and other stuff is leaking info about ourself
+                                      StateDataInfo.CONTINUOUS,
+                                      scale=ObsBuilder.PERCENT_SCALE,
+                                      bounds=(0., 300.),
+                                      player_port=port,
+                                      config=self.config),
+                shield_strength=StateDataInfo(lambda s: s.players[port].shield_strength,
+                                              StateDataInfo.CONTINUOUS,
+                                              scale=0.017,
+                                              bounds=(0., 60.),
+                                              player_port=port,
+                                              config=self.config),
+                stock=StateDataInfo(lambda s: s.players[port].stock,
+                                    StateDataInfo.CATEGORICAL,
+                                    size=5,
+                                    player_port=port,
+                                    config=self.config),
+                action_frame=StateDataInfo(lambda s: self.FFD.remaining_frame(s.players[port].character,
+                                                                              s.players[port].action,
+                                                                              s.players[port].action_frame),
+                                           StateDataInfo.CONTINUOUS,
+                                           scale=ObsBuilder.FRAME_SCALE,
+                                           bounds=(0., 180.),
+                                           player_port=port,
+                                           config=self.config),
+                facing=StateDataInfo(lambda s: np.int32(s.players[port].facing),
+                                     StateDataInfo.BINARY,
+                                     player_port=port,
+                                     config=self.config),
+                invulnerability_type=StateDataInfo(lambda s: s.players[port].invulnerability_type.value,
+                                           StateDataInfo.CATEGORICAL,
+                                           size=3,
+                                           player_port=port,
+                                           config=self.config),
+                # invulnerability_left=StateDataInfo(lambda s: s.players[port].invulnerability_left,
+                #                                    StateDataInfo.CONTINUOUS,
+                #                                    scale=ObsBuilder.FRAME_SCALE,
+                #                                    player_port=port,
+                #                                    config=self.config),
+                hitlag_left=StateDataInfo(lambda s: s.players[port].hitlag_left,
+                                          StateDataInfo.CONTINUOUS,
+                                          scale=ObsBuilder.FRAME_SCALE,
+                                          player_port=port,
+                                          bounds=(0., 180.),
+                                          config=self.config),
+                hitstun_left=StateDataInfo(lambda s: s.players[port].hitstun_frames_left,
+                                           StateDataInfo.CONTINUOUS,
+                                           scale=ObsBuilder.FRAME_SCALE,
+                                           player_port=port,
+                                           bounds=(0., 180.),
+                                           config=self.config),
+                on_ground=StateDataInfo(lambda s: s.players[port].on_ground,
+                                        StateDataInfo.BINARY,
                                         size=1,
-                                        )
+                                        player_port=port,
+                                        config=self.config),
+                speed_air_x_self=StateDataInfo(lambda s: s.players[port].speed_air_x_self,
+                                               StateDataInfo.CONTINUOUS,
+                                               scale=ObsBuilder.SPEED_SCALE,
+                                               player_port=port,
+                                               config=self.config),
+                speed_y_self=StateDataInfo(lambda s: s.players[port].speed_y_self,
+                                           StateDataInfo.CONTINUOUS,
+                                           scale=ObsBuilder.SPEED_SCALE,
+                                           player_port=port,
+                                           config=self.config),
+                speed_x_attack=StateDataInfo(lambda s: s.players[port].speed_x_attack,
+                                             StateDataInfo.CONTINUOUS,
+                                             scale=ObsBuilder.SPEED_SCALE,
+                                             player_port=port,
+                                             config=self.config),
+                speed_y_attack=StateDataInfo(lambda s: s.players[port].speed_y_attack,
+                                             StateDataInfo.CONTINUOUS,
+                                             scale=ObsBuilder.SPEED_SCALE,
+                                             player_port=port,
+                                             config=self.config),
+                speed_ground_x_self=StateDataInfo(lambda s: s.players[port].speed_ground_x_self,
+                                                  StateDataInfo.CONTINUOUS,
+                                                  scale=ObsBuilder.SPEED_SCALE,
+                                                  player_port=port,
+                                                  config=self.config),
+                # off_stage=StateDataInfo(lambda s: s.players[port].off_stage,
+                #                         StateDataInfo.BINARY,
+                #                         player_port=port,
+                #                         config=self.config),
+                # moonwalk=StateDataInfo(lambda s: s.players[port].moonwalkwarning,
+                #                        StateDataInfo.BINARY,
+                #                        player_port=port,
+                #                        config=self.config),
+                # this appears bugged
+                # powershield=StateDataInfo(lambda s: s.players[port].is_powershield,
+                #                           StateDataInfo.BINARY,
+                #                           player_port=port,
+                #                           config=self.config),
+                jumps_left=StateDataInfo(lambda s: s.players[port].jumps_left,
+                                         StateDataInfo.CATEGORICAL,
+                                         size=6,
+                                         player_port=port,
+                                         config=self.config),
+                button_a=StateDataInfo(lambda s:
+                                       s.players[port].controller_state.button[enums.Button.BUTTON_A],
+                                       StateDataInfo.BINARY,
+                                       player_port=port,
+                                       config=self.config),
+                button_b=StateDataInfo(lambda s:
+                                       s.players[port].controller_state.button[enums.Button.BUTTON_B],
+                                       StateDataInfo.BINARY,
+                                       player_port=port,
+                                       config=self.config),
+                button_jump=StateDataInfo(lambda s:
+                                          int(
+                                              s.players[port].controller_state.button[enums.Button.BUTTON_X]
+                                              or
+                                              s.players[port].controller_state.button[enums.Button.BUTTON_Y]
+                                          ),
+                                          StateDataInfo.BINARY,
+                                          player_port=port,
+                                          config=self.config),
+                button_shield=StateDataInfo(lambda s:
+                                            int(
+                                                s.players[port].controller_state.button[enums.Button.BUTTON_L]
+                                                or
+                                                s.players[port].controller_state.button[enums.Button.BUTTON_R]
+                                            ),
+                                            StateDataInfo.BINARY,
+                                            player_port=port,
+                                            config=self.config),
+                button_z=StateDataInfo(lambda s:
+                                       s.players[port].controller_state.button[enums.Button.BUTTON_Z],
+                                       StateDataInfo.BINARY,
+                                       player_port=port,
+                                       config=self.config),
+                sticks=StateDataInfo(lambda s:
+                                     s.players[port].controller_state.main_stick
+                                     + s.players[port].controller_state.c_stick,
+                                     StateDataInfo.CONTINUOUS,
+                                     size=4,
+                                     player_port=port,
+                                     config=self.config),
+                ecb=StateDataInfo(lambda s: (
+                    s.players[port].ecb.top.y, s.players[port].ecb.top.x,
+                    s.players[port].ecb.right.y, s.players[port].ecb.right.x,
+                    s.players[port].ecb.bottom.y, s.players[port].ecb.bottom.x,
+                    s.players[port].ecb.left.y, s.players[port].ecb.left.x,
+                ),
+                                  StateDataInfo.CONTINUOUS,
+                                  size=8,
+                                  scale=ObsBuilder.POS_SCALE,
+                                  player_port=port,
+                                  config=self.config),
+                # we actually predict the roll position in the x pos here.
+                position=StateDataInfo(lambda s: (ObsBuilder.FD.FD.roll_end_position(s.players[port], s), s.players[port].position.y),
+                                       StateDataInfo.CONTINUOUS,
+                                       size=2,
+                                       scale=ObsBuilder.POS_SCALE,
+                                       player_port=port,
+                                       config=self.config),
+                nearest_platform=StateDataInfo(lambda s: get_nearest_platform(s, port),
+                                       StateDataInfo.CONTINUOUS,
+                                       size=3,
+                                       scale=ObsBuilder.POS_SCALE,
+                                       player_port=port,
+                                       config=self.config),
+                character=StateDataInfo(lambda s: all_chars_to_used.get(s.players[port].character, 0),
+                                        StateDataInfo.CATEGORICAL,
+                                        size=n_characters,
+                                        player_port=port,
+                                        config=self.config),
+                action=StateDataInfo(lambda s: action_idx[s.players[port].action],
+                                     StateDataInfo.CATEGORICAL,
+                                     size=n_actions,
+                                     player_port=port,
+                                     config=self.config),
+                # Projectiles
+                # TODO : get projectiles of players, and unowned projectiles
+                # TODO: what are unowned projectiles again ?
+                # TODO: should split in two, continuous and binary!
+                projectile=StateDataInfo(lambda s: own_projectile_getter(s, port),
+                                         StateDataInfo.CONTINUOUS,
+                                         size=3,
+                                         scale=np.array([ObsBuilder.POS_SCALE, ObsBuilder.POS_SCALE, 1], dtype=np.float32),
+                                         player_port=port,
+                                         config=self.config
+                                         ),
+
+                consecutive_hits=StateDataInfo(lambda s: 0. if "combo_counters" not in s.custom else s.custom["combo_counters"][port],
+                                         StateDataInfo.CONTINUOUS,
+                                         scale=1/self.MAX_COMBO,
+                                         bounds=(0, self.MAX_COMBO),
+                                         player_port=port,
+                                         config=self.config
+                                         ),
             )
-        player_char_embedding_dict = [make_player_char_embed_dict(idx+1) for idx in range(self.num_players)]
-        
-        def make_player_as_embed_dict(port):
-            return dict(
-                action=                 StateDataInfo(lambda s: action_idx[s.players[port].action],
-                                        ObsBuilder.CONTINOUS,
-                                        size=1
-                                        )
-            )
-        player_as_embedding_dict = [make_player_as_embed_dict(idx+1) for idx in range(self.num_players)]
+
+        player_value_dict = [make_player_dict(idx + 1) for idx in range(self.num_players)]
 
         extra_value_dict = dict(
-            frame=              StateDataInfo(lambda s: 0. if "game_frame" not in s.custom else s.custom["game_frame"],
-                                ObsBuilder.CONTINOUS,
+            frame=StateDataInfo(lambda s: s.frame,
+                                StateDataInfo.CONTINUOUS,
                                 scale=1 / (8 * 60 * 60),
-                                ),
+                                bounds=(0, 8 * 60 * 60),
+                                config=self.config),
         )
 
-        if not self.config["obs"]["stage"]:
-            stage_value_dict = {}
-        if not self.config["obs"]["ecb"]:
-            for d in player_value_dict:
-                d.pop("ecb")
-        if not self.config["obs"]["character"]:
-            for d in player_value_dict:
-                d.pop("character", None)
-                d.pop("character_info")
-        if not self.config["obs"]["controller_state"]:
-            for d in player_value_dict:
-                d.pop("button_a")
-                d.pop("button_b")
-                d.pop("button_jump")
-                d.pop("button_shield")
-                d.pop("button_z")
-                d.pop("sticks")
+        if not self.config["obs_config"]["stage"]:
+            stage_value_dict.pop("stage")
 
-        self._stage = [StateBlock(
-            name=ObsBuilder.STAGE,
-            value_dict=stage_value_dict,
-            debug=self.config["debug"]
+        to_pop = []
+        if not self.config["obs_config"]["ecb"]:
+            to_pop.append("ecb")
+        if not self.config["obs_config"]["character"]:
+            to_pop.append("character")
+        if not self.config["obs_config"]["controller_state"]:
+            to_pop.extend([
+                "button_a",
+                "button_b",
+                "button_jump",
+                "button_shield",
+                "button_z",
+                "sticks"])
+        if not self.config["obs_config"]["projectiles"]:
+            to_pop.append("projectile")
 
-        )]
+        for d in player_value_dict:
+            for item in to_pop:
+                d.pop(item)
 
-        self._players = [StateBlock(
-            name=ObsBuilder.PLAYER + f"_{i+1}",
-            value_dict=player_value_dict[i],
-            delay=self.config["obs"]["delay"],
-            debug=self.config["debug"]
-        ) for i in range(self.num_players)]
+        features = []
+        all_dicts = [stage_value_dict, extra_value_dict] + player_value_dict
+        for d in all_dicts:
+            for k, v in d.items():
+                v.name = k
+                if v.is_player_dependent():
+                    v.base_name = k
+                    v.name += str(v.player)
 
-        self._players_char_embeddings = [StateBlock(
-            name=ObsBuilder.PLAYER_EMBED + f"_char_{i+1}",
-            value_dict=player_char_embedding_dict[i],
-            delay=0,
-            debug=self.config["debug"]
-        ) for i in range(self.num_players)]
+                features.append(v)
 
-        self._players_as_embeddings = [StateBlock(
-            name=ObsBuilder.PLAYER_EMBED + f"_as_{i + 1}",
-            value_dict=player_as_embedding_dict[i],
-            delay=self.config["obs"]["delay"],
-            debug=self.config["debug"]
-        ) for i in range(self.num_players)]
-
-        self._projectiles = [StateBlock(
-            name=ObsBuilder.PROJECTILE + f"_{i}",
-            value_dict=projectile_value_dict[i],
-            debug=self.config["debug"]
-        ) for i in range(self.config["obs"]["max_projectiles"])]
-
-        self._extra = [StateBlock(
-            name=ObsBuilder.EXTRA,
-            value_dict=extra_value_dict,
-            debug=self.config["debug"]
-        )]
-
-        self._blocks = self._stage + self._projectiles + self._players + self._players_char_embeddings \
-                       + self._players_as_embeddings + self._extra
-        self.non_embedding_blocks = self._stage + self._projectiles + self._players + self._extra
-        self._base_blocks = self._stage + self._projectiles + self._extra
-        self._port_specific_blocks = self._players + self._players_char_embeddings + self._players_as_embeddings
-
-        self._player_blocks = {
-            block.name: block for block in self._players
-        }
-        self._player_char_embedding_blocks = {
-            block.name: block for block in self._players_char_embeddings
-        }
-        self._player_as_embedding_blocks = {
-            block.name: block for block in self._players_as_embeddings
-        }
-
-        self.initialize()
+        self.features = list(sorted(features, key=lambda feature: feature.nature+feature.name))
+        self.initialise()
 
     def update(self, state: GameState, **specific):
-        if len(specific)>0:
-            for b in self._blocks:
-                b.advance()
+        if len(specific) > 0:
+            for feature in self.features:
+                feature.advance()
                 for k in specific:
-                    if k in b.registered:
-                        b.registered[k](b, state)
-
+                    if k == feature.name:
+                        feature.update(state)
         else:
-            for b in self._base_blocks:
-                b.advance()
-                b.update(state)
-            if len(state.players) == self.num_players:
-                for b in self._port_specific_blocks:
-                    b.advance()
-                    b.update(state)
-            else:
-                print("Weird state there.")
+            for feature in self.features:
+                feature.advance()
+                feature.update(state)
 
         if self.config['debug']:
             print()
 
     def advance(self):
-        for b in self._blocks:
-            b.advance()
+        for feature in self.features:
+            feature.advance()
 
-    def build(self, obs_dict):
-        for idx, obs in obs_dict.items():
-            self.build_for(idx, obs)
+    def reset(self):
+        for feature in self.features:
+            feature.reset()
+
+    def build(self):
+        obs_dict = {}
+        for port in self.bot_ports:
+            obs = {
+                StateDataInfo.BINARY: SortedDict(),
+                StateDataInfo.CATEGORICAL: SortedDict(),
+                StateDataInfo.CONTINUOUS: SortedDict(),
+            }
+            obs["ground_truth"] = deepcopy(obs)
+            self.build_for(port, obs)
+            obs_dict[port] = obs
         return obs_dict
 
     def build_for(self, player_idx, obs):
-        if player_idx == 1:
-            p1 = 1
-            p2 = 2
-            p3 = 3
-            p4 = 4
-        elif player_idx == 2:
-            p1 = 2
-            p2 = 1
-            p3 = 3
-            p4 = 4
-        elif player_idx == 3:
-            p1 = 3
-            p2 = 4
-            p3 = 1
-            p4 = 2
-        else:
-            p1 = 4
-            p2 = 3
-            p3 = 2
-            p4 = 1
+        for feature in self.features:
+            if feature.is_player_dependent():
+                p = feature.player
 
-        (obs_c,
-         obs_b,
-         obs_char,
-         obs_action_state
-         ) = obs
-        (idx_c,
-         idx_b,
-         idx_char,
-         idx_as
-         ) = (0,
-              0,
-              0,
-              0)
+                obs_slot = feature.base_name + ObsBuilder.player_permuts[player_idx][p]
 
-        for base_block in self._base_blocks:
-            idx_c, idx_b = base_block(obs_c, idx_c, obs_b, idx_b)
-
-        for i, block_name in enumerate([
-            ObsBuilder.PLAYERS[p1],
-            ObsBuilder.PLAYERS[p2],
-            ObsBuilder.PLAYERS[p3],
-            ObsBuilder.PLAYERS[p4]
-        ]):
-            if block_name in self._player_blocks:
-                idx_c, idx_b = self._player_blocks[block_name](obs_c, idx_c, obs_b, idx_b,
-                                                               # We assume that we can accurately predict ourselves
-                                                               undelay=i==0)
-        for i, block_name in enumerate([
-            ObsBuilder.PLAYER_EMBED + f"_char_{p1}",
-            ObsBuilder.PLAYER_EMBED + f"_char_{p2}",
-            ObsBuilder.PLAYER_EMBED + f"_char_{p3}",
-            ObsBuilder.PLAYER_EMBED + f"_char_{p4}",
-        ]):
-            if block_name in self._player_char_embedding_blocks:
-                idx_char, _ = self._player_char_embedding_blocks[block_name]\
-                    (obs_char, idx_char, obs_b, idx_b,
-                    # We assume that we can accurately predict ourselves
-                    undelay=i==0)
-                
-        for i, block_name in enumerate([
-            ObsBuilder.PLAYER_EMBED + f"_as_{p1}",
-            ObsBuilder.PLAYER_EMBED + f"_as_{p2}",
-            ObsBuilder.PLAYER_EMBED + f"_as_{p3}",
-            ObsBuilder.PLAYER_EMBED + f"_as_{p4}",
-        ]):
-            if block_name in self._player_as_embedding_blocks:
-                idx_as, _ = self._player_as_embedding_blocks[block_name]\
-                    (obs_action_state, idx_as, obs_b, idx_b,
-                    # We assume that we can accurately predict ourselves
-                    undelay=i==0)
-
-        np.clip(obs_c, -20., 20., out=obs_c)
+                obs[feature.nature][obs_slot] = feature.observe(undelay=False) # undelay=p == player_idx
+                obs["ground_truth"][feature.nature][obs_slot] = feature.observe(undelay=True)
+            else:
+                obs[feature.nature][feature.name] = feature.observe(undelay=True)
+                obs["ground_truth"][feature.nature][feature.name] = feature.observe(undelay=True)
 
 
-
-    def initialize(self):
-        size_c, size_b = 0, 0
-        for block in self.non_embedding_blocks:
-            c, b = block.size.values()
-            size_c += c
-            size_b += b
-
-        character_embedding = Box(low=0, high=n_characters-1, shape=(self.num_players,), dtype=np.float32)
-        action_embedding = Box(low=0, high=n_actions-1, shape=(self.num_players,), dtype=np.float32) # MultiDiscrete([n_actions, n_actions], dtype=np.int16)
-
-        self.gym_specs = Dict({
-            i: Tuple([
-                Box(low=-30., high=30., shape=(size_c,)),
-                MultiBinary(size_b),
-                character_embedding,
-                action_embedding
-            ])
-            for i in self.bot_ports
-        })
+    def initialise(self):
+        spec_dict = {
+                nature: Dict({feature.name: feature.gym_space for feature in self.features
+                              if feature.nature == nature}) for nature in (StateDataInfo.CONTINUOUS,
+                                                                           StateDataInfo.BINARY,
+                                                                           StateDataInfo.CATEGORICAL)
+        }
+        spec_dict["ground_truth"] = Dict(copy.deepcopy(spec_dict))
+        self.gym_specs = Dict(spec_dict)
 
         game_state = GameState()
-        game_state.projectiles = [Projectile() for _ in range(self.config["obs"]["max_projectiles"])]
-        game_state.players = {i + 1: PlayerState() for i in range(len(self.config["players"]))}
-        # game_state.players[1].stock = 16
-        # game_state.players[1].action = Action.DOWN_B_GROUND
-        # game_state.players[1].action_frame = 3
+        game_state.players = {i + 1: PlayerState() for i in range(len(self.config["player_types"]))}
 
         for v in game_state.players.values():
-            v.character = Character.MARIO
-
+            v.character = Character.FOX
         self.update(game_state)
-        self.build(self.gym_specs.sample())
-
-        self.name2idx = {}
-        for block in self._stage + self._extra:
-            self.name2idx.update(
-                {k: v if nature == ObsBuilder.CONTINOUS else v + size_c for k, (nature, v) in block.relative_idxs.items()}
-            )
-        for block in self._projectiles + self._players:
-            self.name2idx.update(
-                {block.name + "_" + k: v if nature == ObsBuilder.CONTINOUS else v + size_c
-                 for k, (nature, v) in block.relative_idxs.items()}
-            )
-
-    def __getitem__(self, item):
-        """
-        #   TODO: Unsupported for projectiles
-        :param item: feature to look for
-        :return: Returns the index in the tuple obs and the
-        list of indices where you find that item in the post-process observation
-        """
-        return self.name2idx.get(item)
-
-    def get_player_obs_idx(self, item, player_port):
-
-        return self.name2idx.get(ObsBuilder.PLAYERS[player_port] + "_" + item)
-
-
-
-if __name__ == '__main__':
-    obs_config = (
-        SSBM_OBS_Config()
-        # .character()
-        .ecb()
-        .stage()
-        .max_projectiles(3)
-        .controller_state()
-        .delay(2)
-    )
-
-    env_config = (
-        SSBMConfig()
-        .chars([
-            Character.FOX,
-            Character.FALCO,
-            Character.MARIO,
-            Character.DOC,
-            Character.MARTH,
-            Character.ROY,
-            Character.CPTFALCON,
-            Character.GANONDORF,
-            Character.JIGGLYPUFF,
-        ])
-        .stages([
-            Stage.FINAL_DESTINATION,
-            Stage.YOSHIS_STORY,
-            Stage.POKEMON_STADIUM,
-            Stage.BATTLEFIELD,
-            Stage.DREAMLAND
-        ])
-        .players([PlayerType.BOT, PlayerType.BOT])
-        .n_eval(0)
-        .set_obs_conf(obs_config)
-
-        .render()
-        .debug()
-    )
-
-    ob = ObsBuilder(env_config, env_config["players"])
-    print(ob.gym_specs)
-    print(ob.name2idx)
-    print(ob.get_player_obs_idx("stock", 1))
-
-
-    # game_state = GameState()
-    # game_state.projectiles = [Projectile() for _ in range(env_config["obs"]["max_projectiles"])]
-    # game_state.players = {i + 1: PlayerState() for i in range(len(env_config["players"]))}
-    # for v in game_state.players.values():
-    #     v.character = Character.MARIO
-    #
-    # dummies = ob.gym_specs.sample()
-    #
-    # ob.update(game_state)
-    # ob.build(dummies)
-    # print(dummies)
-    # print("ok")
-    # ob.update(game_state)
-    # ob.build(dummies)
-    #
-    # print(dummies)
-
-    # pprint(len(out))

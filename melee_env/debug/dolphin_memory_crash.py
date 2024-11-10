@@ -6,8 +6,8 @@ import numpy as np
 
 from melee import Character, Stage
 from melee_env.enums import PlayerType
-from melee_env.melee_gym import SSBM
-from melee_env.ssbm_config import SSBM_OBS_Config, SSBMConfig
+from melee_env.polaris_melee import SSBM
+from melee_env.configs import SSBM_OBS_Config, SSBMConfig
 
 obs_config = (
     SSBM_OBS_Config()
