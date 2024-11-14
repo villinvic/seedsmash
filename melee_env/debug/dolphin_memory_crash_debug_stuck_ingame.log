@@ -1,0 +1,15 @@
+SETUP
+
+IntCPU: Unknown instruction 00000000 at PC = 00000008  last_PC = 80001f18  LR = 803730a8
+
+ * zz_0373078_ [ LR = 803730a4 ]
+ *  ---  [ addr = fffffffc ]
+ *  ---  [ addr = 3030fffe ]
+
+INIT
+[<Character.DOC: 21>, <Character.JIGGLYPUFF: 15>] Stage.FINAL_DESTINATION
+0 STOPING=================================================================================================
+
+other
+[Errno 32] Broken pipe
+

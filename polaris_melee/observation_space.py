@@ -230,7 +230,7 @@ class ObsBuilder:
 
         def get_nearest_platform(state, port):
             """
-            gets the  left/right edges or nearest platform ledges.
+            gets nearest platform ledges.
             """
 
             x, y = state.players[port].position.x,  state.players[port].position.y
@@ -246,8 +246,7 @@ class ObsBuilder:
                         ( (x - n_p_x2) ** 2 + 0.3*(y - n_p_y) ** 2) ** 0.5,
                     )
 
-            for p_y, p_x1, p_x2 in (right_platform_position(state), top_platform_position(state),
-                                    randall_position(state.frame, state.stage)):
+            for p_y, p_x1, p_x2 in (right_platform_position(state), top_platform_position(state)):
                 no_plat = (
                         p_y == 0.0 and p_x1 == 0.0 and p_x2 == 0.0
                 )
@@ -262,13 +261,6 @@ class ObsBuilder:
                 if dist < n_dist:
                     n_p_x1, n_p_y, n_p_x2 = p_x1, p_y, p_x2
 
-            right_edge = stages.EDGE_POSITION[state.stage]
-            left_edge = -right_edge
-            dist = np.minimum(((x - left_edge) ** 2 + 0.3*y ** 2) ** 0.5,
-                              ((x - right_edge) ** 2 + 0.3*y ** 2) ** 0.5)
-            if dist < n_dist:
-                n_p_x1, n_p_y, n_p_x2 = left_edge, 0., right_edge
-
             return n_p_y, n_p_x1, n_p_x2
 
 
@@ -276,6 +268,11 @@ class ObsBuilder:
             stage=StateDataInfo(lambda s: all_stages_to_used.get(s.stage, 0),
                                 StateDataInfo.CATEGORICAL,
                                 size=n_stages,
+                                config=self.config,
+                                ),
+            stage_width=StateDataInfo(lambda s: stages.EDGE_POSITION[s.stage],
+                                StateDataInfo.CONTINUOUS,
+                                scale=self.POS_SCALE,
                                 config=self.config,
                                 ),
         )
@@ -526,6 +523,8 @@ class ObsBuilder:
 
         if not self.config["obs_config"]["stage"]:
             stage_value_dict.pop("stage")
+            stage_value_dict.pop("stage_width")
+
 
         to_pop = []
         if not self.config["obs_config"]["ecb"]:

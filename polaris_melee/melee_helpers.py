@@ -16,7 +16,7 @@ class Helper:
 
     weights = {}
 
-    decay = 20.
+    clip = 0.5
 
     def __init__(self, hist_len=6):
 
@@ -41,7 +41,10 @@ class Helper:
             func_bonus = float(func(player_state, is_near))
 
             total_collected = self.metrics[func_name] * self.weights.get(func_name, 0.0)
-            scaled_bonus = func_bonus * self.weights.get(func_name, 0.0) / (1 + 1e-2 * np.exp(total_collected * self.decay))
+            if total_collected > self.clip:
+                scaled_bonus = 0.
+            else:
+                scaled_bonus = func_bonus * self.weights.get(func_name, 0.0)
 
             self.metrics[func_name] += func_bonus
 
@@ -72,24 +75,21 @@ class TechSkillHelper(Helper):
                         Action.FALLING_AERIAL_BACKWARD, Action.JUMPING_ARIAL_BACKWARD, Action.JUMPING_ARIAL_FORWARD,
                          Action.JUMPING_FORWARD, Action.JUMPING_FORWARD)
     weights = {
-        "dashing": 0.01,
+        "dashing": 0.001,
         "ledge_canceling": 0.03,
         "lcanceling": 0.01,
         "wavelanding": 0.02,
         "wavedash": 0.003, # easy action
-        "wavedash_off_platform": 0.02,
+        "wavedash_off_platform": 0.03,
         "walljump": 0.05,
-        "moonwalk": 0.03
+        "moonwalk": 0.,
     }
 
     def __init__(self):
-        super().__init__(hist_len=19)
-
+        super().__init__(hist_len=10)
 
     def dashing(self, player_state: PlayerState, is_near: bool):
-        old_state = self.previous_player_states[-1]
-
-        return player_state.action == Action.DASHING and old_state.action != Action.DASHING
+        return player_state.action == Action.DASHING# and self.previous_player_states[-1].action != Action.DASHING
 
     def ledge_canceling(self, player_state: PlayerState, is_near: bool):
         # in landing-lag > in air
@@ -156,12 +156,14 @@ class TechSkillHelper(Helper):
 
     # do we make this char specific ?
     def moonwalk(self, player_state: PlayerState, is_near: bool):
+        # TODO: improve
         old_state = self.previous_player_states[0]
         prev_state = self.previous_player_states[-1]
         facing = float(player_state.facing) * 2 - 1
         return (old_state.moonwalkwarning
                 and (facing * player_state.speed_ground_x_self) < 0 and player_state.on_ground
                 ) and player_state.speed_ground_x_self * prev_state.speed_ground_x_self <= 0
+        #return (facing * player_state.speed_ground_x_self) < 2 and player_state.on_ground
 
 
 class CptFalconHelper(Helper):
@@ -188,6 +190,7 @@ class MarioHelper(Helper):
 
     def upb_walljump(self, player_state: PlayerState, is_near: bool):
         old_state = self.previous_player_states[-3]
+        # TODO: directly hardcode this into upb action space, with mario specifically
         return old_state.action == Action.UP_B_AIR and player_state.action == Action.WALL_TECH_JUMP
 
 class DocHelper(Helper):

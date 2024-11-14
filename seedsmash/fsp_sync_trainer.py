@@ -144,6 +144,7 @@ class FSP(Checkpointable):
                 GlobalCounter[GlobalCounter.ENV_STEPS] = self.metrics["counters/" + GlobalCounter.ENV_STEPS].get()
 
             for policy_name, params in self.params_map.items():
+                params.config["entropy_cost"] = 2.5e-3
                 self.policy_map[policy_name] = self.PolicylCls(
                     name=policy_name,
                     action_space=self.env.action_space,
@@ -158,8 +159,6 @@ class FSP(Checkpointable):
                 self.policy_map[policy_name].setup(params)
                 self.experience_queue[policy_name] = ExperienceQueue(self.config)
 
-                # self.action_state_counts[policy_name] = ActionStateCounts(self.policy_map[policy_name].policy_config)
-                # self.action_state_hit_counts[policy_name] = ActionStateHitCounts(self.policy_map[policy_name].policy_config)
 
         self.inject_bot_configs()
         GlobalTimer["inject_new_bots_timer"] = time.time()
@@ -201,7 +200,8 @@ class FSP(Checkpointable):
 
                     self.experience_queue[pid] = ExperienceQueue(self.config)
                     self.action_state_counts[pid] = ActionStateCounts(self.policy_map[pid].policy_config)
-                    self.action_state_hit_counts[pid] = ActionStateHitCounts(self.policy_map[pid].policy_config)
+                    self.action_state_hit_counts[pid] = ActionStateHitCounts(self.policy_map[pid].policy_config,
+                                                                             bot_config.character)
 
                     self.trainable_policies.append(pid)
 

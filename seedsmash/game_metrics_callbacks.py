@@ -144,7 +144,7 @@ class SSBMCallbacks(
                              - batch[SampleBatch.OBS]["continuous"]["position2"][:-1])/ObsBuilder.POS_SCALE), axis=-1)
         )
         dealt_damage_steps = batch[SampleBatch.OBS]["continuous"]["percent2"][1:, 0] - \
-                             batch[SampleBatch.OBS]["continuous"]["percent2"][:-1, 0] > 0
+                             batch[SampleBatch.OBS]["continuous"]["percent2"][:-1, 0] > 1e-3
         valid_hit_timesteps = np.float32(np.logical_and(dist < 50, dealt_damage_steps))
 
         as_bonus = 0.
@@ -168,7 +168,8 @@ class SSBMCallbacks(
                 action_states[:-1], mask=valid_hit_timesteps
             )
 
-            as_bonus += action_state_hit_rewards
+            # TODO
+            #as_bonus[1:] += action_state_hit_rewards
 
             total_action_state_hit_rewards = np.sum(action_state_hit_rewards)
 

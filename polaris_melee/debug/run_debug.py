@@ -29,7 +29,7 @@ class PolarisEnvTest(unittest.TestCase):
         for step in range(512):
 
             actions = {
-                p: env.action_space.sample()
+                p: 0
                 for p in env.observation_builder.bot_ports
             }
             _, _, dones, _, _ = env.step(actions)

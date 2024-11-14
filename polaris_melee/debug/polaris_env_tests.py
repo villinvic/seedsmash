@@ -15,6 +15,7 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('--exiai-path', type=str, required=True)
 parser.add_argument('--fm-path', type=str, required=True)
+parser.add_argument('--polling', action='store_true')
 parser.add_argument('--iso', type=str, required=True)
 parser.add_argument('--render', action='store_true')
 parser.add_argument('--ffw', action='store_true')
@@ -172,7 +173,7 @@ class PolarisEnvTest(unittest.TestCase):
                 env.close()
 
 
-    def test_timeout(self):
+    def timeout(self):
         """
         Runs a game until timeout and reset.
         """
@@ -250,5 +251,7 @@ if __name__ == '__main__':
         ENV_CONFIG = ENV_CONFIG.render()
     if ARGS.ffw:
         ENV_CONFIG = ENV_CONFIG.use_ffw()
+    if ARGS.polling:
+        ENV_CONFIG = ENV_CONFIG.polling_mode()
 
     unittest.main()

@@ -35,6 +35,7 @@ def build_console(
 
     online_delay = config["online_delay"]
     save_replays = config["save_replays"]
+    polling_mode = config["polling_mode"]
 
     kwargs = dict(
         copy_home_directory=False,
@@ -52,6 +53,9 @@ def build_console(
             gfx_backend='',
             disable_audio=False,
             use_exi_inputs=False,
+            polling_timeout=60,
+            fullscreen=True,
+            polling_mode=polling_mode
         )
     else:
         kwargs.update(
@@ -60,6 +64,8 @@ def build_console(
             gfx_backend='Null',
             disable_audio=True,
             use_exi_inputs=True,
+            polling_timeout=60,
+            polling_mode=polling_mode
         )
 
     return melee.Console(**kwargs)
@@ -81,11 +87,10 @@ def plug_setup(
         controllers: Dict_T[int, ComboPad]
 ):
     try:
-        console.connect()
-        for port, controller in controllers.items():
-            controller.connect()
+        connected = [console.connect()] + [controller.connect() for _, controller in controllers.items()]
     except Exception as e:
         raise ResetNeeded(f"Something went wrong plugging the setup: {e}")
+    return all(connected)
 
 
 def run_console(
@@ -110,6 +115,7 @@ class SSBM(PolarisEnv):
         super().__init__(env_index=env_index, **config)
 
         self.render = env_index == 0 and self.config["render"]
+        self.polling_mode = config["polling_mode"]
         self.slippi_port = 51441 + self.env_index
 
         # TODO: Netplay
@@ -140,7 +146,8 @@ class SSBM(PolarisEnv):
             self.player_types
         )
         run_console(self.console, self.render, self.config)
-        plug_setup(self.console, self.controllers)
+        success = plug_setup(self.console, self.controllers)
+        return success
 
     def step_console(
             self,
@@ -149,7 +156,16 @@ class SSBM(PolarisEnv):
         gamestate = None
         try:
             for _ in range(num_steps):
-                gamestate = self.console.step()
+                if self.polling_mode:
+                    gamestate = None
+                    tries = 0
+                    while gamestate is None:
+                        gamestate = self.console.step()
+                        tries += 1
+                        if tries > 500_000:
+                            raise Exception(f"Not receiving any gamestate after {tries} polling attempts.")
+                else:
+                    gamestate = self.console.step()
         except Exception as e:
             raise ResetNeeded(f"Something went wrong stepping the console: {e}")
         return gamestate
@@ -254,7 +270,18 @@ class SSBM(PolarisEnv):
                 raise ResetNeeded("Stuck at game entrance.")
 
         # step some more to ensure first frame is actionable
-        return self.step_console(num_steps=6)
+        return self.step_console(num_steps=20)
+
+    def iterate_port_until_success(self):
+        success = self.initialise_setup()
+        tries = 0
+        while not success:
+            self.close()
+            self.slippi_port += 100
+            success = self.initialise_setup()
+            tries += 1
+            if tries > 5:
+                raise ResetNeeded(f"Can't find proper port for dolphin n°{self.env_index}")
 
     def reset(
             self,
@@ -268,7 +295,7 @@ class SSBM(PolarisEnv):
         self.bad_combinations.load_combinations()
 
         if not hasattr(self, "console"):
-            self.initialise_setup()
+            success = self.iterate_port_until_success()
 
         # Reset episodic attributes
         self.episode_metrics = defaultdict(float)
@@ -342,24 +369,24 @@ class SSBM(PolarisEnv):
                     # force full reset here
                     self.dump_bad_combination_and_raise_error(3)
                 else:
-                    # Put in our custom combo counter
-                    next_gamestate.custom["combo_counters"] = {}
                     # process differences in gamestates
                     self.delta_frame.update(next_gamestate)
 
-                    for port, reward_function in self.reward_functions.items():
+                    # Put in our custom combo counter
+                    next_gamestate.custom["combo_counters"] = {}
+                    for port in self.populated_ports:
                         other_port = port % 2 + 1
-
                         next_gamestate.custom["combo_counters"][port] = self.combo_counters[port].update(
-                            dealt_damage=self.delta_frame.dpercent[other_port],
-                            suffered_damage=self.delta_frame.dpercent[port],
+                            dealt_damage=self.delta_frame[DeltaFrame.DAMAGE][other_port],
+                            suffered_damage=self.delta_frame[DeltaFrame.DAMAGE][port],
                             curr_action=players[port].action,
-                            has_died=self.delta_frame.dstock[port] > 0,
-                            has_killed=self.delta_frame.dstock[other_port] > 0,
+                            has_died=self.delta_frame[DeltaFrame.DEATH][port] > 0,
+                            has_killed=self.delta_frame[DeltaFrame.DEATH][other_port] > 0,
                             opp_state=players[other_port]
                         )
 
-                        reward_function.get_frame_rewards(
+                    for port, reward_function in self.reward_functions.items():
+                        reward_function.add_frame_rewards(
                             self.delta_frame, active_actions[port], collected_rewards[port],
                             next_gamestate.custom["combo_counters"]
                         )
@@ -382,12 +409,13 @@ class SSBM(PolarisEnv):
                 try:
                     print(self.discrete_controllers[port])
                     action = input(f"Choose an action for port {port}: ")
-                    if not action:
+                    if action == "":
                         action = self.discrete_controllers[port].RESET_CONTROLLER
                     else:
                         action = self.discrete_controllers[port][int(action)]
                 except Exception as e:
                     print(e)
+            print()
             self.action_queues[port].push(action)
 
 
@@ -397,9 +425,6 @@ class SSBM(PolarisEnv):
 
         self.handle_controller_inputs(action_dict)
         gamestate, step_rewards = self.get_next_state_reward()
-
-        print(t1 - t0, t2 - t1)
-
 
         done = False
         if gamestate is None:
@@ -458,7 +483,10 @@ class SSBM(PolarisEnv):
 
         try:
             self.console.stop()
+        except:
+            pass
+        try:
             for port, controller in self.controllers.items():
-                controller.disconnect()
+                    controller.disconnect()
         except:
             pass

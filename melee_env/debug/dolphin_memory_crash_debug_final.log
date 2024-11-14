@@ -1,0 +1,3251 @@
+SETUP
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.YLINK: 20>] Stage.BATTLEFIELD
+-1.0
+5588 203.44336
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.YLINK: 20>] Stage.YOSHIS_STORY
+1.0
+3614 -2.600868
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.YLINK: 20>] Stage.DREAMLAND
+1.0
+3798 43.136196
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.YLINK: 20>] Stage.FINAL_DESTINATION
+1.0
+8956 66.30373
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.YLINK: 20>] Stage.POKEMON_STADIUM
+-1.0
+11049 97.7744
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.DOC: 21>] Stage.BATTLEFIELD
+-1.0
+7968 119.77415
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.DOC: 21>] Stage.YOSHIS_STORY
+-1.0
+6275 -92.617615
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.DOC: 21>] Stage.DREAMLAND
+1.0
+3573 -75.003395
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.DOC: 21>] Stage.FINAL_DESTINATION
+1.0
+10878 -54.333763
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.DOC: 21>] Stage.POKEMON_STADIUM
+1.0
+4921 -38.557198
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.LINK: 6>] Stage.BATTLEFIELD
+-1.0
+8827 71.215706
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.LINK: 6>] Stage.YOSHIS_STORY
+-1.0
+5339 72.05839
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.LINK: 6>] Stage.FINAL_DESTINATION
+-1.0
+6392 89.6757
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.LINK: 6>] Stage.POKEMON_STADIUM
+-1.0
+11759 81.348
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.LUIGI: 17>] Stage.BATTLEFIELD
+1.0
+4539 -57.600002
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.LUIGI: 17>] Stage.YOSHIS_STORY
+1.0
+3439 -56.525658
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.LUIGI: 17>] Stage.DREAMLAND
+1.0
+3890 77.266266
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.LUIGI: 17>] Stage.FINAL_DESTINATION
+1.0
+2516 -67.858765
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.LUIGI: 17>] Stage.POKEMON_STADIUM
+-1.0
+3229 142.49908
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.FALCO: 22>] Stage.BATTLEFIELD
+1.0
+3766 8.846579
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.FALCO: 22>] Stage.YOSHIS_STORY
+1.0
+2731 -33.59871
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.FALCO: 22>] Stage.DREAMLAND
+1.0
+4439 -26.21737
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.FALCO: 22>] Stage.FINAL_DESTINATION
+1.0
+2937 55.009747
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.FALCO: 22>] Stage.POKEMON_STADIUM
+1.0
+4522 9.549352
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.GANONDORF: 25>] Stage.BATTLEFIELD
+1.0
+2716 32.259495
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.GANONDORF: 25>] Stage.YOSHIS_STORY
+1.0
+2856 0.0
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.GANONDORF: 25>] Stage.DREAMLAND
+1.0
+3833 -50.95724
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.GANONDORF: 25>] Stage.FINAL_DESTINATION
+1.0
+4379 52.359882
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.GANONDORF: 25>] Stage.POKEMON_STADIUM
+-1.0
+3277 112.73849
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.ROY: 26>] Stage.BATTLEFIELD
+-1.0
+7175 127.07779
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.ROY: 26>] Stage.YOSHIS_STORY
+-1.0
+6255 164.1727
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.ROY: 26>] Stage.DREAMLAND
+-1.0
+8251 117.724915
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.ROY: 26>] Stage.FINAL_DESTINATION
+1.0
+4745 13.396984
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.ROY: 26>] Stage.POKEMON_STADIUM
+-1.0
+7949 198.13477
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.MARIO: 0>] Stage.BATTLEFIELD
+1.0
+9024 60.981487
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.MARIO: 0>] Stage.YOSHIS_STORY
+1.0
+6316 40.156334
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.MARIO: 0>] Stage.DREAMLAND
+1.0
+6387 -12.089066
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.MARIO: 0>] Stage.FINAL_DESTINATION
+1.0
+9198 8.92866
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.MARIO: 0>] Stage.POKEMON_STADIUM
+-1.0
+7795 123.04714
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.FOX: 1>] Stage.BATTLEFIELD
+1.0
+2838 -10.282462
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.FOX: 1>] Stage.YOSHIS_STORY
+1.0
+1378 -53.399246
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.FOX: 1>] Stage.DREAMLAND
+1.0
+1738 -74.78616
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.FOX: 1>] Stage.FINAL_DESTINATION
+-1.0
+6046 129.70503
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.MARTH: 18>] Stage.BATTLEFIELD
+1.0
+3900 9.360691
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.MARTH: 18>] Stage.YOSHIS_STORY
+-1.0
+6855 73.2984
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.MARTH: 18>] Stage.DREAMLAND
+1.0
+5654 -17.197752
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.MARTH: 18>] Stage.FINAL_DESTINATION
+-1.0
+7716 120.329575
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.MARTH: 18>] Stage.POKEMON_STADIUM
+-1.0
+5841 169.86852
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.CPTFALCON: 2>] Stage.YOSHIS_STORY
+1.0
+4307 -44.680622
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.CPTFALCON: 2>] Stage.DREAMLAND
+-1.0
+4222 -15.730956
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.CPTFALCON: 2>] Stage.FINAL_DESTINATION
+1.0
+2969 -69.7308
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.CPTFALCON: 2>] Stage.POKEMON_STADIUM
+1.0
+7764 87.75
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.JIGGLYPUFF: 15>] Stage.BATTLEFIELD
+1.0
+6301 -57.600002
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.JIGGLYPUFF: 15>] Stage.YOSHIS_STORY
+-1.0
+3286 112.782196
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.JIGGLYPUFF: 15>] Stage.DREAMLAND
+-1.0
+4800 177.1884
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.JIGGLYPUFF: 15>] Stage.FINAL_DESTINATION
+-1.0
+6410 90.15865
+no setup needed
+INIT
+[<Character.JIGGLYPUFF: 15>, <Character.JIGGLYPUFF: 15>] Stage.POKEMON_STADIUM
+1.0
+5008 33.96501
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.YLINK: 20>] Stage.BATTLEFIELD
+-1.0
+5417 -94.36372
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.YLINK: 20>] Stage.YOSHIS_STORY
+-1.0
+1805 -96.6926
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.YLINK: 20>] Stage.DREAMLAND
+-1.0
+3803 -82.70559
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.YLINK: 20>] Stage.FINAL_DESTINATION
+-1.0
+3229 -120.597534
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.YLINK: 20>] Stage.POKEMON_STADIUM
+-1.0
+6120 209.58371
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.DOC: 21>] Stage.BATTLEFIELD
+-1.0
+2898 129.33127
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.DOC: 21>] Stage.YOSHIS_STORY
+-1.0
+2833 62.533882
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.DOC: 21>] Stage.DREAMLAND
+-1.0
+5555 -104.990906
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.DOC: 21>] Stage.FINAL_DESTINATION
+-1.0
+4801 -118.25008
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.DOC: 21>] Stage.POKEMON_STADIUM
+-1.0
+6734 -161.85298
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.LINK: 6>] Stage.BATTLEFIELD
+-1.0
+7145 -100.841675
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.LINK: 6>] Stage.YOSHIS_STORY
+-1.0
+5387 94.655334
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.LINK: 6>] Stage.FINAL_DESTINATION
+-1.0
+3801 118.98077
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.LINK: 6>] Stage.POKEMON_STADIUM
+-1.0
+6508 105.093124
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.LUIGI: 17>] Stage.BATTLEFIELD
+-1.0
+4166 100.88137
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.LUIGI: 17>] Stage.DREAMLAND
+-1.0
+2853 156.01172
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.LUIGI: 17>] Stage.FINAL_DESTINATION
+-1.0
+6942 113.71228
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.LUIGI: 17>] Stage.POKEMON_STADIUM
+-1.0
+3735 170.41125
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.FALCO: 22>] Stage.BATTLEFIELD
+-1.0
+2496 -86.3108
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.FALCO: 22>] Stage.YOSHIS_STORY
+1.0
+2597 11.274433
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.FALCO: 22>] Stage.DREAMLAND
+-1.0
+3033 96.958145
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.FALCO: 22>] Stage.FINAL_DESTINATION
+-1.0
+3315 117.99175
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.FALCO: 22>] Stage.POKEMON_STADIUM
+-1.0
+3947 128.52156
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.GANONDORF: 25>] Stage.BATTLEFIELD
+-1.0
+3762 161.28975
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.GANONDORF: 25>] Stage.YOSHIS_STORY
+1.0
+2665 -15.818691
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.GANONDORF: 25>] Stage.DREAMLAND
+-1.0
+3645 -66.68848
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.GANONDORF: 25>] Stage.FINAL_DESTINATION
+-1.0
+5576 159.39032
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.GANONDORF: 25>] Stage.POKEMON_STADIUM
+1.0
+5650 -13.575841
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.ROY: 26>] Stage.BATTLEFIELD
+-1.0
+3559 -96.75273
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.ROY: 26>] Stage.YOSHIS_STORY
+1.0
+2348 59.5
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.ROY: 26>] Stage.DREAMLAND
+-1.0
+3894 137.91026
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.ROY: 26>] Stage.FINAL_DESTINATION
+-1.0
+2882 -124.6742
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.MARIO: 0>] Stage.BATTLEFIELD
+-1.0
+2039 90.27206
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.MARIO: 0>] Stage.YOSHIS_STORY
+-1.0
+2627 -91.8594
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.MARIO: 0>] Stage.DREAMLAND
+1.0
+5202 -63.364964
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.MARIO: 0>] Stage.FINAL_DESTINATION
+-1.0
+2484 -134.92413
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.MARIO: 0>] Stage.POKEMON_STADIUM
+-1.0
+2799 -106.70412
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.FOX: 1>] Stage.BATTLEFIELD
+1.0
+2225 56.07336
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.FOX: 1>] Stage.YOSHIS_STORY
+-1.0
+2141 -85.07716
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.FOX: 1>] Stage.DREAMLAND
+1.0
+3377 0.0
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.FOX: 1>] Stage.FINAL_DESTINATION
+-1.0
+1933 118.11275
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.FOX: 1>] Stage.POKEMON_STADIUM
+1.0
+4535 32.222725
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.MARTH: 18>] Stage.BATTLEFIELD
+-1.0
+4943 -124.7071
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.MARTH: 18>] Stage.YOSHIS_STORY
+1.0
+4993 12.775332
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.MARTH: 18>] Stage.DREAMLAND
+-1.0
+5949 -98.66127
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.MARTH: 18>] Stage.FINAL_DESTINATION
+-1.0
+3291 132.05466
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.MARTH: 18>] Stage.POKEMON_STADIUM
+-1.0
+6053 129.51242
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.CPTFALCON: 2>] Stage.BATTLEFIELD
+1.0
+2149 -55.330025
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.CPTFALCON: 2>] Stage.YOSHIS_STORY
+1.0
+3084 8.138209
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.CPTFALCON: 2>] Stage.DREAMLAND
+1.0
+2017 -41.35763
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.CPTFALCON: 2>] Stage.FINAL_DESTINATION
+-1.0
+4428 -110.343925
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.CPTFALCON: 2>] Stage.POKEMON_STADIUM
+1.0
+3348 -62.572468
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.JIGGLYPUFF: 15>] Stage.BATTLEFIELD
+-1.0
+4028 -125.92951
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.JIGGLYPUFF: 15>] Stage.YOSHIS_STORY
+-1.0
+2101 121.69622
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.JIGGLYPUFF: 15>] Stage.DREAMLAND
+-1.0
+2663 -115.88921
+no setup needed
+INIT
+[<Character.CPTFALCON: 2>, <Character.JIGGLYPUFF: 15>] Stage.POKEMON_STADIUM
+1.0
+6012 -41.53322
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.YLINK: 20>] Stage.BATTLEFIELD
+1.0
+9427 27.071045
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.YLINK: 20>] Stage.YOSHIS_STORY
+-1.0
+9003 127.169304
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.YLINK: 20>] Stage.DREAMLAND
+-1.0
+3919 120.16385
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.YLINK: 20>] Stage.FINAL_DESTINATION
+-1.0
+4132 130.9561
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.DOC: 21>] Stage.BATTLEFIELD
+1.0
+16770 8.309714
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.DOC: 21>] Stage.YOSHIS_STORY
+1.0
+3419 111.8098
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.DOC: 21>] Stage.DREAMLAND
+-1.0
+4258 132.66043
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.DOC: 21>] Stage.FINAL_DESTINATION
+1.0
+8071 16.384
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.LINK: 6>] Stage.BATTLEFIELD
+1.0
+13015 13.693936
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.LINK: 6>] Stage.YOSHIS_STORY
+-1.0
+5662 100.45248
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.LINK: 6>] Stage.DREAMLAND
+1.0
+8346 27.954426
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.LINK: 6>] Stage.FINAL_DESTINATION
+-1.0
+6331 110.04154
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.LUIGI: 17>] Stage.BATTLEFIELD
+1.0
+3007 -65.96577
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.LUIGI: 17>] Stage.YOSHIS_STORY
+1.0
+2072 11.127296
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.LUIGI: 17>] Stage.DREAMLAND
+1.0
+1617 -56.97863
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.LUIGI: 17>] Stage.FINAL_DESTINATION
+1.0
+6757 11.569161
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.FALCO: 22>] Stage.BATTLEFIELD
+1.0
+3712 65.200386
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.FALCO: 22>] Stage.YOSHIS_STORY
+1.0
+4624 -54.675
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.FALCO: 22>] Stage.DREAMLAND
+1.0
+3831 19.0171
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.FALCO: 22>] Stage.FINAL_DESTINATION
+1.0
+5347 -12.577877
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.GANONDORF: 25>] Stage.BATTLEFIELD
+1.0
+6476 57.600002
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.GANONDORF: 25>] Stage.YOSHIS_STORY
+1.0
+2133 52.760914
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.GANONDORF: 25>] Stage.DREAMLAND
+1.0
+4404 -44.48743
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.GANONDORF: 25>] Stage.FINAL_DESTINATION
+-1.0
+4510 142.36633
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.GANONDORF: 25>] Stage.POKEMON_STADIUM
+1.0
+6043 53.267136
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.ROY: 26>] Stage.BATTLEFIELD
+1.0
+6750 11.019096
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.ROY: 26>] Stage.YOSHIS_STORY
+1.0
+10468 0.6673336
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.ROY: 26>] Stage.DREAMLAND
+1.0
+6875 -21.53168
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.ROY: 26>] Stage.FINAL_DESTINATION
+-1.0
+9297 103.68123
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.MARIO: 0>] Stage.BATTLEFIELD
+1.0
+5646 35.34093
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.MARIO: 0>] Stage.YOSHIS_STORY
+1.0
+5778 12.395899
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.MARIO: 0>] Stage.DREAMLAND
+1.0
+5920 42.953384
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.MARIO: 0>] Stage.FINAL_DESTINATION
+-1.0
+9614 -77.33603
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.FOX: 1>] Stage.BATTLEFIELD
+1.0
+2864 34.950985
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.FOX: 1>] Stage.YOSHIS_STORY
+1.0
+3044 -11.781687
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.FOX: 1>] Stage.DREAMLAND
+1.0
+2054 -35.854507
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.FOX: 1>] Stage.FINAL_DESTINATION
+1.0
+4022 -85.5657
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.MARTH: 18>] Stage.BATTLEFIELD
+-1.0
+6537 100.103065
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.MARTH: 18>] Stage.YOSHIS_STORY
+1.0
+5789 -44.689064
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.MARTH: 18>] Stage.DREAMLAND
+-1.0
+5230 -95.728714
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.MARTH: 18>] Stage.FINAL_DESTINATION
+-1.0
+5768 -105.12383
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.CPTFALCON: 2>] Stage.BATTLEFIELD
+1.0
+2531 -22.062134
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.CPTFALCON: 2>] Stage.YOSHIS_STORY
+1.0
+3097 55.867836
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.CPTFALCON: 2>] Stage.DREAMLAND
+1.0
+3937 19.0171
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.CPTFALCON: 2>] Stage.FINAL_DESTINATION
+1.0
+6918 -37.716053
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.CPTFALCON: 2>] Stage.POKEMON_STADIUM
+1.0
+8069 54.21335
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.JIGGLYPUFF: 15>] Stage.BATTLEFIELD
+-1.0
+5462 117.57224
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.JIGGLYPUFF: 15>] Stage.YOSHIS_STORY
+-1.0
+10069 88.64029
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.JIGGLYPUFF: 15>] Stage.DREAMLAND
+-1.0
+10606 98.578926
+no setup needed
+INIT
+[<Character.MARTH: 18>, <Character.JIGGLYPUFF: 15>] Stage.FINAL_DESTINATION
+-1.0
+8716 108.68623
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.YLINK: 20>] Stage.BATTLEFIELD
+-1.0
+11612 129.40025
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.YLINK: 20>] Stage.DREAMLAND
+1.0
+9252 4.8250012
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.YLINK: 20>] Stage.FINAL_DESTINATION
+1.0
+7177 84.6335
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.DOC: 21>] Stage.BATTLEFIELD
+1.0
+6144 56.390587
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.DOC: 21>] Stage.DREAMLAND
+1.0
+8365 32.811375
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.DOC: 21>] Stage.FINAL_DESTINATION
+1.0
+8482 -11.154402
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.DOC: 21>] Stage.POKEMON_STADIUM
+-1.0
+17295 132.7967
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.LINK: 6>] Stage.BATTLEFIELD
+1.0
+3252 -42.494938
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.LINK: 6>] Stage.DREAMLAND
+1.0
+7635 0.0
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.LINK: 6>] Stage.FINAL_DESTINATION
+1.0
+7597 -3.1454763
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.LINK: 6>] Stage.POKEMON_STADIUM
+1.0
+9982 9.134983
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.LUIGI: 17>] Stage.BATTLEFIELD
+1.0
+3864 50.555927
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.LUIGI: 17>] Stage.DREAMLAND
+1.0
+3890 80.88195
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.LUIGI: 17>] Stage.FINAL_DESTINATION
+1.0
+3640 -24.275114
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.LUIGI: 17>] Stage.POKEMON_STADIUM
+1.0
+4858 67.07719
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.FALCO: 22>] Stage.BATTLEFIELD
+1.0
+3407 -20.661537
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.FALCO: 22>] Stage.DREAMLAND
+1.0
+4729 -19.078041
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.FALCO: 22>] Stage.FINAL_DESTINATION
+1.0
+2430 -44.278114
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.FALCO: 22>] Stage.POKEMON_STADIUM
+1.0
+3311 -35.51694
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.GANONDORF: 25>] Stage.BATTLEFIELD
+1.0
+1195 -47.868454
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.GANONDORF: 25>] Stage.DREAMLAND
+1.0
+3497 52.615154
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.GANONDORF: 25>] Stage.FINAL_DESTINATION
+-1.0
+4359 125.32672
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.GANONDORF: 25>] Stage.POKEMON_STADIUM
+1.0
+3377 0.12899911
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.ROY: 26>] Stage.BATTLEFIELD
+1.0
+6275 -4.1722097
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.ROY: 26>] Stage.DREAMLAND
+-1.0
+5903 107.39971
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.ROY: 26>] Stage.FINAL_DESTINATION
+1.0
+8178 -21.657871
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.ROY: 26>] Stage.POKEMON_STADIUM
+1.0
+3367 -1.5768641
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.MARIO: 0>] Stage.BATTLEFIELD
+-1.0
+8546 115.162186
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.MARIO: 0>] Stage.DREAMLAND
+1.0
+7723 53.557182
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.MARIO: 0>] Stage.FINAL_DESTINATION
+1.0
+7387 63.21429
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.MARIO: 0>] Stage.POKEMON_STADIUM
+1.0
+5515 -65.64916
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.FOX: 1>] Stage.BATTLEFIELD
+1.0
+1726 -18.859941
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.FOX: 1>] Stage.DREAMLAND
+1.0
+1170 77.33124
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.FOX: 1>] Stage.FINAL_DESTINATION
+1.0
+4852 -18.6865
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.FOX: 1>] Stage.POKEMON_STADIUM
+1.0
+5712 4.405
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.MARTH: 18>] Stage.BATTLEFIELD
+-1.0
+14855 62.77423
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.MARTH: 18>] Stage.DREAMLAND
+1.0
+5443 -39.597893
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.MARTH: 18>] Stage.FINAL_DESTINATION
+-1.0
+8803 103.75229
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.MARTH: 18>] Stage.POKEMON_STADIUM
+-1.0
+2005 158.75354
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.CPTFALCON: 2>] Stage.BATTLEFIELD
+1.0
+2991 41.583565
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.CPTFALCON: 2>] Stage.DREAMLAND
+1.0
+4324 -61.3929
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.CPTFALCON: 2>] Stage.FINAL_DESTINATION
+1.0
+4085 -7.298513
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.CPTFALCON: 2>] Stage.POKEMON_STADIUM
+1.0
+2251 152.88068
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.JIGGLYPUFF: 15>] Stage.BATTLEFIELD
+1.0
+9599 10.167832
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.JIGGLYPUFF: 15>] Stage.DREAMLAND
+1.0
+4961 -18.406765
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.JIGGLYPUFF: 15>] Stage.FINAL_DESTINATION
+1.0
+9793 -30.24675
+no setup needed
+INIT
+[<Character.LINK: 6>, <Character.JIGGLYPUFF: 15>] Stage.POKEMON_STADIUM
+1.0
+9029 -52.88027
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.YLINK: 20>] Stage.BATTLEFIELD
+-1.0
+5358 106.60002
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.YLINK: 20>] Stage.DREAMLAND
+1.0
+7486 6.6043935
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.YLINK: 20>] Stage.FINAL_DESTINATION
+1.0
+6083 -67.48316
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.YLINK: 20>] Stage.POKEMON_STADIUM
+-1.0
+11113 -85.9177
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.DOC: 21>] Stage.BATTLEFIELD
+-1.0
+7947 109.19437
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.DOC: 21>] Stage.DREAMLAND
+1.0
+9631 73.92195
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.DOC: 21>] Stage.FINAL_DESTINATION
+-1.0
+6773 153.0271
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.DOC: 21>] Stage.POKEMON_STADIUM
+1.0
+9559 -52.81872
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.LINK: 6>] Stage.BATTLEFIELD
+1.0
+12376 32.82803
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.LINK: 6>] Stage.DREAMLAND
+-1.0
+7815 89.62766
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.LINK: 6>] Stage.FINAL_DESTINATION
+1.0
+6975 -11.580938
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.LUIGI: 17>] Stage.BATTLEFIELD
+1.0
+2274 -57.800316
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.LUIGI: 17>] Stage.YOSHIS_STORY
+we are stuck
+Stuck ?
+-42 -42.0
+no setup needed
+INIT
+we are stuck
+Closing and restarting...
+1 STOPING=================================================================================================
+Restarted.
+[<Character.YLINK: 20>, <Character.LUIGI: 17>] Stage.DREAMLAND
+1.0
+1854 68.132195
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.LUIGI: 17>] Stage.FINAL_DESTINATION
+1.0
+6115 61.19022
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.FALCO: 22>] Stage.BATTLEFIELD
+1.0
+2966 109.04851
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.FALCO: 22>] Stage.DREAMLAND
+1.0
+3202 29.327515
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.FALCO: 22>] Stage.FINAL_DESTINATION
+-1.0
+5812 155.267
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.FALCO: 22>] Stage.POKEMON_STADIUM
+1.0
+3454 -11.502631
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.GANONDORF: 25>] Stage.BATTLEFIELD
+1.0
+3971 97.514
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.GANONDORF: 25>] Stage.DREAMLAND
+1.0
+8490 -8.142025
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.GANONDORF: 25>] Stage.FINAL_DESTINATION
+1.0
+1255 -85.60708
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.GANONDORF: 25>] Stage.POKEMON_STADIUM
+1.0
+5219 36.177246
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.ROY: 26>] Stage.BATTLEFIELD
+1.0
+10016 -58.48721
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.ROY: 26>] Stage.DREAMLAND
+-1.0
+7214 142.93196
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.ROY: 26>] Stage.FINAL_DESTINATION
+1.0
+10576 -61.757576
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.ROY: 26>] Stage.POKEMON_STADIUM
+1.0
+10680 -6.3345385
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.MARIO: 0>] Stage.BATTLEFIELD
+-1.0
+9029 85.953476
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.MARIO: 0>] Stage.DREAMLAND
+1.0
+5819 -72.13356
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.MARIO: 0>] Stage.FINAL_DESTINATION
+-1.0
+8568 157.64035
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.MARIO: 0>] Stage.POKEMON_STADIUM
+1.0
+12571 -59.19298
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.FOX: 1>] Stage.BATTLEFIELD
+1.0
+2880 75.07362
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.FOX: 1>] Stage.DREAMLAND
+1.0
+1946 84.34304
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.FOX: 1>] Stage.FINAL_DESTINATION
+1.0
+2317 -22.422508
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.MARTH: 18>] Stage.BATTLEFIELD
+-1.0
+5308 71.67187
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.MARTH: 18>] Stage.DREAMLAND
+-1.0
+8578 115.03901
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.MARTH: 18>] Stage.FINAL_DESTINATION
+-1.0
+9668 105.74422
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.MARTH: 18>] Stage.POKEMON_STADIUM
+-1.0
+10536 96.679955
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.CPTFALCON: 2>] Stage.FINAL_DESTINATION
+1.0
+953 -33.245502
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.JIGGLYPUFF: 15>] Stage.BATTLEFIELD
+1.0
+4372 6.9140034
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.JIGGLYPUFF: 15>] Stage.DREAMLAND
+1.0
+5062 -60.584522
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.JIGGLYPUFF: 15>] Stage.FINAL_DESTINATION
+-1.0
+7002 128.01915
+no setup needed
+INIT
+[<Character.YLINK: 20>, <Character.JIGGLYPUFF: 15>] Stage.POKEMON_STADIUM
+1.0
+5462 -1.5167298
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.YLINK: 20>] Stage.BATTLEFIELD
+-1.0
+3825 -97.24877
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.YLINK: 20>] Stage.DREAMLAND
+1.0
+2641 77.1471
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.YLINK: 20>] Stage.FINAL_DESTINATION
+-1.0
+2383 117.89615
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.YLINK: 20>] Stage.POKEMON_STADIUM
+-1.0
+4347 159.94498
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.DOC: 21>] Stage.BATTLEFIELD
+-1.0
+3209 72.353775
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.DOC: 21>] Stage.YOSHIS_STORY
+-1.0
+2938 90.93792
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.DOC: 21>] Stage.DREAMLAND
+-1.0
+4626 -136.53442
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.DOC: 21>] Stage.FINAL_DESTINATION
+-1.0
+3376 101.526245
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.DOC: 21>] Stage.POKEMON_STADIUM
+-1.0
+5459 107.36742
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.LINK: 6>] Stage.BATTLEFIELD
+-1.0
+3686 89.81832
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.LINK: 6>] Stage.DREAMLAND
+-1.0
+3552 138.63272
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.LINK: 6>] Stage.FINAL_DESTINATION
+-1.0
+3271 -121.85619
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.LINK: 6>] Stage.POKEMON_STADIUM
+-1.0
+4569 -110.56024
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.LUIGI: 17>] Stage.BATTLEFIELD
+-1.0
+2303 68.06571
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.LUIGI: 17>] Stage.YOSHIS_STORY
+-1.0
+3611 -60.16159
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.LUIGI: 17>] Stage.DREAMLAND
+1.0
+2163 -12.4720955
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.LUIGI: 17>] Stage.FINAL_DESTINATION
+-1.0
+2446 96.11138
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.LUIGI: 17>] Stage.POKEMON_STADIUM
+-1.0
+2344 133.80212
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.FALCO: 22>] Stage.BATTLEFIELD
+1.0
+1826 -92.312355
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.FALCO: 22>] Stage.YOSHIS_STORY
+-1.0
+1453 78.5956
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.FALCO: 22>] Stage.DREAMLAND
+1.0
+2666 21.673918
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.FALCO: 22>] Stage.FINAL_DESTINATION
+-1.0
+3592 48.3949
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.FALCO: 22>] Stage.POKEMON_STADIUM
+1.0
+2262 71.7175
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.GANONDORF: 25>] Stage.BATTLEFIELD
+1.0
+3602 -125.668686
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.GANONDORF: 25>] Stage.DREAMLAND
+1.0
+3206 77.2713
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.GANONDORF: 25>] Stage.FINAL_DESTINATION
+-1.0
+4408 88.04096
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.GANONDORF: 25>] Stage.POKEMON_STADIUM
+-1.0
+4617 -133.9931
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.ROY: 26>] Stage.BATTLEFIELD
+-1.0
+3679 108.049255
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.ROY: 26>] Stage.YOSHIS_STORY
+-1.0
+3038 84.43701
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.ROY: 26>] Stage.DREAMLAND
+-1.0
+6206 -81.82543
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.ROY: 26>] Stage.FINAL_DESTINATION
+-1.0
+3395 -86.83491
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.ROY: 26>] Stage.POKEMON_STADIUM
+-1.0
+4959 89.83707
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.MARIO: 0>] Stage.BATTLEFIELD
+-1.0
+2370 90.03935
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.MARIO: 0>] Stage.YOSHIS_STORY
+-1.0
+1484 129.74164
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.MARIO: 0>] Stage.DREAMLAND
+-1.0
+3310 -100.54682
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.MARIO: 0>] Stage.FINAL_DESTINATION
+-1.0
+4537 159.0
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.MARIO: 0>] Stage.POKEMON_STADIUM
+-1.0
+6370 -94.53188
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.FOX: 1>] Stage.BATTLEFIELD
+1.0
+2018 18.890326
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.FOX: 1>] Stage.YOSHIS_STORY
+-1.0
+1976 74.65298
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.FOX: 1>] Stage.DREAMLAND
+-1.0
+2522 -79.877495
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.FOX: 1>] Stage.FINAL_DESTINATION
+-1.0
+2817 153.28322
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.FOX: 1>] Stage.POKEMON_STADIUM
+1.0
+2911 99.782585
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.MARTH: 18>] Stage.BATTLEFIELD
+-1.0
+2453 -171.29669
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.MARTH: 18>] Stage.YOSHIS_STORY
+-1.0
+2085 -70.17275
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.MARTH: 18>] Stage.DREAMLAND
+-1.0
+4046 87.87539
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.MARTH: 18>] Stage.FINAL_DESTINATION
+-1.0
+3357 -136.13054
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.MARTH: 18>] Stage.POKEMON_STADIUM
+-1.0
+2504 116.776245
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.CPTFALCON: 2>] Stage.BATTLEFIELD
+1.0
+4233 -33.58218
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.CPTFALCON: 2>] Stage.DREAMLAND
+-1.0
+2824 133.7975
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.CPTFALCON: 2>] Stage.FINAL_DESTINATION
+-1.0
+3618 128.68875
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.CPTFALCON: 2>] Stage.POKEMON_STADIUM
+-1.0
+3275 129.50797
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.JIGGLYPUFF: 15>] Stage.BATTLEFIELD
+-1.0
+3076 135.42142
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.JIGGLYPUFF: 15>] Stage.DREAMLAND
+-1.0
+2832 117.01797
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.JIGGLYPUFF: 15>] Stage.FINAL_DESTINATION
+-1.0
+3822 113.420746
+no setup needed
+INIT
+[<Character.FALCO: 22>, <Character.JIGGLYPUFF: 15>] Stage.POKEMON_STADIUM
+-1.0
+6069 135.2298
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.YLINK: 20>] Stage.BATTLEFIELD
+1.0
+6078 32.640076
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.YLINK: 20>] Stage.YOSHIS_STORY
+1.0
+4433 28.13079
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.YLINK: 20>] Stage.DREAMLAND
+-1.0
+4091 -79.40183
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.YLINK: 20>] Stage.FINAL_DESTINATION
+1.0
+6340 -8.524385
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.YLINK: 20>] Stage.POKEMON_STADIUM
+-1.0
+8479 133.6149
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.DOC: 21>] Stage.BATTLEFIELD
+1.0
+12316 -88.39886
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.DOC: 21>] Stage.YOSHIS_STORY
+-1.0
+5380 106.7897
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.DOC: 21>] Stage.DREAMLAND
+-1.0
+6659 122.840576
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.DOC: 21>] Stage.FINAL_DESTINATION
+-1.0
+4547 99.0302
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.DOC: 21>] Stage.POKEMON_STADIUM
+-1.0
+11573 -91.085625
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.LINK: 6>] Stage.BATTLEFIELD
+1.0
+7287 46.597214
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.LINK: 6>] Stage.YOSHIS_STORY
+1.0
+6903 28.0
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.LINK: 6>] Stage.DREAMLAND
+-1.0
+9103 121.05376
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.LINK: 6>] Stage.FINAL_DESTINATION
+-1.0
+10412 114.162025
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.LINK: 6>] Stage.POKEMON_STADIUM
+-1.0
+12241 -88.59044
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.LUIGI: 17>] Stage.BATTLEFIELD
+1.0
+3463 26.890562
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.LUIGI: 17>] Stage.YOSHIS_STORY
+1.0
+2243 13.763966
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.LUIGI: 17>] Stage.DREAMLAND
+1.0
+4625 1.2362506
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.LUIGI: 17>] Stage.FINAL_DESTINATION
+1.0
+2705 29.346792
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.LUIGI: 17>] Stage.POKEMON_STADIUM
+1.0
+7299 -23.032589
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.FALCO: 22>] Stage.BATTLEFIELD
+1.0
+2606 34.712692
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.FALCO: 22>] Stage.DREAMLAND
+1.0
+2518 82.8111
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.FALCO: 22>] Stage.FINAL_DESTINATION
+1.0
+2168 4.7883782
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.FALCO: 22>] Stage.POKEMON_STADIUM
+1.0
+3439 -7.8156214
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.GANONDORF: 25>] Stage.BATTLEFIELD
+1.0
+4133 17.997044
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.GANONDORF: 25>] Stage.YOSHIS_STORY
+1.0
+4187 23.38412
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.GANONDORF: 25>] Stage.DREAMLAND
+1.0
+4474 31.63939
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.GANONDORF: 25>] Stage.FINAL_DESTINATION
+1.0
+7712 12.120689
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.GANONDORF: 25>] Stage.POKEMON_STADIUM
+-1.0
+8280 100.99369
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.ROY: 26>] Stage.BATTLEFIELD
+1.0
+5934 -40.841454
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.ROY: 26>] Stage.YOSHIS_STORY
+1.0
+4912 0.0
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.ROY: 26>] Stage.DREAMLAND
+-1.0
+5808 112.722565
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.ROY: 26>] Stage.FINAL_DESTINATION
+-1.0
+7996 91.414825
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.ROY: 26>] Stage.POKEMON_STADIUM
+1.0
+7751 27.026258
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.MARIO: 0>] Stage.BATTLEFIELD
+-1.0
+4595 -89.20115
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.MARIO: 0>] Stage.YOSHIS_STORY
+1.0
+5112 38.63261
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.MARIO: 0>] Stage.DREAMLAND
+-1.0
+6321 112.73087
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.MARIO: 0>] Stage.FINAL_DESTINATION
+1.0
+6710 -68.176
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.MARIO: 0>] Stage.POKEMON_STADIUM
+1.0
+10205 0.0
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.FOX: 1>] Stage.BATTLEFIELD
+1.0
+5834 20.0
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.FOX: 1>] Stage.YOSHIS_STORY
+1.0
+1992 57.619427
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.FOX: 1>] Stage.DREAMLAND
+1.0
+2890 -13.874201
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.FOX: 1>] Stage.FINAL_DESTINATION
+1.0
+3210 60.664913
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.FOX: 1>] Stage.POKEMON_STADIUM
+1.0
+1953 41.811077
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.MARTH: 18>] Stage.BATTLEFIELD
+1.0
+4536 17.70759
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.MARTH: 18>] Stage.DREAMLAND
+-1.0
+4604 124.17736
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.MARTH: 18>] Stage.FINAL_DESTINATION
+1.0
+6057 20.71248
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.MARTH: 18>] Stage.POKEMON_STADIUM
+-1.0
+9731 117.86697
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.CPTFALCON: 2>] Stage.BATTLEFIELD
+1.0
+1752 62.92965
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.CPTFALCON: 2>] Stage.YOSHIS_STORY
+1.0
+5740 -21.340406
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.CPTFALCON: 2>] Stage.DREAMLAND
+1.0
+3498 48.146904
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.CPTFALCON: 2>] Stage.FINAL_DESTINATION
+1.0
+5776 26.667398
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.CPTFALCON: 2>] Stage.POKEMON_STADIUM
+1.0
+4641 -154.74155
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.JIGGLYPUFF: 15>] Stage.BATTLEFIELD
+1.0
+7826 8.201947
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.JIGGLYPUFF: 15>] Stage.YOSHIS_STORY
+-1.0
+5489 73.97351
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.JIGGLYPUFF: 15>] Stage.DREAMLAND
+1.0
+4926 -64.757416
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.JIGGLYPUFF: 15>] Stage.FINAL_DESTINATION
+-1.0
+7848 80.82196
+no setup needed
+INIT
+[<Character.MARIO: 0>, <Character.JIGGLYPUFF: 15>] Stage.POKEMON_STADIUM
+1.0
+7807 55.099422
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.YLINK: 20>] Stage.YOSHIS_STORY
+1.0
+2046 -3.6509986
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.YLINK: 20>] Stage.DREAMLAND
+1.0
+8886 25.41749
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.YLINK: 20>] Stage.FINAL_DESTINATION
+1.0
+6767 0.33103293
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.YLINK: 20>] Stage.POKEMON_STADIUM
+1.0
+10570 -46.274498
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.DOC: 21>] Stage.YOSHIS_STORY
+-1.0
+2054 93.52528
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.DOC: 21>] Stage.DREAMLAND
+-1.0
+6061 -112.56808
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.DOC: 21>] Stage.FINAL_DESTINATION
+-1.0
+6778 109.68115
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.DOC: 21>] Stage.POKEMON_STADIUM
+1.0
+6479 95.07502
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.LINK: 6>] Stage.YOSHIS_STORY
+-1.0
+7790 97.90371
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.LINK: 6>] Stage.DREAMLAND
+-1.0
+12145 -109.898766
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.LINK: 6>] Stage.FINAL_DESTINATION
+1.0
+8946 -49.054268
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.LINK: 6>] Stage.POKEMON_STADIUM
+1.0
+16877 -63.848797
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.LUIGI: 17>] Stage.YOSHIS_STORY
+1.0
+1959 59.5
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.LUIGI: 17>] Stage.DREAMLAND
+1.0
+6148 -19.0181
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.LUIGI: 17>] Stage.FINAL_DESTINATION
+1.0
+3927 -30.350142
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.LUIGI: 17>] Stage.POKEMON_STADIUM
+1.0
+6391 -4.6772423
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.FALCO: 22>] Stage.YOSHIS_STORY
+1.0
+3608 -2.4047453
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.FALCO: 22>] Stage.DREAMLAND
+1.0
+3661 76.071175
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.FALCO: 22>] Stage.FINAL_DESTINATION
+1.0
+2140 -85.5657
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.FALCO: 22>] Stage.POKEMON_STADIUM
+1.0
+5004 -58.895603
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.GANONDORF: 25>] Stage.YOSHIS_STORY
+1.0
+2836 33.647846
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.GANONDORF: 25>] Stage.DREAMLAND
+1.0
+4378 -19.0181
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.GANONDORF: 25>] Stage.FINAL_DESTINATION
+1.0
+3680 -21.212841
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.GANONDORF: 25>] Stage.POKEMON_STADIUM
+1.0
+5322 -87.48563
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.ROY: 26>] Stage.YOSHIS_STORY
+1.0
+6559 24.07447
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.ROY: 26>] Stage.DREAMLAND
+-1.0
+8444 -57.661552
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.ROY: 26>] Stage.FINAL_DESTINATION
+-1.0
+8865 139.30705
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.ROY: 26>] Stage.POKEMON_STADIUM
+-1.0
+4020 169.0739
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.MARIO: 0>] Stage.YOSHIS_STORY
+1.0
+5636 -13.495095
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.MARIO: 0>] Stage.DREAMLAND
+-1.0
+6120 89.734604
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.MARIO: 0>] Stage.FINAL_DESTINATION
+1.0
+4512 34.279156
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.MARIO: 0>] Stage.POKEMON_STADIUM
+1.0
+8575 -87.75
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.FOX: 1>] Stage.YOSHIS_STORY
+1.0
+1762 0.0
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.FOX: 1>] Stage.DREAMLAND
+1.0
+1952 19.0171
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.FOX: 1>] Stage.FINAL_DESTINATION
+1.0
+2345 -51.138447
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.FOX: 1>] Stage.POKEMON_STADIUM
+1.0
+3648 -6.748116
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.MARTH: 18>] Stage.YOSHIS_STORY
+1.0
+7879 -18.783228
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.MARTH: 18>] Stage.DREAMLAND
+1.0
+7073 37.318096
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.MARTH: 18>] Stage.FINAL_DESTINATION
+1.0
+7294 -45.778904
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.MARTH: 18>] Stage.POKEMON_STADIUM
+-1.0
+6124 -111.47986
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.CPTFALCON: 2>] Stage.YOSHIS_STORY
+-1.0
+2714 84.341644
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.CPTFALCON: 2>] Stage.DREAMLAND
+1.0
+4135 1.8521249
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.CPTFALCON: 2>] Stage.FINAL_DESTINATION
+1.0
+4998 -44.23663
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.CPTFALCON: 2>] Stage.POKEMON_STADIUM
+1.0
+8012 -28.793447
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.JIGGLYPUFF: 15>] Stage.YOSHIS_STORY
+-1.0
+7594 61.721684
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.JIGGLYPUFF: 15>] Stage.DREAMLAND
+1.0
+4918 0.0
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.JIGGLYPUFF: 15>] Stage.FINAL_DESTINATION
+1.0
+4840 -41.724823
+no setup needed
+INIT
+[<Character.ROY: 26>, <Character.JIGGLYPUFF: 15>] Stage.POKEMON_STADIUM
+1.0
+11412 46.33986
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.YLINK: 20>] Stage.BATTLEFIELD
+1.0
+5008 37.261215
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.YLINK: 20>] Stage.YOSHIS_STORY
+-1.0
+4736 69.608864
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.YLINK: 20>] Stage.DREAMLAND
+-1.0
+6811 114.79728
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.YLINK: 20>] Stage.FINAL_DESTINATION
+-1.0
+3874 146.39156
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.YLINK: 20>] Stage.POKEMON_STADIUM
+-1.0
+7212 -82.611336
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.DOC: 21>] Stage.BATTLEFIELD
+-1.0
+2923 -67.87864
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.DOC: 21>] Stage.YOSHIS_STORY
+-1.0
+3746 -129.36858
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.DOC: 21>] Stage.DREAMLAND
+-1.0
+4525 -96.94528
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.DOC: 21>] Stage.FINAL_DESTINATION
+-1.0
+2784 154.18019
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.DOC: 21>] Stage.POKEMON_STADIUM
+-1.0
+6170 128.15022
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.LINK: 6>] Stage.BATTLEFIELD
+-1.0
+2947 -80.616196
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.LINK: 6>] Stage.YOSHIS_STORY
+-1.0
+1880 97.71691
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.LINK: 6>] Stage.DREAMLAND
+-1.0
+4309 -88.918045
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.LINK: 6>] Stage.FINAL_DESTINATION
+1.0
+4734 64.61017
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.LINK: 6>] Stage.POKEMON_STADIUM
+-1.0
+4231 -114.23431
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.LUIGI: 17>] Stage.BATTLEFIELD
+1.0
+3234 -23.1149
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.LUIGI: 17>] Stage.YOSHIS_STORY
+1.0
+2117 42.600723
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.LUIGI: 17>] Stage.DREAMLAND
+-1.0
+4118 168.08014
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.LUIGI: 17>] Stage.FINAL_DESTINATION
+-1.0
+4543 131.55975
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.LUIGI: 17>] Stage.POKEMON_STADIUM
+1.0
+3667 23.237844
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.FALCO: 22>] Stage.BATTLEFIELD
+1.0
+3932 61.188572
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.FALCO: 22>] Stage.YOSHIS_STORY
+1.0
+1860 -39.66502
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.FALCO: 22>] Stage.DREAMLAND
+1.0
+2996 75.54291
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.FALCO: 22>] Stage.FINAL_DESTINATION
+1.0
+3190 -45.793125
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.FALCO: 22>] Stage.POKEMON_STADIUM
+-1.0
+4707 133.7025
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.GANONDORF: 25>] Stage.BATTLEFIELD
+1.0
+4070 -20.1067
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.GANONDORF: 25>] Stage.YOSHIS_STORY
+1.0
+1997 21.029419
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.GANONDORF: 25>] Stage.DREAMLAND
+-1.0
+2438 180.39633
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.GANONDORF: 25>] Stage.FINAL_DESTINATION
+-1.0
+3614 118.62724
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.GANONDORF: 25>] Stage.POKEMON_STADIUM
+1.0
+5423 63.521614
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.ROY: 26>] Stage.BATTLEFIELD
+-1.0
+4156 89.53054
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.ROY: 26>] Stage.YOSHIS_STORY
+-1.0
+4326 -115.6907
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.ROY: 26>] Stage.DREAMLAND
+-1.0
+4315 138.02164
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.ROY: 26>] Stage.FINAL_DESTINATION
+1.0
+3918 29.401918
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.ROY: 26>] Stage.POKEMON_STADIUM
+-1.0
+6105 -110.3642
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.MARIO: 0>] Stage.BATTLEFIELD
+-1.0
+3542 -87.33147
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.MARIO: 0>] Stage.YOSHIS_STORY
+1.0
+3449 40.05863
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.MARIO: 0>] Stage.DREAMLAND
+-1.0
+4285 99.38583
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.MARIO: 0>] Stage.FINAL_DESTINATION
+1.0
+6098 83.77569
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.MARIO: 0>] Stage.POKEMON_STADIUM
+-1.0
+5994 156.2651
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.FOX: 1>] Stage.BATTLEFIELD
+-1.0
+2154 -66.868
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.FOX: 1>] Stage.YOSHIS_STORY
+-1.0
+1889 88.525375
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.FOX: 1>] Stage.DREAMLAND
+1.0
+2541 56.51498
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.FOX: 1>] Stage.FINAL_DESTINATION
+1.0
+1996 63.65921
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.FOX: 1>] Stage.POKEMON_STADIUM
+1.0
+3451 -24.460617
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.MARTH: 18>] Stage.BATTLEFIELD
+1.0
+4111 -28.430557
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.MARTH: 18>] Stage.YOSHIS_STORY
+-1.0
+4578 75.11106
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.MARTH: 18>] Stage.DREAMLAND
+-1.0
+5567 95.25955
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.MARTH: 18>] Stage.FINAL_DESTINATION
+-1.0
+6395 154.84926
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.MARTH: 18>] Stage.POKEMON_STADIUM
+-1.0
+5056 184.09166
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.CPTFALCON: 2>] Stage.BATTLEFIELD
+1.0
+2690 -68.380974
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.CPTFALCON: 2>] Stage.YOSHIS_STORY
+1.0
+2387 -57.765038
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.CPTFALCON: 2>] Stage.DREAMLAND
+1.0
+2430 0.0
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.CPTFALCON: 2>] Stage.FINAL_DESTINATION
+1.0
+3277 -85.5657
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.CPTFALCON: 2>] Stage.POKEMON_STADIUM
+1.0
+2694 -40.17695
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.JIGGLYPUFF: 15>] Stage.BATTLEFIELD
+1.0
+7441 -68.430504
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.JIGGLYPUFF: 15>] Stage.YOSHIS_STORY
+-1.0
+5149 123.1956
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.JIGGLYPUFF: 15>] Stage.DREAMLAND
+-1.0
+2907 93.83516
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.JIGGLYPUFF: 15>] Stage.FINAL_DESTINATION
+1.0
+4945 45.43683
+no setup needed
+INIT
+[<Character.GANONDORF: 25>, <Character.JIGGLYPUFF: 15>] Stage.POKEMON_STADIUM
+-1.0
+5633 118.49636
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.YLINK: 20>] Stage.BATTLEFIELD
+-1.0
+1827 -67.28846
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.YLINK: 20>] Stage.YOSHIS_STORY
+-1.0
+1064 -82.82673
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.YLINK: 20>] Stage.DREAMLAND
+-1.0
+1500 91.54062
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.YLINK: 20>] Stage.FINAL_DESTINATION
+-1.0
+2609 -147.1588
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.YLINK: 20>] Stage.POKEMON_STADIUM
+-1.0
+4166 -161.4602
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.DOC: 21>] Stage.BATTLEFIELD
+1.0
+4289 133.74467
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.DOC: 21>] Stage.YOSHIS_STORY
+-1.0
+3322 107.757576
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.DOC: 21>] Stage.DREAMLAND
+-1.0
+3696 133.53485
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.DOC: 21>] Stage.FINAL_DESTINATION
+-1.0
+5137 -157.9588
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.DOC: 21>] Stage.POKEMON_STADIUM
+-1.0
+2978 186.40033
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.LINK: 6>] Stage.BATTLEFIELD
+-1.0
+4136 106.17541
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.LINK: 6>] Stage.YOSHIS_STORY
+-1.0
+1728 -132.50768
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.LINK: 6>] Stage.DREAMLAND
+-1.0
+2711 -60.91836
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.LINK: 6>] Stage.FINAL_DESTINATION
+-1.0
+3471 131.9576
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.LINK: 6>] Stage.POKEMON_STADIUM
+-1.0
+4935 -118.41125
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.LUIGI: 17>] Stage.BATTLEFIELD
+-1.0
+2188 70.31105
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.LUIGI: 17>] Stage.YOSHIS_STORY
+-1.0
+2078 -121.048325
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.LUIGI: 17>] Stage.DREAMLAND
+1.0
+3314 8.404829
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.LUIGI: 17>] Stage.FINAL_DESTINATION
+-1.0
+2189 -174.65387
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.LUIGI: 17>] Stage.POKEMON_STADIUM
+1.0
+3028 25.0
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.FALCO: 22>] Stage.BATTLEFIELD
+-1.0
+1097 176.94655
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.FALCO: 22>] Stage.YOSHIS_STORY
+1.0
+1260 56.0
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.FALCO: 22>] Stage.DREAMLAND
+-1.0
+2594 -142.66132
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.FALCO: 22>] Stage.FINAL_DESTINATION
+1.0
+1948 40.023006
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.FALCO: 22>] Stage.POKEMON_STADIUM
+1.0
+5190 -8.489998
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.GANONDORF: 25>] Stage.BATTLEFIELD
+1.0
+2975 68.4
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.GANONDORF: 25>] Stage.YOSHIS_STORY
+-1.0
+1722 -78.27348
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.GANONDORF: 25>] Stage.DREAMLAND
+-1.0
+1497 -76.051834
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.GANONDORF: 25>] Stage.FINAL_DESTINATION
+1.0
+2075 -13.032007
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.GANONDORF: 25>] Stage.POKEMON_STADIUM
+-1.0
+2106 -99.11973
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.ROY: 26>] Stage.BATTLEFIELD
+-1.0
+3031 84.067345
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.ROY: 26>] Stage.YOSHIS_STORY
+-1.0
+1050 -73.31632
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.ROY: 26>] Stage.DREAMLAND
+-1.0
+2368 133.70012
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.ROY: 26>] Stage.FINAL_DESTINATION
+-1.0
+4137 98.69548
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.MARIO: 0>] Stage.BATTLEFIELD
+-1.0
+1473 73.79132
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.MARIO: 0>] Stage.YOSHIS_STORY
+-1.0
+2547 106.02437
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.MARIO: 0>] Stage.DREAMLAND
+-1.0
+1619 -86.63245
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.MARIO: 0>] Stage.FINAL_DESTINATION
+-1.0
+2384 140.36127
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.MARIO: 0>] Stage.POKEMON_STADIUM
+-1.0
+1931 155.14569
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.FOX: 1>] Stage.BATTLEFIELD
+-1.0
+2864 -98.04093
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.FOX: 1>] Stage.YOSHIS_STORY
+-1.0
+1663 71.72751
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.FOX: 1>] Stage.DREAMLAND
+1.0
+2022 156.98744
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.FOX: 1>] Stage.FINAL_DESTINATION
+1.0
+2500 35.94884
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.FOX: 1>] Stage.POKEMON_STADIUM
+-1.0
+2677 -120.47524
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.MARTH: 18>] Stage.BATTLEFIELD
+-1.0
+1453 -116.599754
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.MARTH: 18>] Stage.YOSHIS_STORY
+-1.0
+1665 119.639984
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.MARTH: 18>] Stage.DREAMLAND
+-1.0
+4258 -117.50526
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.MARTH: 18>] Stage.FINAL_DESTINATION
+-1.0
+2940 100.76533
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.MARTH: 18>] Stage.POKEMON_STADIUM
+1.0
+6649 121.112625
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.CPTFALCON: 2>] Stage.BATTLEFIELD
+-1.0
+2775 126.54688
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.CPTFALCON: 2>] Stage.YOSHIS_STORY
+1.0
+2373 -53.940475
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.CPTFALCON: 2>] Stage.DREAMLAND
+1.0
+3989 -61.96833
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.CPTFALCON: 2>] Stage.FINAL_DESTINATION
+1.0
+1744 23.78754
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.CPTFALCON: 2>] Stage.POKEMON_STADIUM
+-1.0
+2592 -184.22067
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.JIGGLYPUFF: 15>] Stage.BATTLEFIELD
+-1.0
+2282 -136.32199
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.JIGGLYPUFF: 15>] Stage.YOSHIS_STORY
+-1.0
+2900 79.243484
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.JIGGLYPUFF: 15>] Stage.DREAMLAND
+-1.0
+2420 95.01524
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.JIGGLYPUFF: 15>] Stage.FINAL_DESTINATION
+-1.0
+3186 160.42487
+no setup needed
+INIT
+[<Character.FOX: 1>, <Character.JIGGLYPUFF: 15>] Stage.POKEMON_STADIUM
+1.0
+5843 -52.041813
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.YLINK: 20>] Stage.BATTLEFIELD
+-1.0
+5860 -74.484924
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.YLINK: 20>] Stage.YOSHIS_STORY
+1.0
+8611 -16.115479
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.YLINK: 20>] Stage.DREAMLAND
+1.0
+5372 52.96428
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.YLINK: 20>] Stage.FINAL_DESTINATION
+1.0
+8844 -25.825378
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.YLINK: 20>] Stage.POKEMON_STADIUM
+1.0
+8400 46.126347
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.DOC: 21>] Stage.BATTLEFIELD
+-1.0
+12746 -103.41218
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.DOC: 21>] Stage.YOSHIS_STORY
+-1.0
+6354 66.344955
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.DOC: 21>] Stage.DREAMLAND
+-1.0
+5615 -103.694626
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.DOC: 21>] Stage.FINAL_DESTINATION
+1.0
+6950 -31.766903
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.DOC: 21>] Stage.POKEMON_STADIUM
+1.0
+11823 39.71489
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.LINK: 6>] Stage.BATTLEFIELD
+-1.0
+4184 139.59435
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.LINK: 6>] Stage.YOSHIS_STORY
+1.0
+7049 56.0
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.LINK: 6>] Stage.DREAMLAND
+1.0
+6729 -42.695904
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.LINK: 6>] Stage.FINAL_DESTINATION
+-1.0
+5353 95.99765
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.LUIGI: 17>] Stage.BATTLEFIELD
+1.0
+4237 14.310001
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.LUIGI: 17>] Stage.YOSHIS_STORY
+1.0
+3290 -15.376629
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.LUIGI: 17>] Stage.DREAMLAND
+1.0
+4290 -16.775743
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.LUIGI: 17>] Stage.FINAL_DESTINATION
+1.0
+4118 -56.744225
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.LUIGI: 17>] Stage.POKEMON_STADIUM
+1.0
+3024 26.127611
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.FALCO: 22>] Stage.BATTLEFIELD
+1.0
+2953 7.4449034
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.FALCO: 22>] Stage.YOSHIS_STORY
+1.0
+1006 -8.832238
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.FALCO: 22>] Stage.DREAMLAND
+1.0
+4445 15.172351
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.FALCO: 22>] Stage.FINAL_DESTINATION
+1.0
+3858 47.908302
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.FALCO: 22>] Stage.POKEMON_STADIUM
+1.0
+3339 -25.05252
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.GANONDORF: 25>] Stage.BATTLEFIELD
+1.0
+2529 -55.64496
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.GANONDORF: 25>] Stage.YOSHIS_STORY
+1.0
+3979 8.636954
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.GANONDORF: 25>] Stage.DREAMLAND
+1.0
+5806 -53.84043
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.GANONDORF: 25>] Stage.FINAL_DESTINATION
+1.0
+3874 13.191938
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.GANONDORF: 25>] Stage.POKEMON_STADIUM
+1.0
+7574 -16.949507
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.ROY: 26>] Stage.BATTLEFIELD
+-1.0
+7108 132.53851
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.ROY: 26>] Stage.YOSHIS_STORY
+1.0
+5624 15.814209
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.ROY: 26>] Stage.DREAMLAND
+1.0
+3311 53.608265
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.ROY: 26>] Stage.FINAL_DESTINATION
+-1.0
+5079 145.08086
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.MARIO: 0>] Stage.BATTLEFIELD
+1.0
+5777 -7.862883
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.MARIO: 0>] Stage.YOSHIS_STORY
+-1.0
+4711 80.00631
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.MARIO: 0>] Stage.DREAMLAND
+1.0
+6679 0.0
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.MARIO: 0>] Stage.FINAL_DESTINATION
+1.0
+3746 -69.06162
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.MARIO: 0>] Stage.POKEMON_STADIUM
+1.0
+7290 24.900578
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.FOX: 1>] Stage.BATTLEFIELD
+1.0
+1706 40.40643
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.FOX: 1>] Stage.YOSHIS_STORY
+1.0
+2560 -15.849422
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.FOX: 1>] Stage.DREAMLAND
+1.0
+3621 76.95073
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.FOX: 1>] Stage.FINAL_DESTINATION
+1.0
+2380 65.93445
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.FOX: 1>] Stage.POKEMON_STADIUM
+1.0
+2313 -45.361145
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.MARTH: 18>] Stage.BATTLEFIELD
+-1.0
+8006 73.97082
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.MARTH: 18>] Stage.YOSHIS_STORY
+1.0
+2310 20.765387
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.MARTH: 18>] Stage.DREAMLAND
+1.0
+5121 2.469653
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.MARTH: 18>] Stage.FINAL_DESTINATION
+1.0
+6096 45.862064
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.MARTH: 18>] Stage.POKEMON_STADIUM
+1.0
+12514 47.499443
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.CPTFALCON: 2>] Stage.BATTLEFIELD
+1.0
+4236 68.08338
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.CPTFALCON: 2>] Stage.YOSHIS_STORY
+1.0
+2908 15.886808
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.CPTFALCON: 2>] Stage.DREAMLAND
+1.0
+4358 -14.404267
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.CPTFALCON: 2>] Stage.FINAL_DESTINATION
+1.0
+2387 62.935123
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.CPTFALCON: 2>] Stage.POKEMON_STADIUM
+-1.0
+7682 -104.74893
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.JIGGLYPUFF: 15>] Stage.BATTLEFIELD
+1.0
+5829 -15.717418
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.JIGGLYPUFF: 15>] Stage.YOSHIS_STORY
+1.0
+5960 -1.1267465
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.JIGGLYPUFF: 15>] Stage.DREAMLAND
+1.0
+6531 76.001
+no setup needed
+INIT
+[<Character.DOC: 21>, <Character.JIGGLYPUFF: 15>] Stage.POKEMON_STADIUM
+-1.0
+14315 -91.04171
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.YLINK: 20>] Stage.BATTLEFIELD
+-1.0
+3638 130.92558
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.YLINK: 20>] Stage.YOSHIS_STORY
+-1.0
+1544 -58.385662
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.YLINK: 20>] Stage.DREAMLAND
+-1.0
+3019 146.829
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.YLINK: 20>] Stage.FINAL_DESTINATION
+-1.0
+6820 83.67907
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.YLINK: 20>] Stage.POKEMON_STADIUM
+-1.0
+4214 98.16769
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.DOC: 21>] Stage.BATTLEFIELD
+-1.0
+6722 100.35736
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.DOC: 21>] Stage.YOSHIS_STORY
+-1.0
+4018 95.03655
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.DOC: 21>] Stage.DREAMLAND
+-1.0
+2618 143.24585
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.DOC: 21>] Stage.FINAL_DESTINATION
+-1.0
+3472 103.28164
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.DOC: 21>] Stage.POKEMON_STADIUM
+1.0
+9614 94.06172
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.LINK: 6>] Stage.BATTLEFIELD
+1.0
+2927 -33.765553
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.LINK: 6>] Stage.YOSHIS_STORY
+-1.0
+2473 -56.43247
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.LINK: 6>] Stage.DREAMLAND
+-1.0
+3481 64.35487
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.LINK: 6>] Stage.FINAL_DESTINATION
+-1.0
+4438 -139.00987
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.LINK: 6>] Stage.POKEMON_STADIUM
+-1.0
+3778 -83.71473
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.LUIGI: 17>] Stage.BATTLEFIELD
+1.0
+2036 53.02906
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.LUIGI: 17>] Stage.YOSHIS_STORY
+-1.0
+2591 174.5
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.LUIGI: 17>] Stage.DREAMLAND
+-1.0
+2700 -123.29733
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.LUIGI: 17>] Stage.FINAL_DESTINATION
+1.0
+2522 -89.66399
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.LUIGI: 17>] Stage.POKEMON_STADIUM
+1.0
+2711 4.7044387
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.FALCO: 22>] Stage.BATTLEFIELD
+-1.0
+2506 -69.14778
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.FALCO: 22>] Stage.YOSHIS_STORY
+1.0
+1857 7.581713
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.FALCO: 22>] Stage.DREAMLAND
+1.0
+3913 0.0
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.FALCO: 22>] Stage.FINAL_DESTINATION
+-1.0
+4435 246.2381
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.FALCO: 22>] Stage.POKEMON_STADIUM
+1.0
+3687 71.34547
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.GANONDORF: 25>] Stage.BATTLEFIELD
+1.0
+2413 -59.34681
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.GANONDORF: 25>] Stage.YOSHIS_STORY
+1.0
+2936 -43.728165
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.GANONDORF: 25>] Stage.DREAMLAND
+-1.0
+4016 95.24829
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.GANONDORF: 25>] Stage.FINAL_DESTINATION
+-1.0
+3115 68.28749
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.GANONDORF: 25>] Stage.POKEMON_STADIUM
+1.0
+5021 -4.3668165
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.ROY: 26>] Stage.BATTLEFIELD
+-1.0
+3290 67.68898
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.ROY: 26>] Stage.YOSHIS_STORY
+-1.0
+2135 125.65854
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.ROY: 26>] Stage.DREAMLAND
+-1.0
+4207 -220.98668
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.ROY: 26>] Stage.FINAL_DESTINATION
+-1.0
+6018 99.82361
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.ROY: 26>] Stage.POKEMON_STADIUM
+1.0
+9907 3.8060455
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.MARIO: 0>] Stage.BATTLEFIELD
+-1.0
+4988 153.80342
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.MARIO: 0>] Stage.YOSHIS_STORY
+1.0
+3841 -62.34441
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.MARIO: 0>] Stage.DREAMLAND
+1.0
+5392 -106.478516
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.MARIO: 0>] Stage.FINAL_DESTINATION
+-1.0
+2774 84.54091
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.MARIO: 0>] Stage.POKEMON_STADIUM
+-1.0
+6236 146.80081
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.FOX: 1>] Stage.BATTLEFIELD
+-1.0
+3857 -56.040077
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.FOX: 1>] Stage.YOSHIS_STORY
+-1.0
+2703 60.598614
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.FOX: 1>] Stage.DREAMLAND
+1.0
+1476 -33.332832
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.FOX: 1>] Stage.FINAL_DESTINATION
+1.0
+4935 -68.26267
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.FOX: 1>] Stage.POKEMON_STADIUM
+-1.0
+1993 230.3313
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.MARTH: 18>] Stage.BATTLEFIELD
+-1.0
+3210 64.67167
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.MARTH: 18>] Stage.YOSHIS_STORY
+-1.0
+1962 -114.23194
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.MARTH: 18>] Stage.DREAMLAND
+-1.0
+3318 -159.8609
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.MARTH: 18>] Stage.FINAL_DESTINATION
+-1.0
+5058 133.55548
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.MARTH: 18>] Stage.POKEMON_STADIUM
+-1.0
+2966 91.99942
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.CPTFALCON: 2>] Stage.BATTLEFIELD
+1.0
+1890 82.49905
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.CPTFALCON: 2>] Stage.DREAMLAND
+1.0
+1913 1.7474632
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.CPTFALCON: 2>] Stage.FINAL_DESTINATION
+1.0
+1845 16.0
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.CPTFALCON: 2>] Stage.POKEMON_STADIUM
+-1.0
+4224 111.70251
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.JIGGLYPUFF: 15>] Stage.BATTLEFIELD
+-1.0
+3205 73.997894
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.JIGGLYPUFF: 15>] Stage.YOSHIS_STORY
+1.0
+4621 -83.365005
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.JIGGLYPUFF: 15>] Stage.DREAMLAND
+-1.0
+3906 256.28485
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.JIGGLYPUFF: 15>] Stage.FINAL_DESTINATION
+-1.0
+3877 114.79115
+no setup needed
+INIT
+[<Character.LUIGI: 17>, <Character.JIGGLYPUFF: 15>] Stage.POKEMON_STADIUM
+-1.0
+4546 231.6323
+1 STOPING=================================================================================================

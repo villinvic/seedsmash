@@ -1,7 +1,9 @@
 import numpy as np
-from melee import Action
+from melee import Action, Character
 from tensorflow_probability.python.internal.backend.jax import argmax
 
+from melee_env.compiled_libmelee_framedata import CompiledFrameData
+from melee_env.observation_space import ObsBuilder
 from seedsmash.bots.bot_config import BotConfig
 
 action_idx = {
@@ -59,7 +61,15 @@ class ActionStateCounts:
     ]])
 
 
-    def __init__(self, config, underused_prob=5e-4, overused_prob=0.16):
+    def __init__(
+            self,
+            config,
+            underused_prob=5e-4,
+            overused_prob=0.16,
+            min_prob=1e-6,
+            reward_scale=0.015,
+            penalty_scale=0.003
+    ):
         self.config = config
         self.n_action_states = len(action_idx)
         self.probs = np.full((self.n_action_states,), dtype=np.float32, fill_value=1/self.n_action_states)
@@ -67,24 +77,22 @@ class ActionStateCounts:
         self.discarded_action_states = np.ones((self.n_action_states,), dtype=np.float32)
         self.discarded_action_states[self.discarded_states] = 0.
 
-        self.underused_prob = underused_prob
-        self.overused_prob = overused_prob
+        self.underused_logp = np.log(underused_prob)
+        self.overused_logp = np.log(overused_prob)
 
-        self.count_max = 100 / self.underused_prob
-        self.count_min = 15 / self.underused_prob
+        self.min_prob = min_prob
+        self.count_min = 1 / min_prob
+        self.count_max = self.count_min * 10
+
+        self.reward_scale = reward_scale
+        self.penalty_scale = penalty_scale
+
         self.curr_count = 0
         self.count_sizes = []
         self.queue = []
 
 
     def push_samples(self, action_state_counts):
-        # We want to punish moves that are used to often
-        # Reward rare states.
-        # if we take the unique actions, we can't punish the overused actions
-        # same if we only take the first frame where the action appears (example: DK down-b)
-        # if we take all actions, we repeatdly reward states that can't be stayed on (e.g. techs).
-        # but for those states we can't stay on, we do not reward a lot of frames in consequence, so this should be
-        # fine.
 
         self.queue.append(action_state_counts)
         size = np.sum(action_state_counts)
@@ -99,43 +107,24 @@ class ActionStateCounts:
             self.queue.pop(0)
             self.curr_count -= popped_size
 
-
     def get_values(self):
 
         if self.curr_count > self.count_min:
             self.probs[:] = np.maximum(np.sum(self.queue, dtype=np.float32, axis=0), 1e-8)
             self.probs /= self.probs.sum()
-            self.probs = np.clip(self.probs, 1e-5, 1.)
-
-
-        # underused_mask =  (self.probs < self.underused_prob)[action_states]
-        # overused_mask = (self.probs > self.overused_prob)[action_states]
-        logprobs = np.log(self.probs)
-        rewards = np.clip((np.log(self.underused_prob) - logprobs) * self.discarded_action_states, 0., 1e2)
-        penalty = np.clip((logprobs-np.log(self.overused_prob)) * self.discarded_action_states,0, 1e2)
-
-
-        # rewards = np.log(np.clip(self.probs + (1 - self.underused_prob), 1e-8, 1)) * self.discarded_action_states
-        # penalty = np.log(np.clip(-self.probs + (1 + self.overused_prob), 1e-8, 1)) * self.discarded_action_states
-        #
-        # rewards = np.square(rewards*8_000.) * 0.05
-        # penalty = np.square(penalty)
-
-        scores = rewards ** 3 / 300 - penalty * 0.005
-
-        return ActionStateValues(scores)
-
-    def debug(self):
+            self.probs = np.maximum(self.probs, self.min_prob)
 
         logprobs = np.log(self.probs)
-        rewards = np.clip((np.log(self.underused_prob) - logprobs) , 0., 1e2)
-        penalty = np.clip((logprobs-np.log(self.overused_prob)) ,0, 1e2)
+        rewards = np.maximum((self.underused_logp - logprobs) * self.discarded_action_states, 0.)
+        penalty = np.maximum((logprobs-self.overused_logp) * self.discarded_action_states, 0.)
 
-        rewards =rewards ** 3 / 300
-        penalty = penalty * 0.005
+        self.last_rewards = rewards * self.reward_scale
+        self.last_penalty = penalty * self.penalty_scale
 
-        return (rewards, penalty)
-
+        return ActionStateValues(
+            self.last_rewards - self.last_penalty,
+            self.__class__.__name__
+        )
 
     def get_metrics(self):
         return {
@@ -148,46 +137,25 @@ class ActionStateCounts:
 
 class ActionStateHitCounts(ActionStateCounts):
 
-    # dont want to encourage certain ways to get up.
-    discarded_states = np.concatenate([ActionStateCounts.discarded_states, [action_idx[Action.GETUP_ATTACK],
-                                                                            action_idx[Action.GROUND_ATTACK_UP]]])
-
-    def __init__(self, config):
+    def __init__(self, config, character: Character):
         super().__init__(
             config,
             underused_prob=1/25,
             overused_prob=15/25,
+            min_prob=1e-4,
+            reward_scale=0.02,
+            penalty_scale=0.1
         )
-        self.count_max = 25 * 128 * 15
-        self.count_min = 25 * 128
+        # init probs at something that makes sense.
+        self.character = character
         self.probs[:] = 3/25
 
-    def get_values(self):
-
-        if self.curr_count > self.count_min:
-            self.probs[:] = np.maximum(np.sum(self.queue, dtype=np.float32, axis=0), 1e-8)
-            self.probs /= self.probs.sum()
-            self.probs = np.clip(self.probs, 1e-4, 1.)
+        self.discarded_states = np.array([action_idx[a] for a in [Action.EDGE_ATTACK_SLOW, Action.EDGE_ATTACK_QUICK,
+                                                                  Action.GETUP_ATTACK, Action.GROUND_ATTACK_UP] +
+                        [attack for attack in Action if not ObsBuilder.FD.is_attack(character, attack)]
+                        ])
 
 
-        logprobs = np.log(self.probs)
-        rewards = np.clip((np.log(self.underused_prob) - logprobs) * self.discarded_action_states, 0., 1e2)
-        penalty = np.clip((logprobs-np.log(self.overused_prob)) * self.discarded_action_states,0, 1e2)
-
-        scores = rewards ** 2 / 200 - penalty * 0.1
-
-        return ActionStateValues(scores, self.__class__.__name__)
-
-    def debug(self):
-
-        logprobs = np.log(self.probs)
-        rewards = np.clip((np.log(self.underused_prob) - logprobs) , 0., 1e2)
-        penalty = np.clip((logprobs-np.log(self.overused_prob)) ,0, 1e2)
-
-        rewards = rewards ** 2 / 75
-        penalty = penalty * 0.1
-
-        return (rewards, penalty)
 
 
 class ActionStateValues:
@@ -215,15 +183,9 @@ class ActionStateValues:
         arg = np.argmax(rewards)
 
         if rewards[arg] > 0:
-            if hasattr(self, "name"):
-                print(self.name, idx_to_action[action_states[arg]], rewards[arg])
-            else:
-                # TODO: cleanup
-                print(idx_to_action[action_states[arg]], rewards[arg])
-
+            print(self.name, idx_to_action[action_states[arg]], rewards[arg])
 
         return rewards
-
 
     def get_metrics(self):
         return {
@@ -238,7 +200,7 @@ if __name__ == '__main__':
     asc = ActionStateCounts(None)
 
     asc.probs = np.logspace(
-        -5, 0, len(action_idx)
+        -6, 0, len(action_idx)
     )
 
     rs, pens = asc.debug()

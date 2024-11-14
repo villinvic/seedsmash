@@ -92,6 +92,7 @@ class SSBMConfig(FunctionalConfig):
             save_replays=False,
             render=False,
             use_ffw=False,
+            polling_mode=False,
             debug=False,
             online_delay=0,
         )
@@ -124,6 +125,9 @@ class SSBMConfig(FunctionalConfig):
 
     def debug(self) -> "SSBMConfig":
         return self.enable("debug")
+
+    def polling_mode(self) -> "SSBMConfig":
+        return self.enable("polling_mode")
 
     def obs_config(self, obs_conf: SSBMObsConfig) -> "SSBMConfig":
         if not isinstance(obs_conf, SSBMObsConfig):

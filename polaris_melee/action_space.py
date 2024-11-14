@@ -703,6 +703,26 @@ while len(MARIO_TORNADO) < 41:  # actually 37
         MARIO_TORNADO.pop()
 
 
+def continue_gentleman(game_state, char_state: PlayerState, curr_action: InputSequence):
+    allow = (char_state.action in (Action.NEUTRAL_ATTACK_1, Action.NEUTRAL_ATTACK_2) or
+             char_state.action == Action.NEUTRAL_ATTACK_3  and char_state.action_frame < 30)
+    if not allow:
+        curr_action.terminate()
+    return allow
+
+FALCON_GENTLEMAN = [
+ControllerInput(buttons=Button.BUTTON_A, duration=3),
+ControllerInput(duration=6, test_func=continue_gentleman),
+ControllerInput(buttons=Button.BUTTON_A, duration=3, test_func=continue_gentleman),
+ControllerInput(duration=6, test_func=continue_gentleman),
+ControllerInput(buttons=Button.BUTTON_A, duration=31+8, test_func=continue_gentleman),
+]
+
+char_specials = {
+    Character.CPTFALCON: InputSequence(FALCON_GENTLEMAN, free_stick_at_frame=30, name="FALCON_GENTLEMAN")
+}
+
+
 class SSBMActionSpace:
     # TODO : Can remove simple down-b
     # check for wavedash, they look weird
@@ -912,6 +932,11 @@ class SSBMActionSpace:
                        ControllerInput(duration=1),
                        ], name=character)
 
+        for character in Character
+    })
+
+    CHAR_SPECIAL = lambda _: CharDependentInputSequence({
+        character: char_specials.get(character, InputSequence(ControllerInput(energy_cost=0.)))
         for character in Character
     })
 

@@ -33,6 +33,21 @@ class LayerNorm(snt.Module):
         return inputs
 
 
+class ResMLP(snt.Module):
+    def __init__(self, residual_size, hidden_size=None, depth=2, name="ResMLP"):
+        super().__init__(name=name)
+        self.layernorm = LayerNorm()
+        hiddens = [residual_size or hidden_size] * depth
+        self.mlp = snt.nets.MLP(hiddens, activate_final=True)
+        self.decoder = snt.Linear(residual_size, w_init=tf.zeros_initializer())
+
+    def __call__(self, residual):
+        x = residual
+        x = self.layernorm(x)
+        x = self.mlp(x)
+        x = self.decoder(x)
+        return residual + x
+
 
 class ResLSTMBlock(snt.RNNCore):
 

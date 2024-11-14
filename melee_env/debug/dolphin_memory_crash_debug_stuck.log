@@ -1,0 +1,103 @@
+SETUP
+Invalid read from 0x9ffffffc, PC = 0x8037b2a8 
+Invalid read from 0x9ffffff8, PC = 0x8037b2a8 
+Invalid read from 0x9ffffffc, PC = 0x8037b2a8 
+Invalid read from 0x9ffffff8, PC = 0x8037b2a8 
+Invalid read from 0x9ffffffc, PC = 0x8037b84c 
+Invalid read from 0x9ffffff8, PC = 0x8037b820 
+Invalid read from 0x9ffffffc, PC = 0x8037bde4 
+Invalid read from 0x9ffffff8, PC = 0x8037bde4 
+INIT
+[<Character.FOX: 1>, <Character.ROY: 26>] Stage.POKEMON_STADIUM
+we are stuck
+0 STOPING=================================================================================================
+SETUP
+Invalid read from 0xfc000064, PC = 0x8037331c 
+Invalid read from 0xfc000064, PC = 0x80373340 
+Invalid read from 0xfc000064, PC = 0x8037335c 
+Invalid write to 0xfc000064, PC = 0x8037336c 
+Invalid read from 0xfc000064, PC = 0x8037336c 
+Invalid read from 0xfc000060, PC = 0x8037336c 
+Invalid read from 0xfc000058, PC = 0x803733d8 
+Invalid read from 0xfc002054, PC = 0x803733d4 
+Invalid read from 0xfc002054, PC = 0x803733a8 
+Invalid read from 0xfc002054, PC = 0x803733c4 
+Invalid write to 0xfc002054, PC = 0x80373304 
+Invalid read from 0xfc002054, PC = 0x80373304 
+Invalid read from 0xfc002050, PC = 0x80373304 
+Invalid read from 0xfc002048, PC = 0x803733d4 
+INIT
+[<Character.FALCO: 22>, <Character.CPTFALCON: 2>] Stage.YOSHIS_STORY
+we are stuck
+0 STOPING=================================================================================================
+SETUP
+Invalid read from 0xfc000064, PC = 0x80373384 
+Invalid read from 0xfc000064, PC = 0x803733a8 
+Invalid read from 0xfc000064, PC = 0x803733c4 
+Invalid write to 0xfc000064, PC = 0x80373304 
+Invalid read from 0xfc000064, PC = 0x80373304 
+Invalid read from 0xfc000060, PC = 0x80373304 
+Invalid read from 0xfc000058, PC = 0x803733d4 
+Invalid read from 0xfc002054, PC = 0x803733d4 
+Invalid read from 0xfc002054, PC = 0x80373340 
+Invalid read from 0xfc002054, PC = 0x8037335c 
+Invalid write to 0xfc002054, PC = 0x8037336c 
+Invalid read from 0xfc002054, PC = 0x8037336c 
+Invalid read from 0xfc002050, PC = 0x8037336c 
+Invalid read from 0xfc002048, PC = 0x803733d8 
+INIT
+[<Character.FALCO: 22>, <Character.GANONDORF: 25>] Stage.YOSHIS_STORY
+we are stuck
+0 STOPING=================================================================================================
+SETUP
+Invalid read from 0x9ffffffc, PC = 0x8037b2a8 
+Invalid read from 0x9ffffff8, PC = 0x8037b2a8 
+Invalid read from 0x9ffffffc, PC = 0x8037b2a8 
+Invalid read from 0x9ffffff8, PC = 0x8037b2a8 
+Invalid read from 0x9ffffffc, PC = 0x8037b84c 
+Invalid read from 0x9ffffff8, PC = 0x8037b820 
+Invalid read from 0x9ffffffc, PC = 0x8037bde4 
+Invalid read from 0x9ffffff8, PC = 0x8037bde4 
+INIT
+[<Character.FALCO: 22>, <Character.JIGGLYPUFF: 15>] Stage.YOSHIS_STORY
+we are stuck
+0 STOPING=================================================================================================
+SETUP
+Invalid read from 0x9ffffffc, PC = 0x8037b2a8 
+Invalid read from 0x9ffffff8, PC = 0x8037b2a8 
+Invalid read from 0x9ffffffc, PC = 0x8037b2a8 
+Invalid read from 0x9ffffff8, PC = 0x8037b2a8 
+Invalid read from 0x9ffffffc, PC = 0x8037b84c 
+Invalid read from 0x9ffffff8, PC = 0x8037b820 
+Invalid read from 0x9ffffffc, PC = 0x8037bde4 
+Invalid read from 0x9ffffff8, PC = 0x8037bde4 
+INIT
+[<Character.MARIO: 0>, <Character.FALCO: 22>] Stage.YOSHIS_STORY
+we are stuck
+0 STOPING=================================================================================================
+SETUP
+Invalid read from 0xfc000064, PC = 0x80373384 
+Invalid read from 0xfc000064, PC = 0x803733a8 
+Invalid read from 0xfc000064, PC = 0x803733c4 
+Invalid write to 0xfc000064, PC = 0x80373304 
+Invalid read from 0xfc000064, PC = 0x80373304 
+Invalid read from 0xfc000060, PC = 0x80373304 
+Invalid read from 0xfc000058, PC = 0x803733d4 
+Invalid read from 0xfc002054, PC = 0x803733d4 
+Invalid read from 0xfc002054, PC = 0x80373340 
+Invalid read from 0xfc002054, PC = 0x8037335c 
+Invalid write to 0xfc002054, PC = 0x8037336c 
+Invalid read from 0xfc002054, PC = 0x8037336c 
+Invalid read from 0xfc002050, PC = 0x8037336c 
+Invalid read from 0xfc002048, PC = 0x803733d8 
+INIT
+[<Character.MARIO: 0>, <Character.MARTH: 18>] Stage.YOSHIS_STORY
+we are stuck
+0 STOPING=================================================================================================
+0 STOPING=================================================================================================
+0 STOPING=================================================================================================
+0 STOPING=================================================================================================
+0 STOPING=================================================================================================
+0 STOPING=================================================================================================
+0 STOPING=================================================================================================
+0 STOPING=================================================================================================

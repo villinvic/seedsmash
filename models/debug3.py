@@ -9,9 +9,6 @@ from gymnasium.spaces import Discrete
 import tensorflow as tf
 
 from polaris.experience import SampleBatch
-from tensorflow.python.ops.gen_data_flow_ops import stage
-from tensorflow.python.ops.random_ops import categorical
-
 from models.modules import LayerNormLSTM, ResLSTMBlock, ResGRUBlock
 
 tf.compat.v1.enable_eager_execution()
@@ -193,7 +190,9 @@ class Debug3(BaseModel):
 
     ):
 
+        # global stuff
         stage = obs["ground_truth"]["categorical"]["stage"]
+        stage_width = obs["ground_truth"]["continuous"]["stage_width"]
 
         stage_oh = tf.one_hot(tf.cast(stage, tf.int32),
                                    depth=tf.cast(self.observation_space["categorical"]["stage"].high[0],
@@ -204,6 +203,7 @@ class Debug3(BaseModel):
         else:
             prev_action = tf.expand_dims(tf.expand_dims(prev_action, axis=0), axis=0)
             stage_oh = tf.expand_dims(stage_oh, axis=0)
+            stage_width = tf.expand_dims(tf.expand_dims(stage_width, axis=0), axis=0)
 
         self_embedded = self.get_player_embedding(
             obs["ground_truth"],
@@ -223,7 +223,7 @@ class Debug3(BaseModel):
             single_obs
         )
         core_input = tf.concat(
-            [self_embedded, opp_delayed_embedded, stage_oh],
+            [self_embedded, opp_delayed_embedded, stage_oh, stage_width],
             axis=-1
         )
 
