@@ -1,9 +1,7 @@
 import numpy as np
 from melee import Action, Character
-from tensorflow_probability.python.internal.backend.jax import argmax
 
-from melee_env.compiled_libmelee_framedata import CompiledFrameData
-from melee_env.observation_space import ObsBuilder
+from polaris_melee.observation_space import ObsBuilder
 from seedsmash.bots.bot_config import BotConfig
 
 action_idx = {
@@ -63,19 +61,20 @@ class ActionStateCounts:
 
     def __init__(
             self,
-            config,
+            preferred_move: Action,
             underused_prob=5e-4,
             overused_prob=0.16,
             min_prob=1e-6,
             reward_scale=0.015,
             penalty_scale=0.003
     ):
-        self.config = config
+        self.preferred_move = preferred_move
         self.n_action_states = len(action_idx)
         self.probs = np.full((self.n_action_states,), dtype=np.float32, fill_value=1/self.n_action_states)
 
-        self.discarded_action_states = np.ones((self.n_action_states,), dtype=np.float32)
-        self.discarded_action_states[self.discarded_states] = 0.
+        self.action_state_weights = np.ones((self.n_action_states,), dtype=np.float32)
+        self.action_state_weights[self.discarded_states] = 0.
+        self.action_state_weights[preferred_move] *= 5
 
         self.underused_logp = np.log(underused_prob)
         self.overused_logp = np.log(overused_prob)
@@ -115,8 +114,8 @@ class ActionStateCounts:
             self.probs = np.maximum(self.probs, self.min_prob)
 
         logprobs = np.log(self.probs)
-        rewards = np.maximum((self.underused_logp - logprobs) * self.discarded_action_states, 0.)
-        penalty = np.maximum((logprobs-self.overused_logp) * self.discarded_action_states, 0.)
+        rewards = np.maximum((self.underused_logp - logprobs) * self.action_state_weights, 0.)
+        penalty = np.maximum((logprobs-self.overused_logp) * np.maximum(self.action_state_weights, 1.), 0.)
 
         self.last_rewards = rewards * self.reward_scale
         self.last_penalty = penalty * self.penalty_scale
@@ -125,6 +124,14 @@ class ActionStateCounts:
             self.last_rewards - self.last_penalty,
             self.__class__.__name__
         )
+
+    def get_top_k_probs(self, k: int):
+        argsorted = np.argsort(-self.probs)[:k]
+
+        return {
+            "moves": [idx_to_action[idx] for idx in argsorted],
+            "probs": self.probs[argsorted]
+        }
 
     def get_metrics(self):
         return {
@@ -137,24 +144,24 @@ class ActionStateCounts:
 
 class ActionStateHitCounts(ActionStateCounts):
 
-    def __init__(self, config, character: Character):
-        super().__init__(
-            config,
-            underused_prob=1/25,
-            overused_prob=15/25,
-            min_prob=1e-4,
-            reward_scale=0.02,
-            penalty_scale=0.1
-        )
-        # init probs at something that makes sense.
-        self.character = character
-        self.probs[:] = 3/25
+    def __init__(self, preferred_move: Action, character: Character):
 
         self.discarded_states = np.array([action_idx[a] for a in [Action.EDGE_ATTACK_SLOW, Action.EDGE_ATTACK_QUICK,
                                                                   Action.GETUP_ATTACK, Action.GROUND_ATTACK_UP] +
                         [attack for attack in Action if not ObsBuilder.FD.is_attack(character, attack)]
                         ])
 
+        super().__init__(
+            preferred_move,
+            underused_prob=1/25,
+            overused_prob=15/25,
+            min_prob=1e-4,
+            reward_scale=0.02,
+            penalty_scale=0.1
+        )
+
+        self.character = character
+        self.probs[:] = 3/25
 
 
 
@@ -197,7 +204,7 @@ class ActionStateValues:
 if __name__ == '__main__':
 
 
-    asc = ActionStateCounts(None)
+    asc = ActionStateHitCounts(None, Character.CPTFALCON)
 
     asc.probs = np.logspace(
         -6, 0, len(action_idx)

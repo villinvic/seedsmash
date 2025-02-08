@@ -16,7 +16,7 @@ class Helper:
 
     weights = {}
 
-    clip = 0.5
+    clip = 0.4
 
     def __init__(self, hist_len=6):
 
@@ -75,13 +75,14 @@ class TechSkillHelper(Helper):
                         Action.FALLING_AERIAL_BACKWARD, Action.JUMPING_ARIAL_BACKWARD, Action.JUMPING_ARIAL_FORWARD,
                          Action.JUMPING_FORWARD, Action.JUMPING_FORWARD)
     weights = {
-        "dashing": 0.001,
+        "dashing": 0.0015,
         "ledge_canceling": 0.03,
-        "lcanceling": 0.01,
+        "lcanceling": 0.02,
         "wavelanding": 0.02,
-        "wavedash": 0.003, # easy action
+        "wavedash": 0., # easy action
         "wavedash_off_platform": 0.03,
         "walljump": 0.05,
+        "edge_drop": 0.,
         "moonwalk": 0.,
     }
 
@@ -90,6 +91,12 @@ class TechSkillHelper(Helper):
 
     def dashing(self, player_state: PlayerState, is_near: bool):
         return player_state.action == Action.DASHING# and self.previous_player_states[-1].action != Action.DASHING
+
+    def edge_drop(self, player_state: PlayerState, is_near: bool):
+        prev_state = self.previous_player_states[-1]
+
+        return prev_state.action in (Action.EDGE_HANGING, Action.EDGE_CATCHING) and player_state.action in (
+            Action.FALLING, Action.FALLING_FORWARD, Action.FALLING_BACKWARD)
 
     def ledge_canceling(self, player_state: PlayerState, is_near: bool):
         # in landing-lag > in air
@@ -169,11 +176,11 @@ class TechSkillHelper(Helper):
 class CptFalconHelper(Helper):
 
     weights = {
-        "gentleman": 0.1,
+        "gentleman": 0.03,
     }
 
     def __init__(self):
-        super().__init__(hist_len=10)
+        super().__init__(hist_len=1)
 
     def gentleman(self, player_state: PlayerState, is_near: bool):
         return is_near and (player_state.action == Action.NEUTRAL_ATTACK_3 and player_state.action_frame == 30)

@@ -31,5 +31,10 @@ r = r_base * np.maximum((1 - freq) / (1 - freq_threshold), 0)
 
 - add damage reward landscape as customization (constant, linear, sinus, exp decay, noisy)
 
-- debug retracing
 - cleanup
+-----------------------------------------------------------------------------------------------------------------------
+
+Try adam
+Try categorical vf
+Try lower lambda
+Scale negative reward (every reward related to opponent) with winrate (0->50->100% wr : 0%->95->100%)

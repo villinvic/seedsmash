@@ -10,7 +10,7 @@ class ComboTracker:
             self,
             max_combo: int,
             framedata: CompiledFrameData,
-            small_hit_scale=0.5,
+            small_hit_scale=0.1,
             small_hit_percent=5,
             repeated_hit_scale=0.5,
     ):
@@ -30,7 +30,7 @@ class ComboTracker:
     def update(
             self,
             dealt_damage: float,
-            suffered_damage: float,
+            in_hitstun: bool,
             curr_action: Action,
             has_died: bool,
             has_killed: bool,
@@ -41,12 +41,12 @@ class ComboTracker:
         Combo length reset to 0 if opponent escapes.
         """
 
-        if suffered_damage or has_died or has_killed or self.is_opp_attacking(opp_state):
+        if has_died or has_killed or self.is_opp_attacking(opp_state):
             self.reset()
         elif dealt_damage:
             combo_increment = 1
             if dealt_damage < self.small_hit_percent:
-                combo_increment *= self.small_hit_scale
+                combo_increment *= self.small_hit_scale * dealt_damage
             if self.last_action == curr_action:
                 combo_increment *= self.repeated_hit_scale
             self.current_combo_length = np.minimum(self.current_combo_length + combo_increment, self.max_combo)

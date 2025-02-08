@@ -15,12 +15,12 @@ from ml_collections import ConfigDict
 
 from polaris.checkpointing.checkpointable import Checkpointable
 from polaris.experience.episode import EpisodeMetrics, NamedPolicyMetrics
-from polaris.experience.worker_set import WorkerSet, SyncWorkerSet
+from polaris.experience.worker_set import SyncWorkerSet
 from polaris.experience.matchmaking import MatchMaking
 from polaris.environments.polaris_env import PolarisEnv
 from polaris.policies.policy import Policy, PolicyParams, ParamsMap
 from polaris.experience.sampling import ExperienceQueue, SampleBatch
-from polaris.utils.metrics import MetricBank, GlobalCounter, GlobalTimer, average_dict
+from polaris.utils.metrics import MetricBank, GlobalCounter, GlobalTimer
 
 import psutil
 
@@ -144,7 +144,9 @@ class FSP(Checkpointable):
                 GlobalCounter[GlobalCounter.ENV_STEPS] = self.metrics["counters/" + GlobalCounter.ENV_STEPS].get()
 
             for policy_name, params in self.params_map.items():
-                params.config["entropy_cost"] = 2.5e-3
+                params.config["entropy_cost"] = 1e-2
+                params.config["aux_loss_weight"] = 5e-2
+
                 self.policy_map[policy_name] = self.PolicylCls(
                     name=policy_name,
                     action_space=self.env.action_space,
@@ -158,7 +160,6 @@ class FSP(Checkpointable):
                 )
                 self.policy_map[policy_name].setup(params)
                 self.experience_queue[policy_name] = ExperienceQueue(self.config)
-
 
         self.inject_bot_configs()
         GlobalTimer["inject_new_bots_timer"] = time.time()
@@ -345,7 +346,7 @@ class FSP(Checkpointable):
                 params = self.policy_map[policy_name].get_params()
                 self.params_map[policy_name] = params
 
-                if params.version == 2 or params.version % self.config.update_policy_history_freq == 0:
+                if params.version % self.config.update_policy_history_freq == 0:
                     pid = f"{policy_name}_version_{params.version}"
                     new_params = PolicyParams(
                         name=pid,
@@ -448,16 +449,14 @@ class FSP(Checkpointable):
 
     def run(self):
         try:
-            while not self.is_done(self.metricbank.get()):
+            while not self.is_done(self.metricbank):
                 self.training_step()
                 self.metricbank.report(print_metrics=False)
                 self.checkpoint_if_needed()
         except KeyboardInterrupt:
             print("Caught C^.")
             #self.save()
-        except Exception as e:
-            print(e)
-        #self.grad_thread.stop()
+
 
 
 

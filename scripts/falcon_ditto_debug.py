@@ -32,7 +32,7 @@ obs_config = (
     .stage()
     .projectiles()
     # .controller_state()
-    .delay(0)  # 4 (* 3)
+    .delay(4)  # 4 (* 3)
 )
 
 @ex.config
@@ -101,45 +101,44 @@ def cfg():
     env = SSBM.env_id
 
     # TODO: try batched inference
-    num_workers = 1
+    num_workers = 64
     policy_path = 'polaris.policies.PPO'
-    model_path = 'models.debug3'
+    model_path = 'models.debug5'
     policy_class = 'PPO'
-    model_class = 'Debug3'
+    model_class = 'Debug5'
     trajectory_length = 128 # 256 ?
     max_seq_len = 32
-    train_batch_size = 12288
+    train_batch_size = 8192*4
     max_queue_size = train_batch_size * 10
     n_epochs=3
-    minibatch_size= train_batch_size//8
+    minibatch_size= train_batch_size//16
 
     default_policy_config = {
-        'discount': 0.993,  # 0.997
+        'discount': 0.994,  # 0.997
         'action_state_reward_scale': 1.,
 
-        'gae_lambda': 0.99, # 0.98
-        'entropy_cost': 1.5e-3,#5e-4, # 1e-3 with impala, or around " 0.3, 0.4
+        'gae_lambda': 0.95, # 0.98
+        'entropy_cost': 1e-2,#5e-4, # 1e-3 with impala, or around " 0.3, 0.4
         'lr': 5e-4,
 
         # PPO
         'grad_clip': 5.,
-        'ppo_clip': 0.1, # 0.3
+        'ppo_clip': 0.25, # 0.3
         'initial_kl_coeff': 1.,
-        'baseline_coeff': 0.5,
-        'vf_clip': 1.,
+        'baseline_coeff': 0.25,
+        'vf_clip': 10.,
         'kl_target': 1e-2,
-
-        'aux_loss_weight': 0.2,
+        'aux_loss_weight': 0.05,
         }
 
     compute_advantages_on_workers = True
     wandb_logdir = 'logs'
-    report_freq = 10
+    report_freq = 5
     episode_metrics_smoothing = 0.95
     training_metrics_smoothing = 0.8
     inject_new_bots_freq_s = 60
     # FSP
-    update_policy_history_freq = 400
+    update_policy_history_freq = 100
     policy_history_length = 10
 
     checkpoint_config = dict(
@@ -149,7 +148,9 @@ def cfg():
         keep=4,
     )
     episode_callback_class = SSBMCallbacks
-    negative_reward_scale = 0.95
+    negative_reward_scale = 0.92
+
+    restore = False
 
 
 @ex.automain
@@ -158,7 +159,7 @@ def main(_config):
     tf.compat.v1.enable_eager_execution()
     gpus = tf.config.experimental.list_physical_devices('GPU')
     for gpu in gpus:
-        tf.config.experimental.set_memory_growth(gpu, True)
+        tf.config.experimental.set_memory_growth(gpu, False)
     from seedsmash.fsp_sync_trainer import FSP
 
     config = ConfigDict(_config)
@@ -170,10 +171,10 @@ def main(_config):
         project="Seedsmash",
         mode='online',
         group="debug",
-        name="fictitious_action_stacking",
+        name="falcon_ditto_debug",
         notes=None,
         dir=config["wandb_logdir"]
     )
 
-    trainer = FSP(config, restore=True)
+    trainer = FSP(config, restore=config.restore)
     trainer.run()

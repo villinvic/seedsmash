@@ -1,83 +1,35 @@
-import os
 import time
-from collections import defaultdict
-from typing import Dict, List, Union, Tuple, Any
-from abc import ABC
+from typing import Dict
 import numpy as np
 import ray
 from polaris.experience import MatchMaking
 from polaris.policies import PolicyParams
 
 from seedsmash.bots.bot_config import BotConfig
-from seedsmash.visualisation.ranking import RankingWindow
 
-import pyglet
-import zmq
-
-from seedsmash.window_worker import WindowWorker
-
-
-@ray.remote(num_cpus=1, num_gpus=0)
-class RankingWindowWorker(WindowWorker):
-    def __init__(self, update_interval_s=5, pipe_name="pipe"):
-        super().__init__(window=RankingWindow(), update_interval_s=update_interval_s, pipe_name=pipe_name)
-
-    def update_window(self, dt, **k):
-        data = super().update_window(dt, **k)
-        if data is not None:
-            self.window.update_ratings(data)
+#from seedsmash.window_worker import WindowWorker
+# @ray.remote(num_cpus=1, num_gpus=0)
+# class RankingWindowWorker(WindowWorker):
+#     def __init__(self, update_interval_s=5, pipe_name="pipe"):
+#         super().__init__(window=RankingWindow(), update_interval_s=update_interval_s, pipe_name=pipe_name)
+#
+#     def update_window(self, dt, **k):
+#         data = super().update_window(dt, **k)
+#         if data is not None:
+#             self.window.update_ratings(data)
 
 
 
 class SeedSmashMatchmaking(MatchMaking):
 
-    def __reduce__(self):
-
-        return (self.__class__, (self.agent_ids,self.initial_elo, self.initial_lr, self.annealing, self.final_lr,
-                                 self.win_rate_lr, self.match_count, self.elo_scores, self.lr))
-
-
     def __init__(
             self,
             agent_ids,
-            initial_elo=1000,
-            initial_lr=40,
-            annealing=0.99,
-            final_lr=12,
-            win_rate_lr=5e-2,
-            match_count=None,
-            elo_scores=None,
-            lr=None,
+            lr=12,
 
     ):
         super().__init__(agent_ids=agent_ids)
-
-        self.initial_elo = initial_elo
-        self.initial_lr = initial_lr
-        self.annealing = annealing
-        self.final_lr = final_lr
-
-        self.match_count = defaultdict(int) if match_count is None else match_count
-
-        self.elo_scores = {} if elo_scores is None else elo_scores
-        self.lr = {} if lr is None else lr
-
-        # We keep track for some more stats
-        self.win_rate_lr = win_rate_lr
-        self.win_rates = defaultdict(lambda: 0.5)
-
-        self.pipe_name = "ratingdata_pipe"
-
-    def init_window(self):
-        try:
-            os.remove(self.pipe_name)
-        except Exception as e:
-            print(e)
-
-        self.window = RankingWindowWorker.remote(update_interval_s=30, pipe_name=self.pipe_name)
-        context = zmq.Context()
-        self.push_pipe = context.socket(zmq.PUSH)
-        self.push_pipe.bind(f"ipc://{self.pipe_name}")
+        self.lr = lr
 
     def next(
             self,
@@ -86,103 +38,69 @@ class SeedSmashMatchmaking(MatchMaking):
             **kwargs,
     ) -> Dict[str, "PolicyParams"]:
 
-        # Do not make players play against themselves
-        pcopy = params_map.copy()
-        policies = []
-        # sample wrt to avg episode length
         if wid == 0:
+            # TODO: read matchup from bot requests (read from database)
             # pick uniformly for stream
             p = None
         else:
+
             total_samples = np.array([
-                p.stats["samples_generated"] for p in params_map.values()
+                p.options.offset_samples_generated for p in params_map.values()
             ])
             total_samples -= np.min(total_samples)
             delta = np.maximum(1e-8, np.max(total_samples) - total_samples)
             p = delta / delta.sum()
-            # with this, the highest samples bot will never be picked here
-            #print(total_samples, p)
 
-        sampled_policy = np.random.choice(list(params_map.keys()), p=p)
-        policies.append(pcopy.pop(sampled_policy))
+        policies = list(params_map.keys())
+
+
+        pid_a = np.random.choice(list(params_map.keys()), p=p)
+        policies.remove(pid_a)
 
         ratings = np.array([
-            self.elo_scores.get(p, self.initial_elo)
-            for p in pcopy
+            params_map[pid].options.elo for pid in policies
         ])
-        sampled_policy_rating = self.elo_scores.get(sampled_policy, self.initial_elo)
-        rating_gaps = sampled_policy_rating - ratings
+
+        rating_gaps = params_map[pid_a].options.elo - ratings
 
         winning_probs = self.expected_outcome(rating_gaps)
         sigma_squared = (1/4)**2 #(1/6)**2 #
         probabilities = np.exp(-(winning_probs-0.5)**2/(2*sigma_squared)) / np.sqrt(2*np.pi*sigma_squared)
         probabilities /= probabilities.sum()
 
-        sampled_opponent = np.random.choice(list(pcopy.keys()), p=probabilities)
+        pid_b = np.random.choice(policies, p=probabilities)
 
         return {
-            1: params_map[sampled_policy],
-            2: params_map[sampled_opponent]
+            1: params_map[pid_a],
+            2: params_map[pid_b]
         }
 
-
-    def expected_outcome(self, delta_elo):
+    @staticmethod
+    def expected_outcome(delta_elo):
         # 400 is just a score used for human normalisation
         return 1 / (1 + np.power(10, -delta_elo / 400.))
 
     def update(
             self,
-            pid1: str,
-            pid2: str,
+            bot_a: float,
+            bot_b: float,
             outcome: float
     ):
-        for pid in (pid1, pid2):
-            if pid not in self.elo_scores:
-                self.elo_scores[pid] = self.initial_elo
-                self.lr[pid] = self.initial_lr
 
-        delta_elo = self.elo_scores[pid1] - self.elo_scores[pid2]
+        elo_a = bot_a.elo
+        elo_b = bot_b.elo
+
+        delta_elo = elo_a - elo_b
 
         win_prob = self.expected_outcome(delta_elo)
         update = outcome - win_prob
 
-        self.elo_scores[pid1] = self.elo_scores[pid1] + self.lr[pid1] * update
-        self.elo_scores[pid2] = self.elo_scores[pid2] + self.lr[pid2] * (-update)
+        elo_a = elo_a + self.lr * update
+        elo_b = elo_b + self.lr * (-update)
 
-        self.match_count[pid1] += 1
-        self.match_count[pid2] += 1
+        bot_a.elo = elo_a
+        bot_b.elo = elo_b
 
-        self.lr[pid1] = np.maximum(self.final_lr, self.annealing * self.lr[pid1])
-        self.lr[pid2] = np.maximum(self.final_lr, self.annealing * self.lr[pid2])
-
-        self.win_rates[pid1] = self.win_rates[pid1] * (1 - self.win_rate_lr) + outcome * self.win_rate_lr
-        self.win_rates[pid2] = self.win_rates[pid2] * (1 - self.win_rate_lr) + (1-outcome) * self.win_rate_lr
-
-    def metrics(self):
-
-        metrics = []
-        for m_name, values in zip(["rating", "games_played", "winrate", "elo_learning_rate"],
-                                  [self.elo_scores, self.match_count, self.win_rates, self.lr]):
-            for pid, value in values.items():
-                metrics.append((f"{pid}/" + m_name, value))
-
-        return metrics
-
-    def update_policy_stats(self, policy_map):
-
-        sorted_pids = sorted(self.elo_scores.keys(), key=lambda k: -self.elo_scores[k])
-        for rank, pid in enumerate(sorted_pids, 1):
-            for m_name, values in zip(["rating", "games_played", "winrate"],
-                                      [self.elo_scores, self.match_count, self.win_rates]):
-                if pid in policy_map:
-                    policy_map[pid].stats[m_name] = values.get(pid, 0)
-
-            policy_map[pid].stats["rank"] = rank
-
-        self.push_pipe.send_pyobj({
-            pid: PolicyParams(name=policy.name, stats=policy.stats, options=policy.options)
-            for pid, policy in policy_map.items()
-        })
 
 
 if __name__ == '__main__':

@@ -1,11 +1,13 @@
 import atexit
 import time
 from collections import defaultdict
+from functools import partial
 from typing import Optional, List, Union, SupportsFloat, Any
 from typing import Dict as Dict_T
 from typing import Tuple as Tuple_T
 from copy import copy, deepcopy
 
+import psutil
 from gymnasium.core import ActType, ObsType
 from gymnasium.error import ResetNeeded
 from melee import GameState, Console
@@ -19,11 +21,12 @@ from polaris_melee.combo_tracker import ComboTracker
 from polaris_melee.enums import PlayerType
 from polaris_melee.action_space import ActionSpace, ComboPad, ActionSpaceStick, ActionSpaceCStick, ControllerStateCombo, \
     SimpleActionSpace, InputQueue, ActionControllerInterface, SSBMActionSpace
-from polaris_melee.make_data import BadCombinations
 from polaris_melee.observation_space import ObsBuilder
 from polaris_melee.rewards import RewardFunction, DeltaFrame, StepRewards
 import gc
 from polaris.environments import PolarisEnv
+
+from seedsmash.bot import Bot
 from seedsmash.bots.bot_config import BotConfig
 
 
@@ -49,11 +52,13 @@ def build_console(
     if render:
         kwargs.update(
             path=config["paths"]["FM"],
+            #copy_home_directory=True,
             enable_ffw=False,
             gfx_backend='',
             disable_audio=False,
             use_exi_inputs=False,
-            polling_timeout=60,
+            polling_timeout=0, # 60
+            #blocking_input=False,
             fullscreen=True,
             polling_mode=polling_mode
         )
@@ -105,7 +110,7 @@ def run_console(
 
 
 class SSBM(PolarisEnv):
-    env_id = "SSBM-1"
+    env_id = "SSBM-2"
 
     def __init__(
             self,
@@ -114,7 +119,14 @@ class SSBM(PolarisEnv):
     ):
         super().__init__(env_index=env_index, **config)
 
-        self.render = env_index == 0 and self.config["render"]
+        self.render = env_index in (0, -123) and self.config["render"]
+        p = psutil.Process()
+        if env_index >= 0:
+            self.cpu_affinity = [2*env_index, 2*env_index+1]
+            p.cpu_affinity(self.cpu_affinity)
+        else:
+            self.cpu_affinity = [0]
+
         self.polling_mode = config["polling_mode"]
         self.slippi_port = 51441 + self.env_index
 
@@ -129,9 +141,15 @@ class SSBM(PolarisEnv):
 
         self.observation_space = self.observation_builder.gym_specs
         # You need a space for each player, as the action sequences do not copy.
-        self.action_space = SSBMActionSpace().gym_spec
+        self.action_space_constructor = partial(SSBMActionSpace,
+                                                delay=0
+                                                #delay=int(self.render)
+                                                )
+        self.action_space = self.action_space_constructor().gym_spec
 
         atexit.register(self.close)
+
+        self.game_info = {}
 
         self.empty_info_dict = {p: {} for p in self.get_agent_ids()}
 
@@ -146,6 +164,7 @@ class SSBM(PolarisEnv):
             self.player_types
         )
         run_console(self.console, self.render, self.config)
+        #psutil.Process(self.console._process.pid).cpu_affinity(self.cpu_affinity)
         success = plug_setup(self.console, self.controllers)
         return success
 
@@ -168,6 +187,7 @@ class SSBM(PolarisEnv):
                     gamestate = self.console.step()
         except Exception as e:
             raise ResetNeeded(f"Something went wrong stepping the console: {e}")
+
         return gamestate
 
     def handle_menus(
@@ -182,12 +202,12 @@ class SSBM(PolarisEnv):
         for port in self.populated_ports:
             if port in options:
                 character = options[port].character
-                costume = options[port].costume
+                costume = options[port].costume_id
                 if (character, costume) in taken_costumes:
                     # make sure we do not go out of bound
                     costume = 0
 
-                # stage_sampling_weights[options[port].preferred_stage] += 1.
+                stage_sampling_weights[options[port].preferred_stage] += 1.
             else:
                 character = np.random.choice(self.config["playable_characters"])
                 costume = 0
@@ -203,9 +223,6 @@ class SSBM(PolarisEnv):
         p /= p.sum()
         stage = np.random.choice(self.config["playable_stages"], p=p)
         self.current_matchup = {"characters": characters, "stage": stage}
-
-        if bad_combination_checking and (characters[1], characters[2], stage) in self.bad_combinations:
-            raise ResetNeeded(f"Tried a bad combination: {self.current_matchup}")
 
         gamestate = self.step_console()
 
@@ -288,11 +305,10 @@ class SSBM(PolarisEnv):
             *,
             seed: Optional[int] = None,
             return_info: bool = False,
-            options: dict[int, BotConfig],
+            options: dict[int, Bot],
     ) -> Tuple_T[Dict_T[int, dict], dict]:
 
-        self.bad_combinations = BadCombinations()
-        self.bad_combinations.load_combinations()
+        self.game_info = {}
 
         if not hasattr(self, "console"):
             success = self.iterate_port_until_success()
@@ -301,7 +317,7 @@ class SSBM(PolarisEnv):
         self.episode_metrics = defaultdict(float)
         self.delta_frame = DeltaFrame()
         self.reward_functions = {
-            port: RewardFunction(port, options[port])
+            port: RewardFunction(port, options[port], options[(port%2)+1])
             for port in self.get_agent_ids() | self._debug_port
         }
         self.combo_counters = {p: ComboTracker(
@@ -310,7 +326,7 @@ class SSBM(PolarisEnv):
         ) for p in self.populated_ports}
 
         self.episode_length = 1
-        self.discrete_controllers = {p: SSBMActionSpace() for p in self._agent_ids | self._debug_port}
+        self.discrete_controllers = {p: self.action_space_constructor() for p in self._agent_ids | self._debug_port}
         self.action_queues = {port: InputQueue() for port in self._agent_ids | self._debug_port}
         self.episode_reward = 0.
 
@@ -322,6 +338,10 @@ class SSBM(PolarisEnv):
                 controller.release_all()
 
         gamestate = self.step_until_ready_go()
+
+        self.game_info["stage"] = gamestate.stage
+        self.game_info["bot_a"] = options[1].tag
+        self.game_info["bot_b"] = options[2].tag
 
         self.observation_builder.reset()
         self.observation_builder.update(gamestate)
@@ -339,6 +359,7 @@ class SSBM(PolarisEnv):
             for frame in range(every):
                 gamestate = self.get_gamestate()
                 players = gamestate.players
+
                 for port in self._agent_ids | self._debug_port:
                     if port in players:
                         next_input = self.action_queues[port].pull(
@@ -372,13 +393,14 @@ class SSBM(PolarisEnv):
                     # process differences in gamestates
                     self.delta_frame.update(next_gamestate)
 
+
                     # Put in our custom combo counter
                     next_gamestate.custom["combo_counters"] = {}
                     for port in self.populated_ports:
                         other_port = port % 2 + 1
                         next_gamestate.custom["combo_counters"][port] = self.combo_counters[port].update(
                             dealt_damage=self.delta_frame[DeltaFrame.DAMAGE][other_port],
-                            suffered_damage=self.delta_frame[DeltaFrame.DAMAGE][port],
+                            in_hitstun=players[port].hitstun_frames_left > 0,
                             curr_action=players[port].action,
                             has_died=self.delta_frame[DeltaFrame.DEATH][port] > 0,
                             has_killed=self.delta_frame[DeltaFrame.DEATH][other_port] > 0,
@@ -390,8 +412,16 @@ class SSBM(PolarisEnv):
                             self.delta_frame, active_actions[port], collected_rewards[port],
                             next_gamestate.custom["combo_counters"]
                         )
+
                 # check if we are done, and exit if it is the case
                 if self.delta_frame.episode_finished:
+                    if self.delta_frame[DeltaFrame.WIN][1] == 1:
+                        self.game_info["winner"] = self.game_info["bot_a"]
+                    elif self.delta_frame[DeltaFrame.WIN][2] == 1:
+                        self.game_info["winner"] = self.game_info["bot_b"]
+                    else:
+                        self.game_info["winner"] = None
+                    self.game_info["length"] = self.episode_length
                     break
 
         return next_gamestate, collected_rewards
@@ -421,9 +451,10 @@ class SSBM(PolarisEnv):
 
     def step(
         self, action_dict: Dict_T[int, int]
-    ) -> tuple[dict, dict, dict, dict, dict]:
+    ) -> Tuple_T[dict, dict, dict, dict, dict]:
 
         self.handle_controller_inputs(action_dict)
+
         gamestate, step_rewards = self.get_next_state_reward()
 
         done = False
@@ -458,9 +489,15 @@ class SSBM(PolarisEnv):
         for port in self.get_agent_ids():
             reward_dict[port] = self.reward_functions[port].compute(step_rewards[port])
             if done:
-                self.episode_metrics[f"agent_{port}"] = self.reward_functions[port].get_metrics(self.episode_length)
+                if port == 1:
+                    bot = "bot_a"
+                else:
+                    bot = "bot_b"
+                self.game_info["metrics"][bot] = self.reward_functions[port].get_metrics(self.episode_length)
+                self.episode_metrics["game_info"] = self.game_info
 
-        return obs_dict, reward_dict, dones, dones, self.empty_info_dict
+        return obs_dict, reward_dict, dones, dones, {}
+
 
     def get_gamestate(self) -> GameState:
         if self.console is None:
@@ -469,6 +506,7 @@ class SSBM(PolarisEnv):
             return self.console._prev_gamestate
 
     def get_episode_metrics(self):
+
         return self.episode_metrics
 
     def dump_bad_combination_and_raise_error(self, errnum):

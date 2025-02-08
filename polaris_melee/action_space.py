@@ -703,24 +703,29 @@ while len(MARIO_TORNADO) < 41:  # actually 37
         MARIO_TORNADO.pop()
 
 
-def continue_gentleman(game_state, char_state: PlayerState, curr_action: InputSequence):
-    allow = (char_state.action in (Action.NEUTRAL_ATTACK_1, Action.NEUTRAL_ATTACK_2) or
-             char_state.action == Action.NEUTRAL_ATTACK_3  and char_state.action_frame < 30)
+def continue_gentleman(game_state: GameState, char_state: PlayerState, curr_action: InputSequence):
+    allow = (char_state.action == Action.NEUTRAL_ATTACK_2 or
+             char_state.action == Action.NEUTRAL_ATTACK_3  and char_state.action_frame < 33)
+    # TODO: allow if hitlag on first two hits.
     if not allow:
         curr_action.terminate()
     return allow
 
-FALCON_GENTLEMAN = [
-ControllerInput(buttons=Button.BUTTON_A, duration=3),
-ControllerInput(duration=6, test_func=continue_gentleman),
-ControllerInput(buttons=Button.BUTTON_A, duration=3, test_func=continue_gentleman),
-ControllerInput(duration=6, test_func=continue_gentleman),
-ControllerInput(buttons=Button.BUTTON_A, duration=31+8, test_func=continue_gentleman),
+LONG_A_PRESS = [
+# ControllerInput(buttons=Button.BUTTON_A, duration=3),
+# ControllerInput(duration=6, test_func=continue_gentleman),
+# ControllerInput(buttons=Button.BUTTON_A, duration=3, test_func=continue_gentleman),
+# ControllerInput(duration=6, test_func=continue_gentleman),
+ControllerInput(buttons=Button.BUTTON_A, duration=31+8+2, test_func=continue_gentleman),
 ]
 
 char_specials = {
-    Character.CPTFALCON: InputSequence(FALCON_GENTLEMAN, free_stick_at_frame=30, name="FALCON_GENTLEMAN")
+    Character.CPTFALCON: InputSequence(LONG_A_PRESS, 30, "LONG_A_PRESS")
 }
+
+for char in (Character.MARIO, Character.LUIGI, Character.DOC):
+    char_specials[char] = InputSequence(MARIO_TORNADO, free_stick_at_frame=3, name="MARIO_TORNADO")
+
 
 
 class SSBMActionSpace:
@@ -728,99 +733,100 @@ class SSBMActionSpace:
     # check for wavedash, they look weird
     # check for mario action state in tornado, not same as doc ?
 
-    RESET_CONTROLLER = lambda _: InputSequence(ControllerInput(energy_cost=0.))
-    LEFT = lambda _: InputSequence(ControllerInput(stick=StickPosition.LEFT, energy_cost=0.))
-    RIGHT = lambda _: InputSequence(ControllerInput(stick=StickPosition.RIGHT, energy_cost=0.))
-    DOWN = lambda _: InputSequence(ControllerInput(stick=StickPosition.DOWN, energy_cost=0.))
-    UP = lambda _: InputSequence(ControllerInput(stick=StickPosition.UP, energy_cost=0.))
-    UP_LEFT = lambda _: InputSequence(ControllerInput(stick=StickPosition.UP_LEFT, energy_cost=0.))
-    UP_RIGHT = lambda _: InputSequence(ControllerInput(stick=StickPosition.UP_RIGHT, energy_cost=0.))
-    DOWN_LEFT = lambda _: InputSequence(ControllerInput(stick=StickPosition.DOWN_LEFT, energy_cost=0.))
-    DOWN_RIGHT = lambda _: InputSequence(ControllerInput(stick=StickPosition.DOWN_RIGHT, energy_cost=0.))
-    A_NEUTRAL = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_A))
+
+    RESET_CONTROLLER = lambda *_: InputSequence(ControllerInput(energy_cost=0.))
+    LEFT = lambda *_: InputSequence(ControllerInput(stick=StickPosition.LEFT, energy_cost=0.))
+    RIGHT = lambda *_: InputSequence(ControllerInput(stick=StickPosition.RIGHT, energy_cost=0.))
+    DOWN = lambda *_: InputSequence(ControllerInput(stick=StickPosition.DOWN, energy_cost=0.))
+    UP = lambda *_: InputSequence(ControllerInput(stick=StickPosition.UP, energy_cost=0.))
+    UP_LEFT = lambda *_: InputSequence(ControllerInput(stick=StickPosition.UP_LEFT, energy_cost=0.))
+    UP_RIGHT = lambda *_: InputSequence(ControllerInput(stick=StickPosition.UP_RIGHT, energy_cost=0.))
+    DOWN_LEFT = lambda *_: InputSequence(ControllerInput(stick=StickPosition.DOWN_LEFT, energy_cost=0.))
+    DOWN_RIGHT = lambda *_: InputSequence(ControllerInput(stick=StickPosition.DOWN_RIGHT, energy_cost=0.))
+    A_NEUTRAL = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_A))
     #Disable this when in the air, its the same as c stick
-    TILT_UP = lambda _: InputSequence(
+    TILT_UP = lambda *_: InputSequence(
         [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.UP_TILT, duration=2, test_func=disable_in_air),
          ControllerInput(test_func=disable_in_air, duration=1),
          ]
     )
-    TILT_DOWN = lambda _: InputSequence(
+    TILT_DOWN = lambda *_: InputSequence(
         [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.DOWN_TILT, duration=2, test_func=disable_in_air),
          ControllerInput(test_func=disable_in_air, duration=1),
          ]
     )
-    TILT_LEFT = lambda _: InputSequence(
+    TILT_LEFT = lambda *_: InputSequence(
         [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.LEFT_TILT, duration=2, test_func=disable_in_air),
          ControllerInput(test_func=disable_in_air, duration=1),
          ]
     )
-    TILT_RIGHT = lambda _: InputSequence(
+    TILT_RIGHT = lambda *_: InputSequence(
         [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.RIGHT_TILT, duration=2, test_func=disable_in_air),
          ControllerInput(test_func=disable_in_air, duration=1),
          ]
     )
 
     # TODO: cannot work if we are already shielding
-    SHIELD_DROP_LEFT = lambda _: InputSequence([
+    SHIELD_DROP_LEFT = lambda *_: InputSequence([
         ControllerInput(stick=StickPosition.LEFT, test_func=disable_on_shield_air, duration=1),
         ControllerInput(stick=StickPosition.LEFT, buttons=Button.BUTTON_L, test_func=allow_shield_drop1, duration=1),
         ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.DOWN_LEFT, duration=1, test_func=allow_shield_drop),
     ])
 
-    B_NEUTRAL = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B))
+    B_NEUTRAL = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_B))
 
     # Do it depending on the char ?
     # B_UP = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.UP, duration=3))
-    B_UP_LEFT = lambda _: InputSequence([
+    B_UP_LEFT = lambda *_: InputSequence([
         ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.UP, duration=2),
         # allows reversed up-b
         ControllerInput(stick=StickPosition.LEFT, duration=1),
     ])
-    B_UP_RIGHT = lambda _: InputSequence([
+    B_UP_RIGHT = lambda *_: InputSequence([
         ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.UP, duration=2),
         # allows reversed up-b
         ControllerInput(stick=StickPosition.RIGHT, duration=1),
     ])
     #########B_DOWN = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.DOWN))
-    B_LEFT = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.LEFT))
-    B_RIGHT = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.RIGHT))
-    C_UP = lambda _: InputSequence(ControllerInput(c_stick=StickPosition.UP))
-    C_RIGHT = lambda _: InputSequence(ControllerInput(c_stick=StickPosition.RIGHT))
-    C_LEFT = lambda _: InputSequence(ControllerInput(c_stick=StickPosition.LEFT))
-    C_DOWN = lambda _: InputSequence(ControllerInput(c_stick=StickPosition.DOWN))
+    B_LEFT = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.LEFT))
+    B_RIGHT = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.RIGHT))
+    C_UP = lambda *_: InputSequence(ControllerInput(c_stick=StickPosition.UP))
+    C_RIGHT = lambda *_: InputSequence(ControllerInput(c_stick=StickPosition.RIGHT))
+    C_LEFT = lambda *_: InputSequence(ControllerInput(c_stick=StickPosition.LEFT))
+    C_DOWN = lambda *_: InputSequence(ControllerInput(c_stick=StickPosition.DOWN))
 
     # using this on ground makes you jump
-    L_UP = lambda _: InputSequence(
+    L_UP = lambda *_: InputSequence(
         ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.UP, test_func=allow_l_up))
 
     # We can use this for puff, or to waveland with no angle
-    L_DOWN = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.DOWN, test_func=allow_l_down))
+    L_DOWN = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.DOWN, test_func=allow_l_down))
 
     # Only allow this when on ground ? No for basic L cancel
-    L_NEUTRAL = lambda _: InputSequence(
+    L_NEUTRAL = lambda *_: InputSequence(
        ControllerInput(buttons=Button.BUTTON_L, test_func=disable_in_air, energy_cost=0.1))
     # For teching and l cancel without windows
-    L_NEUTRAL_LIGHT = lambda _: InputSequence(
+    L_NEUTRAL_LIGHT = lambda *_: InputSequence(
         ControllerInput(analog_press=True)) # was disabled in air
-    L_RIGHT = lambda _: InputSequence(
+    L_RIGHT = lambda *_: InputSequence(
         ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.RIGHT, test_func=disable_in_air))
-    L_LEFT = lambda _: InputSequence(
+    L_LEFT = lambda *_: InputSequence(
         ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.LEFT, test_func=disable_in_air))
 
     # Do not use those actions on ground, this is the same as L_LEFT and L_RIGHT otherwise
-    WAVELAND_LEFT = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.DOWN_LEFT,
+    WAVELAND_LEFT = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.DOWN_LEFT,
                                                             test_func=allow_waveland, energy_cost=0.))
-    WAVELAND_RIGHT = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.DOWN_RIGHT,
+    WAVELAND_RIGHT = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.DOWN_RIGHT,
                                                              test_func=allow_waveland, energy_cost=0.))
 
     # Hook, Z-cancel, NAIR
-    Z = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_Z, test_func=disable_on_ground))
+    Z = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_Z, test_func=disable_on_ground))
 
-    JC_GRAB = lambda _: InputSequence([
+    JC_GRAB = lambda *_: InputSequence([
         ControllerInput(buttons=Button.BUTTON_X, duration=2, test_func=allow_jc_grab),
         ControllerInput(buttons=Button.BUTTON_Z, duration=1, test_func=allow_jc_grab),
     ])
-    SHIELD_GRAB = lambda _: InputSequence(
+    SHIELD_GRAB = lambda *_: InputSequence(
         ControllerInput(buttons=(Button.BUTTON_A, Button.BUTTON_L), test_func=disable_in_air),
     )
     # FULL_HOP_NEUTRAL = lambda _: CharDependentInputSequence(
@@ -830,7 +836,7 @@ class SSBMActionSpace:
     #         for character, short_hop_frames in char2kneebend.items()
     #     }
     # )
-    SHORT_HOP_NEUTRAL = lambda _: InputSequence(
+    SHORT_HOP_NEUTRAL = lambda *_: InputSequence(
         [ControllerInput(buttons=Button.BUTTON_X, duration=2, energy_cost=0.),
          ControllerInput(duration=1, energy_cost=0.)]
     )
@@ -844,7 +850,7 @@ class SSBMActionSpace:
     # )
 
     # needed for fox (can't decide jump direction after 3 frames)
-    SHORT_HOP_LEFT = lambda _: InputSequence(
+    SHORT_HOP_LEFT = lambda *_: InputSequence(
         [ControllerInput(buttons=Button.BUTTON_X, duration=2, stick=StickPosition.LEFT, energy_cost=0.),
          ControllerInput(duration=1, stick=StickPosition.LEFT, energy_cost=0.)]
     )
@@ -857,7 +863,7 @@ class SSBMActionSpace:
     #         for character, short_hop_frames in char2kneebend.items()
     #     }
     # )
-    SHORT_HOP_RIGHT = lambda _: InputSequence(
+    SHORT_HOP_RIGHT = lambda *_: InputSequence(
         [ControllerInput(buttons=Button.BUTTON_X, duration=2, stick=StickPosition.RIGHT, energy_cost=0.),
          ControllerInput(duration=1, stick=StickPosition.RIGHT, energy_cost=0.)]
     )
@@ -865,10 +871,10 @@ class SSBMActionSpace:
     # TODO: only allow when on ground ?
     # TODO: debug, short_hop_frames+1
     # Pressing for short_hop_frames seems to lead to short hop, do we need one more frame then ?
-    WAVEDASH_LEFT = lambda _: CharDependentInputSequence(
+    WAVEDASH_LEFT = lambda _, d: CharDependentInputSequence(
         {
             character: InputSequence([
-                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames, stick=StickPosition.WAVE_LEFT,
+                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+d, stick=StickPosition.WAVE_LEFT,
                                 test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.WAVE_LEFT,
                                 test_func=allow_wavedash, energy_cost=0.),
@@ -876,10 +882,10 @@ class SSBMActionSpace:
             for character, short_hop_frames in char2kneebend.items()
         }
     )
-    WAVEDASH_RIGHT = lambda _: CharDependentInputSequence(
+    WAVEDASH_RIGHT = lambda _, d: CharDependentInputSequence(
         {
             character: InputSequence([
-                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames, stick=StickPosition.WAVE_RIGHT,
+                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+d, stick=StickPosition.WAVE_RIGHT,
                                 test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.WAVE_RIGHT,
                                 test_func=allow_wavedash, energy_cost=0.),
@@ -887,10 +893,10 @@ class SSBMActionSpace:
             for character, short_hop_frames in char2kneebend.items()
         }
     )
-    WAVEDASH_NEUTRAL = lambda _: CharDependentInputSequence(
+    WAVEDASH_NEUTRAL = lambda _, d: CharDependentInputSequence(
         {
             character: InputSequence([
-                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames, stick=StickPosition.DOWN,
+                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+d, stick=StickPosition.DOWN,
                                 test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.DOWN,
                                 test_func=check_kneebend, energy_cost=0.),
@@ -898,10 +904,10 @@ class SSBMActionSpace:
             for character, short_hop_frames in char2kneebend.items()
         }
     )
-    WAVEDASH_SLIGHT_LEFT = lambda _: CharDependentInputSequence(
+    WAVEDASH_SLIGHT_LEFT = lambda _, d: CharDependentInputSequence(
         {
             character: InputSequence([
-                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames, stick=StickPosition.DOWN_LEFT,
+                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+d, stick=StickPosition.DOWN_LEFT,
                                 test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.DOWN_LEFT,
                                 test_func=allow_wavedash, energy_cost=0.),
@@ -909,10 +915,10 @@ class SSBMActionSpace:
             for character, short_hop_frames in char2kneebend.items()
         }
     )
-    WAVEDASH_SLIGHT_RIGHT = lambda _: CharDependentInputSequence(
+    WAVEDASH_SLIGHT_RIGHT = lambda _, d: CharDependentInputSequence(
         {
             character: InputSequence([
-                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames, stick=StickPosition.DOWN_RIGHT,
+                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+d, stick=StickPosition.DOWN_RIGHT,
                                 test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.DOWN_RIGHT,
                                 test_func=allow_wavedash, energy_cost=0.),
@@ -921,33 +927,19 @@ class SSBMActionSpace:
         }
     )
 
-    B_DOWN_MASH = lambda _: CharDependentInputSequence({
-
-        character: InputSequence(MARIO_TORNADO, free_stick_at_frame=3, name=character) if character in (
-            Character.MARIO, Character.LUIGI, Character.DOC)
-        else
-        # TODO: char specific move: gentleman, charged neutral b, etc.
-        # for now, down b (no other action for down b)
-        InputSequence([ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.DOWN, duration=2),
-                       ControllerInput(duration=1),
-                       ], name=character)
-
+    CHAR_SPECIAL = lambda *_: CharDependentInputSequence({
+        character: deepcopy(char_specials.get(character, InputSequence(ControllerInput(energy_cost=0.))))
         for character in Character
     })
 
-    CHAR_SPECIAL = lambda _: CharDependentInputSequence({
-        character: char_specials.get(character, InputSequence(ControllerInput(energy_cost=0.)))
-        for character in Character
-    })
-
-    def __init__(self):
+    def __init__(self, delay: int):
 
         to_register = list()
         self._registered = set()
         for member in dir(self):
             actual_member = getattr(self, member)
             if callable(actual_member) and actual_member.__name__ == "<lambda>":
-                inst = actual_member()
+                inst = actual_member(delay)
                 inst.name = member
                 to_register.append(inst)
                 self._registered.add(member)

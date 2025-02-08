@@ -12,96 +12,6 @@ import numpy as np
 from seedsmash.utils import ActionStateCounts, ActionStateValues
 
 
-def wrap_slice_set(arr, start, stop, values):
-    length = arr.shape[0]
-    num_values = len(values)
-    diff = stop - start
-    if diff > 0:
-        arr[start:min(start + diff, length)] = values[:min(diff, num_values)]
-    else:
-        arr[start:] = values[:length-start]
-        arr[:stop] = values[length-start:]
-
-def compute_entropy_rewards(
-        visited_states, # should be an array of floats because it is a box
-        state_history: np.ndarray,
-        full_counts,
-        dicarded
-):
-    visited_states = np.int32(visited_states)
-    data_amount = len(state_history)
-
-    full_counts[:] = 0
-    unique_elements, counts = np.unique(state_history, return_counts=True)
-    full_counts[unique_elements] += counts
-    probabilities = full_counts / data_amount
-
-    #max_ = np.log(data_amount)
-    lower_probablity_threshold = 1e-4
-    probabilities_clipped = np.clip(probabilities + (1. - lower_probablity_threshold), 0., 1.)
-    nll = - np.log(probabilities_clipped)
-
-    action_state_entropy = - np.sum(probabilities * np.log(probabilities+1e-8))
-
-    # WALK_SLOW = 0x0f
-    # WALK_MIDDLE = 0x10
-    # WALK_FAST = 0x11
-    nll[dicarded] = 0.
-
-    entropy_rewards = np.square(nll[visited_states] * 8000)
-
-    return entropy_rewards, action_state_entropy
-
-def linear_interpolation(arr, a=0.1):
-    n = len(arr)
-
-    # Initialize output array
-    output = np.zeros_like(arr, dtype=np.float32)
-
-    # Find indices where the ones are located
-    one_indices = np.where(arr)[0]
-
-    if len(one_indices) == 0:
-        return output  # Return all zeros if there are no ones
-
-    # Create an array to store the minimum distance to the nearest '1'
-    distances = np.full(n, np.inf)
-
-    # Leftward pass: Calculate the distance to the nearest '1' to the left
-    for idx in one_indices:
-        left_distance = np.arange(idx, -1, -1)
-        distances[:idx + 1] = np.minimum(distances[:idx + 1], left_distance)
-
-    # Rightward pass: Calculate the distance to the nearest '1' to the right
-    for idx in one_indices:
-        right_distance = np.arange(0, n - idx)
-        distances[idx:] = np.minimum(distances[idx:], right_distance)
-
-    # Apply linear interpolation using step size 'a'
-    output = np.maximum(1 - distances * a, 0)
-
-    return output
-
-def surround_with_true(arr, n):
-    # Step 1: Get the indices of all True values in the input array
-    true_indices = np.flatnonzero(arr)
-
-    if len(true_indices) == 0:
-        return arr  # No True values, return original array
-
-    # Step 2: Generate the range of indices to be set to True
-    start_indices = np.maximum(true_indices - n, 0)  # Ensures index doesn't go negative
-    end_indices = np.minimum(true_indices + n, len(arr) - 1)  # Ensures index doesn't exceed array length
-
-    # Step 3: Create an empty boolean array
-    output = np.zeros_like(arr, dtype=bool)
-
-    # Step 4: Use NumPy broadcasting to mark ranges as True
-    for start, end in zip(start_indices, end_indices):
-        output[start:end + 1] = True
-
-    return output
-
 class SSBMCallbacks(
     EpisodeCallbacks
 ):
@@ -168,8 +78,7 @@ class SSBMCallbacks(
                 action_states[:-1], mask=valid_hit_timesteps
             )
 
-            # TODO
-            #as_bonus[1:] += action_state_hit_rewards
+            as_bonus += action_state_hit_rewards
 
             total_action_state_hit_rewards = np.sum(action_state_hit_rewards)
 

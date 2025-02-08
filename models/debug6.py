@@ -20,7 +20,7 @@ from polaris.models.utils import CategoricalDistribution, GaussianDistribution
 
 
 
-class Debug4(BaseModel):
+class Debug6(BaseModel):
     is_recurrent = True
 
     def initialise(self):
@@ -61,8 +61,8 @@ class Debug4(BaseModel):
             action_space: Discrete,
             config,
     ):
-        super(Debug4, self).__init__(
-            name="Debug4",
+        super(Debug6, self).__init__(
+            name="Debug5",
             observation_space=observation_space,
             action_space=action_space,
             config=config,
@@ -98,12 +98,12 @@ class Debug4(BaseModel):
             axis=0
         ), axis=0), axis=0)
 
-        self.pred_encoder = snt.Linear(self.embedding_size)
+        self.opp_predictor = snt.Linear(self.embedding_size)
         self.encoder = snt.nets.MLP([256, 256], activate_final=True, name="encoder")
         self.state_size = 256
         self.rnn = snt.LSTM(self.state_size)
-        self._pi_out = snt.nets.MLP([64, self.num_outputs], name="pi_out")
-        self._value_out = snt.nets.MLP([64, 1], name="value_out")
+        self._pi_out = snt.nets.MLP([128, self.num_outputs], name="pi_out")
+        self._value_out = snt.nets.MLP([128, 1], name="value_out")
 
         self.post_embedding_concat = tf.keras.layers.Concatenate(axis=-1, name="post_embedding_concat")
 
@@ -176,42 +176,35 @@ class Debug4(BaseModel):
             single_obs
         )
 
-        self.opp_embedded = self.get_player_embedding(
-            obs["ground_truth"],
-            "2",
-            single_obs
-        )
-
         opp_delayed_embedded = self.get_player_embedding(
             obs,
             "2",
             single_obs
         )
 
-        core_input = self.encoder(tf.concat(
-            [self_embedded, opp_delayed_embedded, stage_oh, stage_width],
+        core_embed = self.encoder(tf.concat(
+            [self_embedded, opp_delayed_embedded, stage_oh, stage_width, prev_action],
             axis=-1
         ))
 
-        rnn_input = tf.concat(
-            [core_input, prev_action],
-            axis = -1
-        )
-
-        #rnn_input = self.rnn_encoder(pi_input)
         lstm_out, next_state = snt.static_unroll(
             self.rnn,
-            input_sequence=rnn_input,
+            input_sequence=core_embed,
             initial_state=state,
             sequence_length=seq_lens
         )
+        self.out = tf.concat([lstm_out, core_embed], axis=-1)
 
-        self.lstm_out = lstm_out
-
-        action_logits = self._pi_out(lstm_out)
+        action_logits = self._pi_out(self.out)
 
         if compute_value:
-            self._value_logits = self._value_out(lstm_out)
+            self.opp_ground_truth = self.get_player_embedding(
+                obs["ground_truth"],
+                "2",
+                single_obs=single_obs
+            )
+            value_input = tf.concat([self.out, self.opp_ground_truth], axis=-1)
+            self._value_logits = self._value_out(value_input)
             return (action_logits, next_state), tf.squeeze(self._value_logits), {}
         else:
             return action_logits, next_state
@@ -228,8 +221,9 @@ class Debug4(BaseModel):
         return tf.math.square(tf.squeeze(self._value_logits) - targets)
 
     def predict_opp_ground_truth(self):
-        _, aux_out = tf.split(self.lstm_out, 2, axis=-1)
-        pred = self.pred_encoder(self.lstm_out)
+        return self.opp_predictor(self.out)
+
+    def split_to_predicted_types(self, pred):
 
         continuous, binary, categoricals = tf.split(pred, [self.embed_continuous_size,
                                                                              self.embed_binary_size,
@@ -241,50 +235,54 @@ class Debug4(BaseModel):
 
     def aux_loss(
             self,
+            *
+            obs,
             **kwargs
     ):
-        # continuous, binary, categoricals = self.predict_opp_ground_truth()
-        #
-        # true_continuous, true_binary, true_categoricals = tf.split(self.opp_embedded, [self.embed_continuous_size,
-        #                                                   self.embed_binary_size,
-        #                                                   self.embed_categorical_total_size], axis=-1)
-        # true_categoricals = tf.split(true_categoricals, self.embed_categorical_sizes, axis=-1)
-        #
-        #
-        # self.continuous_loss = tf.reduce_mean(tf.keras.losses.huber(
-        #     true_continuous, continuous, delta=0.3
-        # ))
-        #
-        # self.binary_loss = tf.reduce_mean(
-        #     # advantage_weights*
-        #     tf.keras.losses.binary_crossentropy(
-        #         true_binary, binary,
-        #         from_logits=True,
-        #     ))
-        #
-        # self.categorical_loss = tf.reduce_mean([
-        #     # tf.reduce_mean(advantage_weights *
-        #     tf.keras.losses.categorical_crossentropy(
-        #         t, p, from_logits=True
-        #     )
-        #     # )
-        #     for t, p in zip(true_categoricals, categoricals)
-        # ])
-        #
-        # self.tmp1 = true_continuous[0, 0]
-        # self.tmp2 = continuous[0, 0]
-        #
-        # return self.continuous_loss + self.binary_loss + self.categorical_loss
-        return 0.
+
+        # todo: dont concat and split...
+        predicted = self.predict_opp_ground_truth()
+        continuous, binary, categoricals = self.split_to_predicted_types(predicted)
+
+        true_continuous, true_binary, true_categoricals = tf.split(self.opp_ground_truth, [self.embed_continuous_size,
+                                                          self.embed_binary_size,
+                                                          self.embed_categorical_total_size], axis=-1)
+        true_categoricals = tf.split(true_categoricals, self.embed_categorical_sizes, axis=-1)
+
+
+        self.continuous_loss = tf.reduce_mean(tf.keras.losses.huber(
+            true_continuous, continuous, delta=0.3
+        ))
+
+        self.binary_loss = tf.reduce_mean(
+            # advantage_weights*
+            tf.keras.losses.binary_crossentropy(
+                true_binary, binary,
+                from_logits=True,
+            ))
+
+        self.categorical_loss = tf.reduce_mean([
+            # tf.reduce_mean(advantage_weights *
+            tf.keras.losses.categorical_crossentropy(
+                t, p, from_logits=True
+            )
+            # )
+            for t, p in zip(true_categoricals, categoricals)
+        ])
+
+        self.tmp1 = true_continuous[0, 0]
+        self.tmp2 = continuous[0, 0]
+
+        return self.continuous_loss + self.binary_loss + self.categorical_loss
 
 
     def get_metrics(self):
         return {
-            # "continuous_loss": self.continuous_loss,
-            # "categorical_loss": self.categorical_loss,
-            # "binary_loss": self.binary_loss,
-            # "tmp1": self.tmp1,
-            # "tmp2": self.tmp2,
+            "continuous_loss": self.continuous_loss,
+            "categorical_loss": self.categorical_loss,
+            "binary_loss": self.binary_loss,
+            "tmp1": self.tmp1,
+            "tmp2": self.tmp2,
         }
 
 

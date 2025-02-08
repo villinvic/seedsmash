@@ -186,7 +186,7 @@ class ObsBuilder:
         }
     }
 
-    MAX_COMBO = 5
+    MAX_COMBO = 4
 
     def __init__(
             self,
@@ -246,7 +246,8 @@ class ObsBuilder:
                         ( (x - n_p_x2) ** 2 + 0.3*(y - n_p_y) ** 2) ** 0.5,
                     )
 
-            for p_y, p_x1, p_x2 in (right_platform_position(state), top_platform_position(state)):
+            for p_y, p_x1, p_x2 in (right_platform_position(state), top_platform_position(state),
+                                    randall_position(state.frame, state.stage)):
                 no_plat = (
                         p_y == 0.0 and p_x1 == 0.0 and p_x2 == 0.0
                 )
@@ -594,6 +595,7 @@ class ObsBuilder:
             obs["ground_truth"] = deepcopy(obs)
             self.build_for(port, obs)
             obs_dict[port] = obs
+
         return obs_dict
 
     def build_for(self, player_idx, obs):

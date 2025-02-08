@@ -157,4 +157,57 @@ class ResItem(snt.Module):
 
 
 
+class CategoricalValueHead(snt.Module):
+    # https://arxiv.org/pdf/2403.03950
+
+    def __init__(
+            self,
+            num_bins=50,
+            value_bounds=(-5., 5.),
+            smoothing_ratio=0.75,
+    ):
+        super().__init__(name='CategoricalValueHead')
+        self.num_bins = num_bins
+        self.value_bounds = value_bounds
+        self.bin_width = (self.value_bounds[1] - self.value_bounds[0]) / self.num_bins
+        self.support = tf.cast(tf.expand_dims(tf.expand_dims(tf.linspace(*self.value_bounds, self.num_bins + 1), axis=0), axis=0),
+                               tf.float32)
+        self.centers = (self.support[0, :, :-1] + self.support[0, :, 1:]) / 2.
+        sigma = smoothing_ratio * self.bin_width
+        self.sqrt_two_sigma = tf.math.sqrt(2.) * sigma
+
+        self.value_out = snt.Linear(self.num_bins)
+        self._logits = None
+
+    def __call__(
+            self,
+            input_
+    ):
+        self._logits = self.value_out(input_)
+        return tf.reduce_sum(self.centers * tf.nn.softmax(self._logits),
+                              axis=-1)
+
+    def targets_to_probs(self, targets):
+
+        # this may occur on rare occasion that targets are outside of the set interval.
+        targets = tf.clip_by_value(targets, *self.value_bounds)
+
+        cdf_evals = tf.math.erf(
+            (self.support - tf.expand_dims(targets, axis=-1))
+            / self.sqrt_two_sigma
+        )
+        z = cdf_evals[:, :, -1:] - cdf_evals[:, :,  :1]
+        bin_probs = cdf_evals[:, :, 1:] - cdf_evals[:, :, :-1]
+        ret = bin_probs / z
+
+        return ret
+
+    def loss(self, targets):
+
+        # HL-Gauss classification loss
+        return tf.losses.categorical_crossentropy(
+            y_true=self.targets_to_probs(targets),
+            y_pred=self._logits,
+            from_logits=True,
+        )
 
