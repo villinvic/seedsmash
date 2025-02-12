@@ -4,7 +4,7 @@ from enum import Enum, IntEnum
 from typing import Sequence, List, Union, Deque, Dict, Tuple, Any
 
 from gymnasium.spaces import Discrete
-from melee import ControllerState, enums, Controller, Console, PlayerState, stages, GameState
+from melee import ControllerState, enums, Controller, Console, PlayerState, stages, GameState, MarioMoves
 from melee.enums import Button, Character, Action
 from functools import partial
 import itertools
@@ -71,216 +71,6 @@ class ControllerStateCombo(dict):
             pad.tilt_analog_unit(enums.Button.BUTTON_MAIN, *main_stick_input)
             pad.tilt_analog_unit(enums.Button.BUTTON_C, *c_stick_input)
         pad.previous_state = self
-
-
-class SimpleActionSpace:
-
-    def __getitem__(self, item):
-        return self.controller_states[item]
-
-    def __init__(self, short_hop=2):
-        """
-        1 directions with no button
-        2 tap b, lazer, plumbers downb
-        3 tilts
-        4 smashes with c stick and cardinals
-        5 jumps, normal, front, back, full hop, short hop
-        6 upbs
-        7 L with all directions (rolls, spot dodge, shield, air dodges...)
-        8 wavedashes
-        9 shield grab, jump grab
-        10 tap down b, tap side b
-        11 noop
-
-        """
-        # act every 3
-        # TODO -> lasting effect on env side
-        # choose tap b (b, noop, b)
-        # step
-        # choose tap b (noop, b, noop)
-
-        # choose wavedash (x for number of frames for short_hop, noop if remaining frames)
-        # step
-        # keep on wavedashing (incoming actions do not take effect)
-
-        all_states = ([ControllerStateCombo()] +
-                      [ControllerStateCombo(c_stick=(-1, 0))] +
-                      [ControllerStateCombo(c_stick=(1, 0))] +
-                      [ControllerStateCombo(c_stick=(0, 1))] +
-                      [ControllerStateCombo(c_stick=(0, - 1))] +
-                      [ControllerStateCombo(stick=(0, - 1), buttons=Button.BUTTON_B)] +
-                      [ControllerStateCombo(stick=(0, 1), buttons=Button.BUTTON_B)] +
-                      [ControllerStateCombo(stick=(1, 0), buttons=Button.BUTTON_B)] +
-                      [ControllerStateCombo(stick=(-1, 0), buttons=Button.BUTTON_B)] +
-                      [ControllerStateCombo(stick=(0.707, -0.707))] +
-                      [ControllerStateCombo(stick=(0.707, 0.707))] +
-                      [ControllerStateCombo(stick=(-0.707, 0.707))] +
-                      [ControllerStateCombo(stick=(-0.707, -0.707))] +
-                      [ControllerStateCombo(stick=(0, - 1))] +
-                      [ControllerStateCombo(stick=(0, 1))] +
-                      [ControllerStateCombo(stick=(1, 0))] +
-                      [ControllerStateCombo(stick=(-1, 0))] +
-                      [[ControllerStateCombo(buttons=Button.BUTTON_X, duration=short_hop),
-                        ControllerStateCombo(duration=1)]] +
-                      [ControllerStateCombo(buttons=Button.BUTTON_B)] +
-                      [ControllerStateCombo(buttons=Button.BUTTON_A)] +
-                      [ControllerStateCombo(buttons=Button.BUTTON_L)] +
-                      [ControllerStateCombo(buttons=Button.BUTTON_L, stick=(1, 0))] +  # CHECK for Link
-                      [ControllerStateCombo(buttons=Button.BUTTON_L, stick=(-1, 0))] +
-                      [ControllerStateCombo(buttons=Button.BUTTON_L, stick=(0, 1))] +
-                      [ControllerStateCombo(buttons=Button.BUTTON_L, stick=(0, -1))] +
-                      [ControllerStateCombo(buttons=Button.BUTTON_X)] +
-                      [ControllerStateCombo(buttons=Button.BUTTON_X, stick=(-1, 0))] +
-                      [ControllerStateCombo(buttons=Button.BUTTON_X, stick=(1, 0))] +
-                      [ControllerStateCombo(buttons=Button.BUTTON_X)] +
-                      [ControllerStateCombo(buttons=Button.BUTTON_Z)] +
-                      [ControllerStateCombo(buttons=(Button.BUTTON_A, Button.BUTTON_L))] +
-                      [[ControllerStateCombo(buttons=Button.BUTTON_X, duration=1),
-                        ControllerStateCombo(buttons=Button.BUTTON_Z, duration=2)]] +
-                      [ControllerStateCombo(stick=(-0.953, -0.294), buttons=Button.BUTTON_L)] +
-                      [ControllerStateCombo(stick=(0.953, -0.294), buttons=Button.BUTTON_L)] +
-                      [[ControllerStateCombo(buttons=Button.BUTTON_X, duration="CS", test=lambda s: s.on_ground),
-                        ControllerStateCombo(stick=(-0.953, -0.294), buttons=Button.BUTTON_L, duration=1,
-                                             test=lambda s: s.on_ground)]] +
-                      [[ControllerStateCombo(buttons=Button.BUTTON_X, duration="CS", test=lambda s: s.on_ground),
-                        ControllerStateCombo(stick=(0.953, -0.294), buttons=Button.BUTTON_L, duration=1,
-                                             test=lambda s: s.on_ground)]] +
-                      [[ControllerStateCombo(buttons=Button.BUTTON_L, duration=2),
-                        ControllerStateCombo(buttons=Button.BUTTON_L, stick=(0., -0.675), duration=1)]] +
-                      [ControllerStateCombo(buttons=Button.BUTTON_A, stick=(-0.4, 0.0))] +
-                      [ControllerStateCombo(buttons=Button.BUTTON_A, stick=(0.4, 0.0))] +
-                      [ControllerStateCombo(buttons=Button.BUTTON_A, stick=(0.0, 0.4))]
-                      )
-
-        self.controller_states = np.array(
-            all_states
-            , dtype=ControllerState)
-
-        self.dim = len(self.controller_states)
-
-
-class ActionSpace:
-
-    def __getitem__(self, item):
-        return self.controller_states[item]
-
-    def __init__(self, short_hop=2):
-        """
-        1 directions with no button
-        2 tap b, lazer, plumbers downb
-        3 tilts
-        4 smashes with c stick and cardinals
-        5 jumps, normal, front, back, full hop, short hop
-        6 upbs
-        7 L with all directions (rolls, spot dodge, shield, air dodges...)
-        8 wavedashes
-        9 shield grab, jump grab
-        10 tap down b, tap side b
-        11 noop
-
-        """
-
-        all_states = [ControllerStateCombo()] + \
-                     [[ControllerStateCombo(buttons=Button.BUTTON_B, duration=1), ControllerStateCombo(duration=2)]] + \
-                     [[ControllerStateCombo(buttons=Button.BUTTON_X, duration=short_hop),
-                       ControllerStateCombo(duration=1)]] + \
-                     [ControllerStateCombo(buttons=Button.BUTTON_B)] + \
-                     [ControllerStateCombo(buttons=Button.BUTTON_A)] + \
-                     [ControllerStateCombo(buttons=Button.BUTTON_L)] + \
-                     [ControllerStateCombo(buttons=Button.BUTTON_X)] + \
-                     [ControllerStateCombo(buttons=Button.BUTTON_Z)] + \
-                     [ControllerStateCombo(buttons=(Button.BUTTON_A, Button.BUTTON_L))] + \
-                     [[ControllerStateCombo(buttons=Button.BUTTON_X, duration=1),
-                       ControllerStateCombo(buttons=Button.BUTTON_Z, duration=2)]]
-
-        self.controller_states = np.array(
-            all_states
-            , dtype=ControllerState)
-
-        self.dim = len(self.controller_states)
-
-
-class ActionSpaceStick:
-
-    def __getitem__(self, item):
-        return self.controller_states[item]
-
-    def __init__(self, short_hop=2):
-        """
-        1 directions with no button
-        2 tap b, lazer, plumbers downb
-        3 tilts
-        4 smashes with c stick and cardinals
-        5 jumps, normal, front, back, full hop, short hop
-        6 upbs
-        7 L with all directions (rolls, spot dodge, shield, air dodges...)
-        8 wavedashes
-        9 shield grab, jump grab
-        10 tap down b, tap side b
-        11 noop
-
-        """
-        neutral = [
-            (0., 0.)
-        ]
-        tilt_stick_states = [
-            (-0.4, 0.0),
-            (0.4, 0.0),
-            (0.0, -0.4),
-            (0.0, 0.4)
-        ]
-
-        wave_dash_sticks = [
-            (-0.953, -0.294),
-            (0.953, -0.294)
-        ]
-
-        shield_drop_sticks = [
-            (0., -0.675),
-        ]
-
-        all_states = neutral + [
-            (np.cos(x), np.sin(x)) for x in np.linspace(0, 2 * np.pi, 8, endpoint=False)
-        ] + tilt_stick_states + wave_dash_sticks + shield_drop_sticks
-
-        self.controller_states = np.array(
-            all_states
-            , dtype=np.float32)
-
-        self.dim = len(self.controller_states)
-
-
-class ActionSpaceCStick:
-
-    def __getitem__(self, item):
-        return self.controller_states[item]
-
-    def __init__(self):
-        """
-        1 directions with no button
-        2 tap b, lazer, plumbers downb
-        3 tilts
-        4 smashes with c stick and cardinals
-        5 jumps, normal, front, back, full hop, short hop
-        6 upbs
-        7 L with all directions (rolls, spot dodge, shield, air dodges...)
-        8 wavedashes
-        9 shield grab, jump grab
-        10 tap down b, tap side b
-        11 noop
-
-        """
-
-        all_states = [
-            (np.cos(x), np.sin(x)) for x in np.linspace(0, 2 * np.pi, 8, endpoint=False)
-        ]  # + [(0., 0.)]
-
-        self.controller_states = np.array(
-            all_states
-            , dtype=ControllerState)
-
-        self.dim = len(self.controller_states)
-
 
 char2kneebend = {}
 for char in (
@@ -665,7 +455,7 @@ TORNARDO_FRAMES = 37
 # intuitively set to not be costly, because the action is long
 # free stick pos after 3 frames
 def allow_tornado(game_state, char_state: PlayerState, curr_action: InputSequence):
-    allow = (char_state.action == Action.SWORD_DANCE_2_HIGH) and char_state.off_stage
+    allow = (char_state.action in (Action.SWORD_DANCE_2_HIGH, Action.SWORD_DANCE_1_AIR)) and (char_state.off_stage or char_state.character == Character.LUIGI)
     if not allow:
         curr_action.terminate()
     return allow
@@ -682,16 +472,21 @@ def allow_jc_grab(game_state, char_state: PlayerState, curr_action: InputSequenc
         curr_action.terminate()
     return allow
 
+def mario_upb(game_state, char_state: PlayerState, curr_action: InputSequence):
+    allow = char_state.action.value == MarioMoves.SuperJumpPunchAir.value
+    if not allow:
+        curr_action.terminate()
+    return allow
 
 
 def debug(game_state, char_state: PlayerState, curr_action: InputSequence):
-    print("debuging action", char_state.action, char_state.on_ground)
+    print("debuging action", char_state.action)
     return True
 
 
 MARIO_TORNADO = []
 while len(MARIO_TORNADO) < 41:  # actually 37
-    if len(MARIO_TORNADO) > 0: # 6
+    if len(MARIO_TORNADO) > 8: # 6
         test_func = allow_tornado
     else:
         test_func = allow_tornado_init
@@ -716,15 +511,24 @@ LONG_A_PRESS = [
 # ControllerInput(duration=6, test_func=continue_gentleman),
 # ControllerInput(buttons=Button.BUTTON_A, duration=3, test_func=continue_gentleman),
 # ControllerInput(duration=6, test_func=continue_gentleman),
-ControllerInput(buttons=Button.BUTTON_A, duration=31+8+2, test_func=continue_gentleman),
+ControllerInput(buttons=Button.BUTTON_A, duration=31+8+6, test_func=continue_gentleman),
+]
+
+TAP_DOWN_B = [
+    ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.DOWN, duration=2),
+    ControllerInput(duration=1),
 ]
 
 char_specials = {
-    Character.CPTFALCON: InputSequence(LONG_A_PRESS, 30, "LONG_A_PRESS")
+    Character.CPTFALCON: InputSequence(LONG_A_PRESS, 30, "LONG_A_PRESS"),
+    Character.FALCO: InputSequence(TAP_DOWN_B, name="TAP_DOWN_B"),
+    Character.FOX: InputSequence(TAP_DOWN_B, name="TAP_DOWN_B")
+
 }
 
 for char in (Character.MARIO, Character.LUIGI, Character.DOC):
     char_specials[char] = InputSequence(MARIO_TORNADO, free_stick_at_frame=3, name="MARIO_TORNADO")
+
 
 
 
@@ -775,19 +579,38 @@ class SSBMActionSpace:
 
     B_NEUTRAL = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_B))
 
-    # Do it depending on the char ?
-    # B_UP = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.UP, duration=3))
-    B_UP_LEFT = lambda *_: InputSequence([
-        ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.UP, duration=2),
-        # allows reversed up-b
-        ControllerInput(stick=StickPosition.LEFT, duration=1),
-    ])
-    B_UP_RIGHT = lambda *_: InputSequence([
-        ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.UP, duration=2),
-        # allows reversed up-b
-        ControllerInput(stick=StickPosition.RIGHT, duration=1),
-    ])
-    #########B_DOWN = lambda _: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.DOWN))
+    B_UP_LEFT = lambda *_: CharDependentInputSequence(
+        {
+            character: InputSequence([
+                ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.UP, duration=2),
+                # allows reversed up-b
+                ControllerInput(stick=StickPosition.LEFT, duration=25, test_func=mario_upb),
+                ControllerInput(stick=StickPosition.RIGHT, buttons=Button.BUTTON_X, duration=2, test_func=mario_upb),
+            ]) if character == Character.MARIO else InputSequence([
+                ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.UP, duration=2),
+                # allows reversed up-b
+                ControllerInput(stick=StickPosition.LEFT, duration=1),
+            ])
+            for character, short_hop_frames in char2kneebend.items()
+        }
+    )
+
+    B_UP_RIGHT = lambda _, d: CharDependentInputSequence(
+        {
+            character: InputSequence([
+                ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.UP, duration=2),
+                # allows reversed up-b
+                ControllerInput(stick=StickPosition.RIGHT, duration=25, test_func=mario_upb),
+                ControllerInput(stick=StickPosition.LEFT, buttons=Button.BUTTON_X, duration=1),
+            ]) if character == Character.MARIO else InputSequence([
+                ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.UP, duration=2),
+                # allows reversed up-b
+                ControllerInput(stick=StickPosition.RIGHT, duration=1),
+            ])
+            for character, short_hop_frames in char2kneebend.items()
+        }
+    )
+    B_DOWN = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.DOWN))
     B_LEFT = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.LEFT))
     B_RIGHT = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.RIGHT))
     C_UP = lambda *_: InputSequence(ControllerInput(c_stick=StickPosition.UP))
@@ -874,10 +697,12 @@ class SSBMActionSpace:
     WAVEDASH_LEFT = lambda _, d: CharDependentInputSequence(
         {
             character: InputSequence([
-                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+d, stick=StickPosition.WAVE_LEFT,
-                                test_func=disable_on_shield_air, energy_cost=0.),
+                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames,
+                                test_func=disable_on_shield_air,
+                                energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.WAVE_LEFT,
-                                test_func=allow_wavedash, energy_cost=0.),
+                                 test_func=allow_wavedash,
+                                energy_cost=0.),
             ], free_stick_at_frame=short_hop_frames + 2, name=character)
             for character, short_hop_frames in char2kneebend.items()
         }
@@ -885,7 +710,7 @@ class SSBMActionSpace:
     WAVEDASH_RIGHT = lambda _, d: CharDependentInputSequence(
         {
             character: InputSequence([
-                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+d, stick=StickPosition.WAVE_RIGHT,
+                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames,
                                 test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.WAVE_RIGHT,
                                 test_func=allow_wavedash, energy_cost=0.),
@@ -896,7 +721,7 @@ class SSBMActionSpace:
     WAVEDASH_NEUTRAL = lambda _, d: CharDependentInputSequence(
         {
             character: InputSequence([
-                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+d, stick=StickPosition.DOWN,
+                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames,
                                 test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.DOWN,
                                 test_func=check_kneebend, energy_cost=0.),
@@ -907,7 +732,7 @@ class SSBMActionSpace:
     WAVEDASH_SLIGHT_LEFT = lambda _, d: CharDependentInputSequence(
         {
             character: InputSequence([
-                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+d, stick=StickPosition.DOWN_LEFT,
+                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames,
                                 test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.DOWN_LEFT,
                                 test_func=allow_wavedash, energy_cost=0.),
@@ -918,7 +743,7 @@ class SSBMActionSpace:
     WAVEDASH_SLIGHT_RIGHT = lambda _, d: CharDependentInputSequence(
         {
             character: InputSequence([
-                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames+d, stick=StickPosition.DOWN_RIGHT,
+                ControllerInput(buttons=Button.BUTTON_X, duration=short_hop_frames,
                                 test_func=disable_on_shield_air, energy_cost=0.),
                 ControllerInput(buttons=Button.BUTTON_L, duration=1, stick=StickPosition.DOWN_RIGHT,
                                 test_func=allow_wavedash, energy_cost=0.),
@@ -926,7 +751,6 @@ class SSBMActionSpace:
             for character, short_hop_frames in char2kneebend.items()
         }
     )
-
     CHAR_SPECIAL = lambda *_: CharDependentInputSequence({
         character: deepcopy(char_specials.get(character, InputSequence(ControllerInput(energy_cost=0.))))
         for character in Character

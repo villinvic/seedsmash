@@ -74,7 +74,7 @@ class ActionStateCounts:
 
         self.action_state_weights = np.ones((self.n_action_states,), dtype=np.float32)
         self.action_state_weights[self.discarded_states] = 0.
-        self.action_state_weights[preferred_move] *= 5
+        self.action_state_weights[action_idx[preferred_move]] *= 5
 
         self.underused_logp = np.log(underused_prob)
         self.overused_logp = np.log(overused_prob)
@@ -167,15 +167,14 @@ class ActionStateHitCounts(ActionStateCounts):
 
 class ActionStateValues:
 
-    wall_tech_states = np.array([action_idx[a] for a in [
-        Action.WALL_TECH, Action.WALL_TECH_JUMP, Action.CEILING_TECH
-    ]])
-
     def __init__(self, values, name=None):
         self.values = values
         self.last_penalty = 0.
         self.last_bonus = 0.
         self.name = self.__class__.__name__ if name is None else name
+
+    def __call__(self, action_state: Action):
+        return self.values[action_idx[action_state]]
 
     def get_rewards(self, action_states, mask=None):
 

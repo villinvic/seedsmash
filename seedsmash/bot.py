@@ -9,14 +9,27 @@ from seedsmash.utils import ActionStateCounts, ActionStateHitCounts
 
 
 class BotStats(NamedTuple):
-    aggressivity: float
-    techskill: float
-    offstage: float
-    survival: float
-    neutral: float
+    aggressivity: float = 50
+    techskill: float = 50
+    offstage: float = 50
+    survival: float = 50
+    neutral: float = 50
     # increases the length of the move history
-    adaptability: float
-    stagecontrol: float
+    adaptability: float = 50
+    stagecontrol: float = 50
+
+
+class BotConfig(NamedTuple):
+    tag: str = "DEFAULT"
+    character: Character = Character.MARIO
+    costume_id: int = 0
+    preferred_stage: Stage = Stage.FINAL_DESTINATION
+    preferred_move: Action = Action.NAIR
+    stats: BotStats = BotStats()
+    elo: float = 1000
+    coach_tag: str = None
+    coaching_progression: int = None
+    num_coaching_steps: int = 160
 
 
 class Bot:
@@ -38,7 +51,7 @@ class Bot:
     ):
         self.tag = tag
         self.character = character
-        self.costume = costume_id
+        self.costume_id = costume_id
         self.preferred_stage = preferred_stage
         self.stats = stats
         self.coach_tag = coach_tag
@@ -52,7 +65,10 @@ class Bot:
         self.action_state_counts = ActionStateCounts(preferred_move)
         self.action_state_hit_counts = ActionStateHitCounts(preferred_move, self.character)
 
-        self.metrics = {}
+        self.metrics = {
+            "rl": {},
+            "progression": {}
+        }
 
         # will be instantiated later
         self.mean_samples_at_creation = None
@@ -98,7 +114,11 @@ class Bot:
 
         return False
 
-    def push_metrics(self, metrics):
+    def push_metrics(
+            self,
+            metrics,
+            registry: str
+    ):
         for n, m in metrics.items():
             if n == "action_state_counts":
                 self.action_state_counts.push_samples(m)
@@ -106,31 +126,37 @@ class Bot:
             if n == "action_state_hit_counts":
                 self.action_state_hit_counts.push_samples(m)
                 continue
-            if n not in self.metrics:
-                self.metrics[n] = m
+            if n not in self.metrics[registry]:
+                self.metrics[registry][n] = m
                 continue
 
             # perform an EMA update over metrics
             # averaging over the last 20-ish games
             smoothing = 0.1
-            self.metrics[n] = tree.map_structure(
+            self.metrics[registry][n] = tree.map_structure(
                 lambda x, y: x * (1-smoothing) + y * smoothing,
-                self.metrics[n], m
+                self.metrics[registry][n], m
             )
 
 
     def get_state(self) -> Dict[str, Any]:
         # TODO
-        return {
+
+        d = {
             "coach_tag": self.coach_tag,
-            "coaching_progression": self.coaching_progression/self.num_coaching_steps,
+            "coaching_progression": 100 * self.coaching_progression / self.num_coaching_steps,
             "elo": self.elo,
             "is_out": self.is_out,
-            "action_state_probs": self.action_state_counts.get_top_k_probs(5),
-            "move_preferences": self.action_state_hit_counts.get_top_k_probs(5),
-
             **self.metrics
-
         }
+
+        d["progression"].update(
+            coach_tag= self.coach_tag,
+            coaching_progression= 100 * self.coaching_progression / self.num_coaching_steps,
+            elo= self.elo,
+            is_out= self.is_out,
+        )
+
+        return d
 
 

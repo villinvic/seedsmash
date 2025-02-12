@@ -1,10 +1,13 @@
 import inspect
 from collections import defaultdict
+from typing import Dict
 
 import numpy as np
 from melee import LCancelState
 from melee.enums import Character, Action
 from melee.gamestate import GameState, PlayerState
+from polaris_melee.preferences import RewardModule
+from seedsmash.bot import BotStats
 
 
 class Helper:
@@ -39,17 +42,18 @@ class Helper:
         bonus = 0.
         for func_name, func in self.funcs.items():
             func_bonus = float(func(player_state, is_near))
+            clean_name = func_name.replace("_", " ").capitalize()
 
-            total_collected = self.metrics[func_name] * self.weights.get(func_name, 0.0)
+            total_collected = self.metrics[clean_name] * self.weights.get(func_name, 0.0)
             if total_collected > self.clip:
                 scaled_bonus = 0.
             else:
                 scaled_bonus = func_bonus * self.weights.get(func_name, 0.0)
 
-            self.metrics[func_name] += func_bonus
-
+            self.metrics[clean_name] += func_bonus
             bonus += scaled_bonus
         self._advance(player_state)
+
         return bonus
 
     def _reset(self):
@@ -88,6 +92,8 @@ class TechSkillHelper(Helper):
 
     def __init__(self):
         super().__init__(hist_len=10)
+        self.lcancel_fails = 0
+        self.lcancel_successes = 0
 
     def dashing(self, player_state: PlayerState, is_near: bool):
         return player_state.action == Action.DASHING# and self.previous_player_states[-1].action != Action.DASHING
@@ -110,8 +116,14 @@ class TechSkillHelper(Helper):
     def lcanceling(self, player_state: PlayerState, is_near: bool):
         prev_state = self.previous_player_states[-1]
 
-        return (player_state.lcancel_status == LCancelState.SUCCESSFUL
-                and player_state.lcancel_status != prev_state.lcancel_status)
+        if player_state.lcancel_status == prev_state.lcancel_status:
+            return 0.
+
+        success = player_state.lcancel_status == LCancelState.SUCCESSFUL
+        self.lcancel_fails += int(not success)
+        self.lcancel_successes += int(success)
+
+        return success
 
     # def dashdance(self, player_state: PlayerState, is_near: bool):
     #     # todo: here this encourages fast ddance
@@ -172,6 +184,11 @@ class TechSkillHelper(Helper):
                 ) and player_state.speed_ground_x_self * prev_state.speed_ground_x_self <= 0
         #return (facing * player_state.speed_ground_x_self) < 2 and player_state.on_ground
 
+    def _get_metrics(self):
+        self.metrics["L-Cancel%"] = 0 if (self.lcancel_successes + self.lcancel_fails == 0) else (
+                100 * self.lcancel_successes / (self.lcancel_successes + self.lcancel_fails))
+        return self.metrics
+
 
 class CptFalconHelper(Helper):
 
@@ -189,16 +206,15 @@ class CptFalconHelper(Helper):
 class MarioHelper(Helper):
 
     weights = {
-        "upb_walljump": 2.,
+        "upb_walljump": 0.5,
     }
 
     def __init__(self):
-        super().__init__(hist_len=10)
+        super().__init__(hist_len=1)
 
     def upb_walljump(self, player_state: PlayerState, is_near: bool):
-        old_state = self.previous_player_states[-3]
-        # TODO: directly hardcode this into upb action space, with mario specifically
-        return old_state.action == Action.UP_B_AIR and player_state.action == Action.WALL_TECH_JUMP
+        old_state = self.previous_player_states[-1]
+        return old_state.action == Action.NEUTRAL_B_FULL_CHARGE_AIR and player_state.action == Action.WALL_TECH_JUMP
 
 class DocHelper(Helper):
 
@@ -207,53 +223,15 @@ class DocHelper(Helper):
     }
 
     def __init__(self):
-        super().__init__(hist_len=10)
+        super().__init__(hist_len=1)
 
     def upb_cancel(self, player_state: PlayerState, is_near: bool):
-        last_states = self.previous_player_states[-3:]
-        old_state = self.previous_player_states[-1]
-        was_in_up_b = np.any(np.array(ps.action for ps in last_states) == Action.UP_B_GROUND)
+        prev_state = self.previous_player_states[-1]
 
-        return (was_in_up_b
+        return (is_near and prev_state.action == Action.NEUTRAL_B_ATTACKING_AIR
                 and (player_state.action == Action.LANDING_SPECIAL
-                and old_state.action != Action.LANDING_SPECIAL)
+                     )
                 )
-
-
-class DKHelper(Helper):
-
-    weights = {
-        "neutral_b_charge": 0.01,
-        "neutral_b_full_charge": 1.,
-
-    }
-
-    CHARGING_STATES = (Action.NEUTRAL_B_CHARGING_AIR, Action.NEUTRAL_B_CHARGING)
-    FULL_CHARGE_STATES =  (Action.NEUTRAL_B_FULL_CHARGE, Action.NEUTRAL_B_FULL_CHARGE_AIR)
-
-    def __init__(self):
-        super().__init__(hist_len=10)
-
-    def neutral_b_charge(self, player_state: PlayerState, is_near: bool):
-        old_state = self.previous_player_states[-6]
-
-        return (old_state.action in self.CHARGING_STATES
-                and player_state.action in self.CHARGING_STATES
-                )
-
-    def neutral_b_full_charge(self, player_state: PlayerState, is_near: bool):
-        old_state = self.previous_player_states[-1]
-
-        return (old_state.action not in self.FULL_CHARGE_STATES
-                and player_state.action in self.FULL_CHARGE_STATES
-                )
-
-
-class SamusHelper(DKHelper):
-    pass
-
-class MewtwoHelper(DKHelper):
-    pass
 
 
 class LinkHelper(Helper):
@@ -282,11 +260,8 @@ char_helpers = {
     Character.CPTFALCON: CptFalconHelper,
     Character.MARIO: MarioHelper,
     Character.DOC: DocHelper,
-    Character.DK: DKHelper,
-    Character.SAMUS: SamusHelper,
-    Character.LINK: LinkHelper,
-    Character.YLINK: LinkHelper,
-    Character.MEWTWO: MewtwoHelper,
+    # Character.LINK: LinkHelper,
+    # Character.YLINK: LinkHelper,
     # fox/falco waveshines ?
     # sheik, puff, marth, roy ? neutral b charge
     # pichu, pikachu side b
@@ -294,28 +269,45 @@ char_helpers = {
     # TODO: add custom binary obs, for luigi (cyclone charge), dk, samus, mew2
 }
 
-class MeleeHelper:
-    def __init__(self, port: int, char: Character, techksill=True):
+class Techskill(RewardModule):
+    def __init__(self, char: Character):
 
-        self.port = port
-        self.helpers = [char_helpers.get(char, EmptyHelper)()]
-        if techksill:
-            self.helpers.append(TechSkillHelper())
+        self.helpers = [
+            char_helpers.get(char, EmptyHelper)(),
+            TechSkillHelper()
+        ]
 
-    def __call__(self, gamestate: GameState):
-        bonus = 0.
-        is_near = np.sqrt(np.square(gamestate.players[1].x-gamestate.players[2].x)
-                          +np.square(gamestate.players[1].y-gamestate.players[2].y)) < 50
-        player_state = gamestate.players[self.port]
+        self.frame_score = 0
+
+    def update(
+            self,
+            player: PlayerState,
+            opponent: PlayerState,
+            gamestate: GameState,
+    ):
+        is_near = np.sqrt(np.square(gamestate.players[1].x - gamestate.players[2].x)
+                          + np.square(gamestate.players[1].y - gamestate.players[2].y)) < 50
+        self.frame_score = 0
         for helper in self.helpers:
-            bonus += helper(player_state, is_near)
+            self.frame_score += helper(player, is_near)
 
-        return bonus
+    def reward(
+            self,
+            advantage: float,
+            opponent_combo_counter: int
+    ) -> float:
 
-    def get_metrics(self):
+        return self.frame_score
 
-        metrics = {
-            helper.name: helper._get_metrics()
-            for helper in self.helpers
-        }
+    def get_metrics(
+            self,
+            game_length_s: float,
+            as_opponent: bool = False
+    ) -> Dict[str, float]:
+        if as_opponent:
+            return {}
+
+        metrics = {}
+        for helper in self.helpers:
+            metrics.update(helper._get_metrics())
         return metrics

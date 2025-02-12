@@ -16,13 +16,13 @@ import numpy as np
 import os
 from melee.enums import ControllerType, Character, Stage, AttackState, Action
 from melee.slippstream import EnetDisconnected
+from polaris_melee.character_specific_observations import get_character_specific_observations
 
 from polaris_melee.combo_tracker import ComboTracker
 from polaris_melee.enums import PlayerType
-from polaris_melee.action_space import ActionSpace, ComboPad, ActionSpaceStick, ActionSpaceCStick, ControllerStateCombo, \
-    SimpleActionSpace, InputQueue, ActionControllerInterface, SSBMActionSpace
+from polaris_melee.action_space import ComboPad, InputQueue, ActionControllerInterface, SSBMActionSpace
 from polaris_melee.observation_space import ObsBuilder
-from polaris_melee.rewards import RewardFunction, DeltaFrame, StepRewards
+from polaris_melee.preferences import RewardFunction, StepRewards
 import gc
 from polaris.environments import PolarisEnv
 
@@ -142,8 +142,7 @@ class SSBM(PolarisEnv):
         self.observation_space = self.observation_builder.gym_specs
         # You need a space for each player, as the action sequences do not copy.
         self.action_space_constructor = partial(SSBMActionSpace,
-                                                delay=0
-                                                #delay=int(self.render)
+                                                delay=config["online_delay"]
                                                 )
         self.action_space = self.action_space_constructor().gym_spec
 
@@ -194,7 +193,6 @@ class SSBM(PolarisEnv):
             self,
             options,
     ) -> melee.GameState:
-        bad_combination_checking = not self.render and self.config["use_ffw"]
         characters = {}
         costumes = {}
         taken_costumes = []
@@ -309,27 +307,29 @@ class SSBM(PolarisEnv):
     ) -> Tuple_T[Dict_T[int, dict], dict]:
 
         self.game_info = {}
+        self.is_done = False
+
 
         if not hasattr(self, "console"):
             success = self.iterate_port_until_success()
 
         # Reset episodic attributes
         self.episode_metrics = defaultdict(float)
-        self.delta_frame = DeltaFrame()
-        self.reward_functions = {
-            port: RewardFunction(port, options[port], options[(port%2)+1])
-            for port in self.get_agent_ids() | self._debug_port
-        }
+        self.reward_function = RewardFunction(options)
         self.combo_counters = {p: ComboTracker(
             ObsBuilder.MAX_COMBO,
             self.observation_builder.FD
+        ) for p in self.populated_ports}
+
+        self.character_specific_observations = {p: get_character_specific_observations(
+            options[p].character,
+            self.config["online_delay"],
         ) for p in self.populated_ports}
 
         self.episode_length = 1
         self.discrete_controllers = {p: self.action_space_constructor() for p in self._agent_ids | self._debug_port}
         self.action_queues = {port: InputQueue() for port in self._agent_ids | self._debug_port}
         self.episode_reward = 0.
-
 
         # select characters and stages
         self.handle_menus(options)
@@ -345,17 +345,41 @@ class SSBM(PolarisEnv):
 
         self.observation_builder.reset()
         self.observation_builder.update(gamestate)
-
         return self.observation_builder.build(), self.empty_info_dict
+
+    def is_episode_finished(self):
+        if self.is_done:
+            return True
+
+        gamestate = self.get_gamestate()
+
+        p1_down = gamestate.players[1].stock == 0
+        p2_down = gamestate.players[2].stock == 0
+
+        if p1_down and p2_down:
+            self.is_done = True
+        elif p1_down:
+            self.game_info["winner"] = self.game_info["bot_b"]
+            self.is_done = True
+        elif p2_down:
+            self.game_info["winner"] = self.game_info["bot_a"]
+            self.is_done = True
+
+        if self.is_done:
+            self.game_info["length"] = self.episode_length
+
+        return self.is_done
+
+
 
     def get_next_state_reward(self, every=3) \
             -> Tuple_T[Union[GameState, None], Dict_T[int, StepRewards]]:
 
-        collected_rewards = {p: StepRewards() for p in self._agent_ids | self._debug_port}
+        step_rewards = {p: defaultdict(float) for p in self._agent_ids | self._debug_port}
         active_actions = {p: None for p in self._agent_ids | self._debug_port}
 
         next_gamestate = self.get_gamestate()
-        if not self.delta_frame.episode_finished:
+        if not self.is_episode_finished():
             for frame in range(every):
                 gamestate = self.get_gamestate()
                 players = gamestate.players
@@ -391,40 +415,29 @@ class SSBM(PolarisEnv):
                     self.dump_bad_combination_and_raise_error(3)
                 else:
                     # process differences in gamestates
-                    self.delta_frame.update(next_gamestate)
+                    # Put in our custom combo counter and char specific helpers
 
-
-                    # Put in our custom combo counter
                     next_gamestate.custom["combo_counters"] = {}
+                    next_gamestate.custom["character_specific"] = {}
+
                     for port in self.populated_ports:
                         other_port = port % 2 + 1
                         next_gamestate.custom["combo_counters"][port] = self.combo_counters[port].update(
-                            dealt_damage=self.delta_frame[DeltaFrame.DAMAGE][other_port],
-                            in_hitstun=players[port].hitstun_frames_left > 0,
-                            curr_action=players[port].action,
-                            has_died=self.delta_frame[DeltaFrame.DEATH][port] > 0,
-                            has_killed=self.delta_frame[DeltaFrame.DEATH][other_port] > 0,
-                            opp_state=players[other_port]
+                            players[port],
+                            players[other_port]
+                        )
+                        next_gamestate.custom["character_specific"][port] = self.character_specific_observations[port].update(
+                            player=players[port],
+                            gamestate=next_gamestate
                         )
 
-                    for port, reward_function in self.reward_functions.items():
-                        reward_function.add_frame_rewards(
-                            self.delta_frame, active_actions[port], collected_rewards[port],
-                            next_gamestate.custom["combo_counters"]
-                        )
+                    self.reward_function.accumulate(step_rewards, next_gamestate)
 
                 # check if we are done, and exit if it is the case
-                if self.delta_frame.episode_finished:
-                    if self.delta_frame[DeltaFrame.WIN][1] == 1:
-                        self.game_info["winner"] = self.game_info["bot_a"]
-                    elif self.delta_frame[DeltaFrame.WIN][2] == 1:
-                        self.game_info["winner"] = self.game_info["bot_b"]
-                    else:
-                        self.game_info["winner"] = None
-                    self.game_info["length"] = self.episode_length
+                if self.is_episode_finished():
                     break
 
-        return next_gamestate, collected_rewards
+        return next_gamestate, step_rewards
 
     def handle_controller_inputs(
             self,
@@ -461,7 +474,7 @@ class SSBM(PolarisEnv):
         if gamestate is None:
             # Should not be going there
             self.dump_bad_combination_and_raise_error(4)
-        elif self.delta_frame.episode_finished:
+        elif self.is_episode_finished():
             counter = 0
             done = True
             while gamestate.menu_state not in [melee.Menu.CHARACTER_SELECT, melee.Menu.SLIPPI_ONLINE_CSS]:
@@ -482,21 +495,17 @@ class SSBM(PolarisEnv):
         }
         dones["__all__"] = done
 
-        if done and self.config["debug"]:
-            print(f"Collected rewards: {step_rewards}")
-        reward_dict = {}
-        self.episode_length += 1
-        for port in self.get_agent_ids():
-            reward_dict[port] = self.reward_functions[port].compute(step_rewards[port])
-            if done:
-                if port == 1:
-                    bot = "bot_a"
-                else:
-                    bot = "bot_b"
-                self.game_info["metrics"][bot] = self.reward_functions[port].get_metrics(self.episode_length)
-                self.episode_metrics["game_info"] = self.game_info
+        if done:
+            # merge all metrics:
+            reward_function_metrics = self.reward_function.get_metrics(self.episode_length)
+            self.game_info["metrics"] = {}
+            for p, k in zip(self.reward_function.get_metrics(self.episode_length), ["bot_a", "bot_b"]):
+                self.game_info["metrics"][k] = reward_function_metrics[p] | self.combo_counters[p].get_metrics()
+            self.episode_metrics["game_info"] = self.game_info
 
-        return obs_dict, reward_dict, dones, dones, {}
+        self.episode_length += 1
+
+        return obs_dict, self.reward_function.zero_sum(step_rewards), dones, dones, {}
 
 
     def get_gamestate(self) -> GameState:

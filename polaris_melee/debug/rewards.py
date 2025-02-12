@@ -1,78 +1,59 @@
+import argparse
+
 from melee import Character, Stage
 
 from polaris_melee.enums import PlayerType
 from polaris_melee.env import SSBM
-from polaris_melee.configs import SSBM_OBS_Config, SSBMConfig
-from seedsmash.bots.bot_config import BotConfig
+from polaris_melee.configs import SSBMObsConfig, SSBMConfig
+from seedsmash.bot import Bot, BotConfig
 
-obs_config = (
-    SSBM_OBS_Config()
-    .character()
-    #.ecb()
-    .stage()
-    .max_projectiles(0)
-    #.controller_state()
-    .delay(5)
-)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--fm-path', type=str, required=True)
+    parser.add_argument('--iso', type=str, required=True)
+    ARGS = parser.parse_args()
 
-env_conf = (
-    SSBMConfig()
-    .chars([
-        # Character.MARIO,
-        Character.FOX,
-        Character.CPTFALCON,
-        # Character.DK,
-        # #Character.KIRBY,
-        # Character.BOWSER,
-        # Character.LINK,
-        # #Character.SHEIK,
-        # Character.NESS,
-        # Character.PEACH,
-        # #Character.POPO,
-        # Character.PIKACHU,
-        # Character.SAMUS,
-        # Character.YOSHI,
-        # Character.JIGGLYPUFF,
-        # Character.MEWTWO,
-        # Character.LUIGI,
-        # Character.MARTH,
-        # #Character.ZELDA,
-        # Character.YLINK,
-        # Character.DOC,
-        # Character.FALCO,
-        # Character.PICHU
-        # Character.GAMEANDWATCH,
-        # Character.GANONDORF,
-        # Character.ROY
-    ])
-    .stages([
-        #Stage.FINAL_DESTINATION,
-        Stage.YOSHIS_STORY,
-        # Stage.POKEMON_STADIUM,
-        #Stage.BATTLEFIELD,
-        # Stage.DREAMLAND,
-        # Stage.FOUNTAIN_OF_DREAMS
-    ])
-    .players([PlayerType.HUMAN_DEBUG, PlayerType.BOT])
-    .n_eval(-100)
-    .set_obs_conf(obs_config)
+    obs_config = (
+        SSBMObsConfig()
+        .character()
+        .stage()
+        .projectiles()
+        .delay(0)
+    )
 
-    .render()
-    #.debug()
-    #.save_replays()
-)
+    ENV_CONFIG = (
+            SSBMConfig(
+                faster_melee_path=ARGS.fm_path,
+                exiai_path="",
+                iso_path=ARGS.iso
+            )
+            .playable_characters([
+                Character.CPTFALCON,
+            ])
+            .playable_stages([
+                Stage.YOSHIS_STORY,
+            ])
+            .player_types([PlayerType.HUMAN_DEBUG, PlayerType.BOT])
+            .render()
+            .online_delay(0)
+            .polling_mode()
+    )
 
-dummy_ssbm = SSBM(env_index=0, **dict(env_conf))
-bot_configs = {1: BotConfig(character="CPTFALCON"),
-               2: BotConfig(character="CPTFALCON")}
+    bot_configs = {1: Bot(**BotConfig(character=Character.DOC, preferred_stage=Stage.YOSHIS_STORY)._asdict()),
+                   2: Bot(**BotConfig(preferred_stage=Stage.YOSHIS_STORY)._asdict())}
+    env = SSBM(env_index=0, **ENV_CONFIG)
+    env.reset(options=bot_configs)
+    done = False
+    while not done:
+        obs, reward, done, trunc, info = env.step({2:0})
+        print(env.character_specific_observations[1].get())
+        # print("================================[Metrics]================================")
+        # print(dummy_ssbm
+        # print("=========================================================================")
 
+        print()
 
-dummy_ssbm.reset(options=bot_configs)
-done = False
-for i in range(20*20):
-    dummy_ssbm.step({2:0})
-    print("================================[Metrics]================================")
-    print(dummy_ssbm.reward_functions[1].get_metrics(i))
-    print("=========================================================================")
+        done = done["__all__"]
 
+    print(env.get_episode_metrics())
 

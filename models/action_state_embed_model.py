@@ -20,7 +20,7 @@ from polaris.models.utils import CategoricalDistribution, GaussianDistribution
 
 
 
-class Debug5(BaseModel):
+class Debug7(BaseModel):
     is_recurrent = True
 
     def initialise(self):
@@ -61,8 +61,8 @@ class Debug5(BaseModel):
             action_space: Discrete,
             config,
     ):
-        super(Debug5, self).__init__(
-            name="Debug5",
+        super(Debug7, self).__init__(
+            name="Debug7",
             observation_space=observation_space,
             action_space=action_space,
             config=config,
@@ -324,7 +324,7 @@ class Debug5(BaseModel):
     def aux_loss(
             self,
             *
-            mask,
+            obs,
             **kwargs
     ):
 
@@ -338,20 +338,20 @@ class Debug5(BaseModel):
 
 
         self.continuous_loss = tf.reduce_mean(tf.keras.losses.huber(
-            tf.boolean_mask(true_continuous, mask), tf.boolean_mask(continuous, mask), delta=0.3
+            true_continuous, continuous, delta=0.3
         ))
 
         self.binary_loss = tf.reduce_mean(
             # advantage_weights*
             tf.keras.losses.binary_crossentropy(
-                tf.boolean_mask(true_binary, mask), tf.boolean_mask(binary, mask),
+                true_binary, binary,
                 from_logits=True,
             ))
 
         self.categorical_loss = tf.reduce_mean([
             # tf.reduce_mean(advantage_weights *
             tf.keras.losses.categorical_crossentropy(
-                tf.boolean_mask(t, mask), tf.boolean_mask(p, mask), from_logits=True
+                t, p, from_logits=True
             )
             # )
             for t, p in zip(true_categoricals, categoricals)

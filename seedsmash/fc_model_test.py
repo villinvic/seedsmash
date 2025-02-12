@@ -30,27 +30,6 @@ obs_config = (
 )
 
 
-# TODO : should add stage idx for walls (walljump and stuff)
-# TODO : callback for reward_function shaping update on timesteps,
-#           gradually decrease the distance reward
-#           increase winning rewards
-#           increase gamma ?
-#           increase neg_scale
-# TODO : Fix continuous input idx -4 and -8
-
-# TODO: CRAZY IDEA
-#       viewers can submit bot settings, inject it into the population (every k hours, some come from offsprings/mutation,
-#       small proportion is viewer generated instead of freely resampled.)
-#       have it keep the name until it gets kicked out, or reproduced (name genetics).
-
-
-# TODO: track combos we did (action states) and reward for new combos
-# TODO: try:next
-# #       - feature extractor that learns to predict the state (do we split us and opponnent ?)
-#       - use a DenseNet architecture ?
-
-# Chars to include: Sheik, Samus, Pickachu
-
 env_conf = (
     SSBMConfig()
     .chars([

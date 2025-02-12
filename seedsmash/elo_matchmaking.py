@@ -5,6 +5,7 @@ import ray
 from polaris.experience import MatchMaking
 from polaris.policies import PolicyParams
 
+from seedsmash.bot import Bot
 from seedsmash.bots.bot_config import BotConfig
 
 #from seedsmash.window_worker import WindowWorker
@@ -82,8 +83,8 @@ class SeedSmashMatchmaking(MatchMaking):
 
     def update(
             self,
-            bot_a: float,
-            bot_b: float,
+            bot_a: Bot,
+            bot_b: Bot,
             outcome: float
     ):
 

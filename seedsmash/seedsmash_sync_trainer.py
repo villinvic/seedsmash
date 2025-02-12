@@ -208,6 +208,9 @@ class SeedSmashTrainer(Checkpointable):
         """
         GlobalTimer[GlobalTimer.PREV_ITERATION] = time.time()
         self.communicate_with_db_if_needed()
+        if len(self.policy_map) < 2:
+            return
+
         experience = self.recv()
         experience_metrics = self.process_experience(experience)
         training_metrics = self.train()
@@ -240,8 +243,18 @@ class SeedSmashTrainer(Checkpointable):
                     # If this fails, it means the episode exited early
                     pid1, pid2 = exp_batch.policy_metrics.keys()
                     game_info = exp_batch.custom_metrics.pop("game_info")
+
+                    if pid1 not in self.policy_map or pid2 not in self.policy_map:
+                        # This game is outdated (at least one bot was removed)
+                        continue
+
                     bot_a: Bot = self.policy_map[pid1].options
                     bot_b: Bot = self.policy_map[pid2].options
+
+                    bot_a.action_state_counts.push_samples(game_info["metrics"]["bot_a"].pop("__action_state_counts__"))
+                    bot_b.action_state_counts.push_samples(game_info["metrics"]["bot_b"].pop("__action_state_counts__"))
+                    bot_a.action_state_hit_counts.push_samples(game_info["metrics"]["bot_a"].pop("__action_state_hit_counts__"))
+                    bot_b.action_state_hit_counts.push_samples(game_info["metrics"]["bot_b"].pop("__action_state_hit_counts__"))
 
                     winner = game_info["winner"]
                     outcome = 0.5 if winner is None else float(winner == bot_a.tag)
@@ -260,8 +273,8 @@ class SeedSmashTrainer(Checkpointable):
                             game_info["replay"],
                         )
                     )
-                    bot_a.push_metrics(game_info["metrics"]["bot_a"])
-                    bot_b.push_metrics(game_info["metrics"]["bot_b"])
+                    bot_a.push_progression_metrics(game_info["metrics"]["bot_a"])
+                    bot_b.push_progression_metrics(game_info["metrics"]["bot_b"])
 
                     # disable metrics here
                     # experience_metrics.append(exp_batch)
@@ -273,6 +286,9 @@ class SeedSmashTrainer(Checkpointable):
 
             else:  # Experience batch
                 batch_pid = exp_batch.get_owner()
+                if batch_pid not in self.policy_map:
+                    continue
+
                 owner = self.policy_map[batch_pid]
 
                 if (not self.experience_queue[owner.name].is_ready()) and owner.version == \
@@ -319,7 +335,7 @@ class SeedSmashTrainer(Checkpointable):
                 coaching_model=coaching_model,
             )
 
-            bot.push_metrics(train_results)
+            bot.push_rl_metrics(train_results)
             bot.update_coaching_progression()
 
             training_metrics[f"{policy_name}"] = train_results

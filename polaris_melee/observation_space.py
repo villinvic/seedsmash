@@ -4,7 +4,7 @@ from copy import deepcopy
 from sortedcontainers import SortedDict
 from gymnasium.spaces.dict import Dict
 from melee import Stage, PlayerState, Character, Action, stages, enums, Projectile, GameState, AttackState, \
-    left_platform_position, right_platform_position, top_platform_position
+    left_platform_position, right_platform_position, top_platform_position, ProjectileType
 
 from polaris_melee.compiled_libmelee_framedata import CompiledFrameData
 import numpy as np
@@ -218,14 +218,20 @@ class ObsBuilder:
             other_port = 1 + port % 2
             # we want the projectile that is the closest to other_port
             own_projectiles = [
-                p for p in state.projectiles if p.owner in (port, -1)
+                p for p in state.projectiles if (
+                        p.owner in (port, -1)
+                        and p.type != ProjectileType.UNKNOWN_PROJECTILE
+                )
             ]
             if len(own_projectiles) > 0:
                 nearest_own_projectile = sorted(
                     own_projectiles, key=lambda p: projectile_dist(p, state.players[other_port])
                 )[0]
+                print(port, nearest_own_projectile.position.x, nearest_own_projectile.position.y, 1., nearest_own_projectile.type)
                 return nearest_own_projectile.position.x, nearest_own_projectile.position.y, 1.
             else:
+                print(port, 0., 0., 0.)
+
                 return 0., 0., 0.
 
         def get_nearest_platform(state, port):
@@ -510,6 +516,14 @@ class ObsBuilder:
                                          player_port=port,
                                          config=self.config
                                          ),
+                # Luigi cyclone, etc.
+                character_specific=StateDataInfo(lambda s: 0. if "character_specific" not in s.custom else s.custom["character_specific"][port],
+                                         StateDataInfo.CONTINUOUS,
+                                         scale=1,
+                                         bounds=(0, 1),
+                                         player_port=port,
+                                         config=self.config
+                ),
             )
 
         player_value_dict = [make_player_dict(idx + 1) for idx in range(self.num_players)]
