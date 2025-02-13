@@ -323,7 +323,7 @@ class Debug5(BaseModel):
 
     def aux_loss(
             self,
-            *
+            *,
             mask,
             **kwargs
     ):
@@ -335,7 +335,6 @@ class Debug5(BaseModel):
                                                           self.embed_binary_size,
                                                           self.embed_categorical_total_size], axis=-1)
         true_categoricals = tf.split(true_categoricals, self.embed_categorical_sizes, axis=-1)
-
 
         self.continuous_loss = tf.reduce_mean(tf.keras.losses.huber(
             tf.boolean_mask(true_continuous, mask), tf.boolean_mask(continuous, mask), delta=0.3

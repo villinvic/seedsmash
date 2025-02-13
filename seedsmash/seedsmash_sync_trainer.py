@@ -149,8 +149,8 @@ class SeedSmashTrainer(Checkpointable):
                         return -bot.elo
                 ranks = sorted(range(len(self.params_map)), key=rank_value)
                 bot_states = [
-                    params.options.get_state(rank+1)
-                    for rank, params in zip(ranks, self.params_map)
+                    p.options.get_state(rank+1)
+                    for rank, p in zip(ranks, params)
                 ]
 
             else:
@@ -199,6 +199,7 @@ class SeedSmashTrainer(Checkpointable):
 
         self.params_map[pid] = self.policy_map[pid].get_params()
         self.experience_queue[pid] = ExperienceQueue(self.config)
+        print("New bot ! :", bot)
 
 
     def training_step(self):
@@ -273,8 +274,8 @@ class SeedSmashTrainer(Checkpointable):
                             game_info["replay"],
                         )
                     )
-                    bot_a.push_progression_metrics(game_info["metrics"]["bot_a"])
-                    bot_b.push_progression_metrics(game_info["metrics"]["bot_b"])
+                    bot_a.push_metrics(game_info["metrics"]["bot_a"], registry="progression")
+                    bot_b.push_metrics(game_info["metrics"]["bot_b"], registry="progression")
 
                     # disable metrics here
                     # experience_metrics.append(exp_batch)
@@ -317,10 +318,10 @@ class SeedSmashTrainer(Checkpointable):
             if not policy_queue.is_ready():
                 continue
             bot: Bot = self.policy_map[policy_name].options
-            coaching_policy = None if not bot.is_coached() \
+            coach_policy = None if not bot.is_coached() \
                 else self.policy_map.get(bot.coach_tag, None)
 
-            coaching_model = None if coaching_policy is None else coaching_policy.model
+            coach_model = None if coach_policy is None else coach_policy.model
 
             pulled_batch = policy_queue.pull(self.config.train_batch_size)
             if np.any(pulled_batch[SampleBatch.VERSION] != self.policy_map[policy_name].version):
@@ -332,10 +333,10 @@ class SeedSmashTrainer(Checkpointable):
             #       over two batches.
             train_results = self.policy_map[policy_name].train(
                 pulled_batch,
-                coaching_model=coaching_model,
+                coach_model=coach_model,
             )
 
-            bot.push_rl_metrics(train_results)
+            bot.push_metrics(train_results, registry="rl")
             bot.update_coaching_progression()
 
             training_metrics[f"{policy_name}"] = train_results
@@ -344,7 +345,7 @@ class SeedSmashTrainer(Checkpointable):
             params = self.policy_map[policy_name].get_params()
             self.params_map[policy_name] = params
 
-        return train_results
+        return training_metrics
 
     def process_metrics(self, experience_metrics, training_metrics):
 

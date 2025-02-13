@@ -501,6 +501,7 @@ class SSBM(PolarisEnv):
             self.game_info["metrics"] = {}
             for p, k in zip(self.reward_function.get_metrics(self.episode_length), ["bot_a", "bot_b"]):
                 self.game_info["metrics"][k] = reward_function_metrics[p] | self.combo_counters[p].get_metrics()
+            self.game_info["replay"] = None # todo
             self.episode_metrics["game_info"] = self.game_info
 
         self.episode_length += 1

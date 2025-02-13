@@ -10,7 +10,7 @@ from sacred import Experiment, Ingredient
 from ml_collections import ConfigDict
 
 
-exp_name = 'falcon_ditto_fsp_debug'
+exp_name = 'seedsmash_test'
 exp_path = "experiments/" + exp_name
 ex = Experiment(exp_name)
 
@@ -154,9 +154,9 @@ def cfg():
     episode_callback_class = SSBMCallbacks
     negative_reward_scale = 0.92
 
-    database_game_update_freq_s = 60 # read new bots and push games
-    database_state_update_freq_s = 120 # for metrics
-    db_address = "127.0.0.100/5000"
+    database_game_update_freq_s = 20 # read new bots and push games
+    database_state_update_freq_s = 20 # for metrics
+    db_address = "192.168.1.100:5000"
 
     restore = False
 
@@ -168,7 +168,7 @@ def main(_config):
     gpus = tf.config.experimental.list_physical_devices('GPU')
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, False)
-    from seedsmash.fsp_sync_trainer import FSP
+    from seedsmash.seedsmash_sync_trainer import SeedSmashTrainer
 
     config = ConfigDict(_config)
     SSBM(**config["env_config"]).register()
@@ -179,10 +179,10 @@ def main(_config):
         project="Seedsmash",
         mode='online',
         group="debug",
-        name="falcon_ditto_debug",
+        name="seedsmash_test",
         notes=None,
         dir=config["wandb_logdir"]
     )
 
-    trainer = FSP(config, restore=config.restore)
+    trainer = SeedSmashTrainer(config, restore=config.restore)
     trainer.run()

@@ -1,4 +1,5 @@
 import json
+from itertools import islice
 from typing import NamedTuple, Dict, Any
 
 import tree
@@ -59,6 +60,7 @@ class Bot:
         self.num_coaching_steps = num_coaching_steps
         self.elo = elo
         self.num_samples_generated = 0
+        self.preferred_move = preferred_move
 
         self.is_out = False
 
@@ -76,17 +78,26 @@ class Bot:
 
 
     @classmethod
-    def from_json(cls, js):
-        data = json.loads(js)
-        data["stats"] = BotStats(**data["stats"])
-        data["character"] = Character(data["character"])
-        data["preferred_stage"] = Stage(data["preferred_stage"])
-        data["preferred_move"] = Action(data["preferred_move"])
+    def from_json(cls, data):
+        data["stats"] = BotStats(**{s.lower(): v for s, v in data["stats"].items()})
+        data["character"] = Character[data["character"]]
+        data["preferred_stage"] = Stage[data["preferred_stage"]]
+        data["preferred_move"] = None if data["preferred_move_id"] is None else Action(data["preferred_move_id"])
         return cls(
             **data
         )
 
+    def __repr__(self):
+        d = {
+            "tag": self.tag,
+            "character": self.character,
+            "costume_id": self.costume_id,
+            "preferred_stage": self.preferred_stage,
+            "preferred_move": self.preferred_move,
+            "stats": self.stats
 
+        }
+        return f"Bot({d})"
 
 
     @property
@@ -139,22 +150,26 @@ class Bot:
             )
 
 
-    def get_state(self) -> Dict[str, Any]:
-        # TODO
-
-        d = {
-            "coach_tag": self.coach_tag,
-            "coaching_progression": 100 * self.coaching_progression / self.num_coaching_steps,
-            "elo": self.elo,
-            "is_out": self.is_out,
-            **self.metrics
-        }
+    def get_state(self, rank: int) -> Dict[str, Any]:
+        # filter large metric dicts, suppose they are already sorted
+        d = dict(
+            tag=self.tag,
+            is_out=self.is_out,
+            coach_tag=self.coach_tag,
+            coaching_progression=100 * self.coaching_progression / self.num_coaching_steps,
+        )
+        k = 8
+        for registry, metrics in self.metrics.items():
+            d[registry] = {}
+            for name, metric in metrics.items():
+                if isinstance(metric, dict):
+                    d[registry][name] = dict(islice(metric.items(), k))
+                    continue
+                d[registry][name] = metric
 
         d["progression"].update(
-            coach_tag= self.coach_tag,
-            coaching_progression= 100 * self.coaching_progression / self.num_coaching_steps,
+            rank=rank,
             elo= self.elo,
-            is_out= self.is_out,
         )
 
         return d

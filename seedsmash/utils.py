@@ -61,7 +61,7 @@ class ActionStateCounts:
 
     def __init__(
             self,
-            preferred_move: Action,
+            preferred_move: Action | None,
             underused_prob=5e-4,
             overused_prob=0.16,
             min_prob=1e-6,
@@ -74,7 +74,9 @@ class ActionStateCounts:
 
         self.action_state_weights = np.ones((self.n_action_states,), dtype=np.float32)
         self.action_state_weights[self.discarded_states] = 0.
-        self.action_state_weights[action_idx[preferred_move]] *= 5
+
+        if preferred_move is not None:
+            self.action_state_weights[action_idx[preferred_move]] *= 5
 
         self.underused_logp = np.log(underused_prob)
         self.overused_logp = np.log(overused_prob)

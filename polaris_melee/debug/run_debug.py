@@ -28,7 +28,7 @@ class PolarisEnvTest(unittest.TestCase):
 
         def do_stuff(env):
             actions = {
-                p: env.action_space.sample() #np.random.choice([16, 24, 37, 39], p = [0.4, 0.4,0.1,0.1])
+                p: np.random.choice([16, 24, 37, 39], p = [0.4, 0.4,0.1,0.1])
                 for p in env.observation_builder.bot_ports
             }
             return actions
@@ -86,7 +86,7 @@ if __name__ == '__main__':
             # Stage.DREAMLAND,
             # Stage.FOUNTAIN_OF_DREAMS
         ])
-        .player_types([PlayerType.HUMAN_DEBUG, PlayerType.BOT])
+        .player_types([PlayerType.BOT, PlayerType.BOT])
         .render()
         .online_delay(0)
         .polling_mode()

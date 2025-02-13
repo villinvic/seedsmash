@@ -117,7 +117,7 @@ class PPO(ParametrisedPolicy):
             num_minibatch += 1
 
 
-        last_kl = metrics["kl"]
+        last_kl = metrics["KL-Divergence"]
         kl_coeff_val = self.kl_coeff.value()
         if kl_coeff_val > 0.:
             # Increase.
@@ -201,6 +201,7 @@ class PPO(ParametrisedPolicy):
 
                 total_loss = (critic_loss + policy_loss - mean_entropy * self.policy_config.entropy_cost + kl_loss)
                 if hasattr(self.model, "aux_loss"):
+                    print("h", mask)
                     total_loss += self.policy_config.aux_loss_weight * self.model.aux_loss(
                         obs=obs,
                         action=action,

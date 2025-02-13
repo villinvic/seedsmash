@@ -268,14 +268,14 @@ class ActionStateReward(RewardModule):
     ) ->  Dict[str, float | Dict[str, float]]:
         if as_opponent:
             return {}
-        most_hit_moves = dict(sorted(self.move_hits.items(), key=lambda item: -item[1])[:8])
-        most_used_moves = dict(sorted(self.used_moves.items(), key=lambda item: -item[1])[:8])
+        most_hit_moves = dict(sorted(self.move_hits.items(), key=lambda item: -item[1]))
+        most_used_moves = dict(sorted(self.used_moves.items(), key=lambda item: -item[1]))
         move_accuracies = {
             move_name: 100 * self.move_hits[move_name] / self.used_moves[move_name]
             for move_name in self.move_hits
             if self.move_hits[move_name] > 0
         }
-        least_accurate_moves = dict(sorted(move_accuracies.items(), key=lambda item: item[1])[:8])
+        least_accurate_moves = dict(sorted(move_accuracies.items(), key=lambda item: item[1]))
         # move accuracy
         # move damage
         return {
@@ -440,8 +440,6 @@ class NeutralGameReward(RewardModule):
         ):
             if self.is_neutral:
                 self.neutral_losses += 1
-                print(player.hitstun_frames_left,
-            (player.action,  player.shield_strength))
             self.is_neutral = False
         ###
         self.opponent_was_neutral = self.opponent_is_neutral

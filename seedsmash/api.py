@@ -88,8 +88,11 @@ class ApiInterface:
         except requests.exceptions.RequestException as e:
             print(f"Error: {e}")
 
-    def read_db_bots(self):
-        return [Bot.from_json(js) for js in self.request("/api/bots")]
+    def read_db_bots(self) -> List[Bot]:
+        json_bots = self.request("/api/bots")
+        if json_bots is None:
+            return []
+        return [Bot.from_json(js) for js in json_bots]
 
     def push_data(
             self,
@@ -108,7 +111,8 @@ class ApiInterface:
 
         return self.request(
             "/api/update",
-            data=data._asdict()
+            data=data._asdict(),
+            method="post"
         )
 
     def communicate(self, data):

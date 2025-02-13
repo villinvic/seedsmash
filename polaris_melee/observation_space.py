@@ -224,13 +224,11 @@ class ObsBuilder:
                 )
             ]
             if len(own_projectiles) > 0:
-                nearest_own_projectile = sorted(
+                nearest_own_projectile = min(
                     own_projectiles, key=lambda p: projectile_dist(p, state.players[other_port])
-                )[0]
-                print(port, nearest_own_projectile.position.x, nearest_own_projectile.position.y, 1., nearest_own_projectile.type)
+                )
                 return nearest_own_projectile.position.x, nearest_own_projectile.position.y, 1.
             else:
-                print(port, 0., 0., 0.)
 
                 return 0., 0., 0.
 
