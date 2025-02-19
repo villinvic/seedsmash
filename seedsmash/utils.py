@@ -68,16 +68,17 @@ class ActionStateCounts:
             reward_scale=0.015,
             penalty_scale=0.003
     ):
-        self.preferred_move = preferred_move
+        preferred_move = preferred_move if preferred_move is not None else Action.DEAD_FLY_STAR # death move, does not count
+        self.preferred_move_idx = action_idx[preferred_move]
         self.n_action_states = len(action_idx)
         self.probs = np.full((self.n_action_states,), dtype=np.float32, fill_value=1/self.n_action_states)
 
         self.action_state_weights = np.ones((self.n_action_states,), dtype=np.float32)
         self.action_state_weights[self.discarded_states] = 0.
 
-        if preferred_move is not None:
-            self.action_state_weights[action_idx[preferred_move]] *= 5
+        self.action_state_weights[self.preferred_move_idx] *= 5
 
+        self.preferred_move_min_logp = np.log(underused_prob * 3)
         self.underused_logp = np.log(underused_prob)
         self.overused_logp = np.log(overused_prob)
 
@@ -109,15 +110,18 @@ class ActionStateCounts:
             self.curr_count -= popped_size
 
     def get_values(self):
-
         if self.curr_count > self.count_min:
-            self.probs[:] = np.maximum(np.sum(self.queue, dtype=np.float32, axis=0), 1e-8)
-            self.probs /= self.probs.sum()
-            self.probs = np.maximum(self.probs, self.min_prob)
+            probs = np.maximum(np.sum(self.queue, dtype=np.float32, axis=0), 1e-8)
+            probs /= probs.sum()
+            probs = np.maximum(probs, self.min_prob)
+        else:
+            probs = self.probs
 
-        logprobs = np.log(self.probs)
-        rewards = np.maximum((self.underused_logp - logprobs) * self.action_state_weights, 0.)
+        logprobs = np.log(probs)
         penalty = np.maximum((logprobs-self.overused_logp) * np.maximum(self.action_state_weights, 1.), 0.)
+        # offset the prob of the preferred move
+        logprobs[self.preferred_move_idx] += (self.underused_logp - self.preferred_move_min_logp)
+        rewards = np.maximum((self.underused_logp - logprobs) * self.action_state_weights, 0.)
 
         self.last_rewards = rewards * self.reward_scale
         self.last_penalty = penalty * self.penalty_scale

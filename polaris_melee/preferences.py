@@ -1,4 +1,3 @@
-from pprint import pprint
 from typing import Dict, TypedDict, Any
 
 import numpy as np
@@ -19,9 +18,10 @@ class CloseupReward(RewardModule):
         self.self_position = None
         self.opponent_position = None
 
-        self.y_scale = 0.25
+        self.y_scale = 0.4
         self.closeup = 0.
         self.total_closeup = 0.
+        self.cummulated_distance = 0.
 
     def update(
             self,
@@ -57,7 +57,9 @@ class CloseupReward(RewardModule):
                 closeup = 0
 
             self.closeup = closeup
-            self.total_closeup += closeup
+            self.total_closeup += np.maximum(closeup, 0.)
+
+            self.cummulated_distance += gamestate.distance
 
         self.self_position = player.position
         self.opponent_position = opponent.position
@@ -67,7 +69,7 @@ class CloseupReward(RewardModule):
             advantage: float,
             opponent_combo_counter: int
     ) -> float:
-        return self.closeup * 2e-3
+        return self.closeup * 1e-3
 
     def get_metrics(
             self,
@@ -77,7 +79,8 @@ class CloseupReward(RewardModule):
         if as_opponent:
             return {}
         return {
-            "Closeup/s": self.total_closeup / game_length_s
+            "Closeup$s": self.total_closeup / game_length_s,
+            "Average Player Distance": self.cummulated_distance / (game_length_s * 20 * 3)
         }
 
 
@@ -94,7 +97,7 @@ class CoreReward(RewardModule):
         self.is_opponent_intangible = False
         self.offstage = False
 
-        self.total_damage_offstage = 0
+        self.total_offstage_offstage = 0
         self.total_damage = 0
         self.deaths = []
         self.total_intangible_damage = 0
@@ -116,7 +119,7 @@ class CoreReward(RewardModule):
         self.offstage = (player.off_stage and opponent.off_stage)
         self.is_opponent_intangible = opponent.invulnerability_type == InvulnerabilityType.INTANGIBLE
 
-        if self.stock - self.prev_stock > 0:
+        if self.stock < self.prev_stock:
             self.deaths.append(self.prev_percent)
 
     def reward(
@@ -126,7 +129,7 @@ class CoreReward(RewardModule):
     ) -> float:
 
         # Using the advantage here allows for bots to learn trading stocks when it is worth.
-        death = np.maximum(self.prev_stock - self.stock, 0.) * (1 - advantage)
+        death = int(self.stock < self.prev_stock) * (1 - advantage)
 
         damage = np.maximum(self.percent - self.prev_percent, 0.)
         combo_boost = 1 + opponent_combo_counter / ObsBuilder.MAX_COMBO
@@ -139,12 +142,12 @@ class CoreReward(RewardModule):
         if self.offstage:
             # TODO: I think offstage here is not doing great
             damage_r *= (1 - advantage)
-            self.total_intangible_damage += damage
+            self.total_offstage_offstage += damage
 
         self.total_damage += damage
 
         return -(
-            death + damage * 0.005
+            death * 1.1 + damage_r * 0.006
         )
 
     def get_metrics(
@@ -155,17 +158,16 @@ class CoreReward(RewardModule):
         if as_opponent:
             return {
                 "Average Kill%": self.total_damage * 2 if len(self.deaths) == 0 else np.mean(self.deaths),
-                "Damage Dealt/s": self.total_damage / game_length_s,
-                "Intangible Damage Dealt/game": self.total_intangible_damage,
-                "Offstage Damage Dealt/game": self.total_damage_offstage,
+                "Damage Dealt$s": self.total_damage / game_length_s,
+                "Intangible Damage Dealt$game": self.total_intangible_damage,
+                "Offstage Damage Dealt$game": self.total_offstage_offstage,
             }
 
         return {
             "Average Death%": self.total_damage * 2 if len(self.deaths) == 0 else np.mean(self.deaths),
-            "Suicides/game": sum([int(p<3) for p in self.deaths]),
-            "Damage Incurred/s": self.total_damage / game_length_s,
-            "Intangible Damage Incurred/game": self.total_intangible_damage,
-            "Offstage Damage Incurred/game": self.total_damage_offstage,
+            "Damage Incurred$s": self.total_damage / game_length_s,
+            "Intangible Damage Incurred$game": self.total_intangible_damage,
+            "Offstage Damage Incurred$game": self.total_offstage_offstage,
         }
 
 
@@ -223,7 +225,7 @@ class ActionStateReward(RewardModule):
 
         self.action_state_counts[action_idx[self.curr_action_state]] += 1
 
-        if self.curr_action_state in ActionStateReward.WALL_TECH_STATES:
+        if self.curr_action_state in ActionStateReward.WALL_TECH_STATES and self.prev_action_state not in ActionStateReward.WALL_TECH_STATES:
             self.wall_techs += 1
             return
 
@@ -259,6 +261,9 @@ class ActionStateReward(RewardModule):
             # use prev action if moves finished this frame (move interrupted)
             r += self.hit_values(self.prev_action_state)
 
+        if abs(r) > 0:
+            print(self.curr_action_state, r)
+
         return r
 
     def get_metrics(
@@ -268,20 +273,15 @@ class ActionStateReward(RewardModule):
     ) ->  Dict[str, float | Dict[str, float]]:
         if as_opponent:
             return {}
-        most_hit_moves = dict(sorted(self.move_hits.items(), key=lambda item: -item[1]))
-        most_used_moves = dict(sorted(self.used_moves.items(), key=lambda item: -item[1]))
         move_accuracies = {
-            move_name: 100 * self.move_hits[move_name] / self.used_moves[move_name]
+            move_name: 100 if self.used_moves[move_name] == 0 else 100 * self.move_hits[move_name] / self.used_moves[move_name]
             for move_name in self.move_hits
-            if self.move_hits[move_name] > 0
         }
-        least_accurate_moves = dict(sorted(move_accuracies.items(), key=lambda item: item[1]))
-        # move accuracy
-        # move damage
         return {
-            "Most Hit Moves (By Hit Count)": most_hit_moves,
-            "Most Used Moves (By Usage Count)": most_used_moves,
-            "Least Accurate Moves (By Accuracy%)": least_accurate_moves,
+            "Wall Tech$game": self.wall_techs,
+            "__move_hits__": self.move_hits,
+            "__move_uses__": self.used_moves,
+            "__move_accuracies__": move_accuracies,
 
             "__action_state_counts__": self.action_state_counts,
             "__action_state_hit_counts__": self.action_state_hit_counts
@@ -317,7 +317,7 @@ class StageControlReward(RewardModule):
             advantage: float,
             opponent_combo_counter: int
     ) -> float:
-        return 0.003 * 0.1 * int(self.is_controlling)
+        return 0.0003 * int(self.is_controlling)
 
     def get_metrics(
             self,
@@ -343,6 +343,7 @@ class OffStageReward(RewardModule):
         self.is_pushed_off = False
 
         self.times_offstage = 0
+        self.suicides = 0
         self.KOs = 0
         self.prev_stock = 4
         self.stock = 4
@@ -373,8 +374,12 @@ class OffStageReward(RewardModule):
         is_ejected = abs(player.speed_y_attack) + abs(player.speed_x_attack) > 0
         dist_to_ledge = self.dist_to_ledge(player.position.x, player.position.y, gamestate)
 
-        if self.stock - self.prev_stock > 0 and self.was_pushed_off:
-            self.KOs += 1
+        if self.stock < self.prev_stock:
+            if self.was_pushed_off:
+                self.KOs += 1
+            else:
+                self.suicides += 1
+
 
         # Only mark the player as offstage here if it was ejected and far from the ledge
         if player.off_stage and is_ejected and dist_to_ledge > 30:
@@ -384,7 +389,7 @@ class OffStageReward(RewardModule):
             return
 
         # set the flag to off if we successfully recovered.
-        if not player.off_stage or player.action == Action.EDGE_CATCHING:
+        if not player.action in NEUTRAL_ACTIONS or player.action == Action.EDGE_CATCHING:
             self.is_pushed_off = False
 
     def reward(
@@ -392,7 +397,7 @@ class OffStageReward(RewardModule):
             advantage: float,
             opponent_combo_counter: int
     ) -> float:
-        return np.maximum(int(self.was_pushed_off) - int(self.is_pushed_off), 0.) * 0.2
+        return np.maximum(int(self.was_pushed_off) - int(self.is_pushed_off), 0.) * 0.1
 
     def get_metrics(
             self,
@@ -405,7 +410,9 @@ class OffStageReward(RewardModule):
             }
         else:
             return {
-                "Successful Recoveries%": 100 if self.times_offstage == 0 else 100 * (1 - (self.KOs / self.times_offstage))
+                "Successful Recoveries%": 100 if self.times_offstage == 0 else 100 * (1 - (self.KOs / self.times_offstage)),
+                "Self-Destructs$game": self.suicides,
+
             }
 
 
@@ -463,8 +470,7 @@ class NeutralGameReward(RewardModule):
             advantage: float,
             opponent_combo_counter: int
     ) -> float:
-        # -1 for loosing neutral.
-        return np.minimum(float(self.is_neutral) - float(self.was_neutral), 0.) * 0.03
+        return -0.0009 * int(not self.is_neutral)
 
     def get_metrics(
             self,
@@ -548,9 +554,9 @@ class PlayerRewards:
             "action_state_rewards": 1.,
             "closeup_rewards": log_scale(preferences.aggressivity),
             "stage_control_rewards": log_scale(preferences.stagecontrol),
-            "offstage_rewards": log_scale(preferences.offstage),
+            "offstage_rewards": log_scale(preferences.offstage, low=0.3),
             "neutral_rewards": log_scale(preferences.neutral),
-            "techskill_rewards": log_scale(preferences.techskill),
+            "techskill_rewards": log_scale(preferences.techskill, high=3),
         }
 
     def accumulate(

@@ -4,7 +4,7 @@ from copy import deepcopy
 from sortedcontainers import SortedDict
 from gymnasium.spaces.dict import Dict
 from melee import Stage, PlayerState, Character, Action, stages, enums, Projectile, GameState, AttackState, \
-    left_platform_position, right_platform_position, top_platform_position, ProjectileType
+    left_platform_position, right_platform_position, top_platform_position, ProjectileType, Moves, character_moves
 
 from polaris_melee.compiled_libmelee_framedata import CompiledFrameData
 import numpy as np
@@ -24,7 +24,17 @@ action_state_idx = {
     s: i for i, s in enumerate(AttackState)
 }
 
+
+move_idx= {}
+i = 341
+for char, moves in character_moves.items():
+    for move in moves:
+        if move not in Moves._value2member_map_:
+            move_idx[(char, move.value)] = i
+            i += 1
+
 n_actions = len(action_idx)
+n_moves = len(move_idx)
 
 def randall_position(frame, stage):
     y, x1, x2 = stages.randall_position(frame)
@@ -269,6 +279,12 @@ class ObsBuilder:
             return n_p_y, n_p_x1, n_p_x2
 
 
+        def get_pos(state: GameState, port: int):
+            if state.players[port].action.value <= 0xa:
+                return 0., 0.
+            return ObsBuilder.FD.FD.roll_end_position(state.players[port], state), state.players[port].position.y
+
+
         stage_value_dict = dict(
             stage=StateDataInfo(lambda s: all_stages_to_used.get(s.stage, 0),
                                 StateDataInfo.CATEGORICAL,
@@ -281,6 +297,20 @@ class ObsBuilder:
                                 config=self.config,
                                 ),
         )
+
+        def get_action_index(state: GameState, port: int):
+            action = state.players[port].action
+            a_val = action.value
+            char = state.players[port].character
+            if a_val in character_moves[char]._value2member_map_:
+                # either a general move, or a character specific move
+                if a_val in Moves._value2member_map_:
+                    return action_idx[action]
+                # this is a character specific move, fabric a custom index
+                # everything will be fed to an embedding lookup table
+                return move_idx[(char, a_val)]
+            else:
+                return action_idx[action]
 
         def make_player_dict(port):
             """
@@ -473,7 +503,7 @@ class ObsBuilder:
                                   player_port=port,
                                   config=self.config),
                 # we actually predict the roll position in the x pos here.
-                position=StateDataInfo(lambda s: (ObsBuilder.FD.FD.roll_end_position(s.players[port], s), s.players[port].position.y),
+                position=StateDataInfo(lambda s: get_pos(s, port),
                                        StateDataInfo.CONTINUOUS,
                                        size=2,
                                        scale=ObsBuilder.POS_SCALE,
@@ -490,14 +520,14 @@ class ObsBuilder:
                                         size=n_characters,
                                         player_port=port,
                                         config=self.config),
-                action=StateDataInfo(lambda s: action_idx[s.players[port].action],
+                # split general and char_specific actions
+                action=StateDataInfo(lambda s: get_action_index(s, port),
                                      StateDataInfo.CATEGORICAL,
-                                     size=n_actions,
+                                     size=n_actions+n_moves,
                                      player_port=port,
                                      config=self.config),
                 # Projectiles
-                # TODO : get projectiles of players, and unowned projectiles
-                # TODO: what are unowned projectiles again ?
+                # TODO : get projectiles of players (and unowned for bombs)
                 # TODO: should split in two, continuous and binary!
                 projectile=StateDataInfo(lambda s: own_projectile_getter(s, port),
                                          StateDataInfo.CONTINUOUS,
@@ -598,6 +628,9 @@ class ObsBuilder:
 
     def build(self):
         obs_dict = {}
+        # if hasattr(self, "obs_dict"):
+        #     return self.obs_dict
+
         for port in self.bot_ports:
             obs = {
                 StateDataInfo.BINARY: SortedDict(),
@@ -607,7 +640,7 @@ class ObsBuilder:
             obs["ground_truth"] = deepcopy(obs)
             self.build_for(port, obs)
             obs_dict[port] = obs
-
+        #self.obs_dict = obs_dict
         return obs_dict
 
     def build_for(self, player_idx, obs):

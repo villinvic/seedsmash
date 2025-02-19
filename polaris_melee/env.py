@@ -125,7 +125,7 @@ class SSBM(PolarisEnv):
             self.cpu_affinity = [2*env_index, 2*env_index+1]
             p.cpu_affinity(self.cpu_affinity)
         else:
-            self.cpu_affinity = [0]
+            self.cpu_affinity = [0, 1]
 
         self.polling_mode = config["polling_mode"]
         self.slippi_port = 51441 + self.env_index
@@ -239,27 +239,27 @@ class SSBM(PolarisEnv):
         menu_helper = melee.MenuHelper()
         css_counter = 0
         while gamestate.menu_state != melee.Menu.IN_GAME:
-            for port, controller in self.controllers.items():
+            for i, (port, controller) in enumerate(self.controllers.items()):
                 p_type = self.player_types[port]
                 if p_type != PlayerType.HUMAN:
                     cpu_level = lvl if p_type == PlayerType.CPU else 0
-                    menu_helper.menu_helper_simple(
-                        gamestate,
-                        controller,
-                        characters[port],
-                        stage,
-                        connect_code="",
-                        costume=costumes[port],
-                        autostart=press_start,
-                        swag=False,
-                        cpu_level=cpu_level
+                    ready[i] = menu_helper.menu_helper_simple(
+                    gamestate,
+                    controller,
+                    characters[port],
+                    stage,
+                    connect_code="",
+                    costume=costumes[port],
+                    autostart=press_start,
+                    swag=False,
+                    cpu_level=cpu_level
                     )
 
             press_start = all(ready)
             gamestate = self.step_console()
 
             css_counter += 1
-            if not self.render and css_counter > 3000:
+            if not self.render and css_counter > 2000:
                 raise ResetNeeded(f"Stuck in CSS, selecting {self.current_matchup}")
 
         return gamestate
@@ -353,8 +353,8 @@ class SSBM(PolarisEnv):
 
         gamestate = self.get_gamestate()
 
-        p1_down = gamestate.players[1].stock == 0
-        p2_down = gamestate.players[2].stock == 0
+        p1_down = (1 not in gamestate.players or gamestate.players[1].stock == 0)
+        p2_down = (2 not in gamestate.players or gamestate.players[2].stock == 0)
 
         if p1_down and p2_down:
             self.is_done = True
@@ -406,6 +406,9 @@ class SSBM(PolarisEnv):
 
                 next_gamestate = self.step_console()
 
+                if len(next_gamestate.players) < 2 :
+                    break
+
                 if self.config["debug"]:
                     input("Press [Enter] to step a frame")
                 if next_gamestate is None:
@@ -430,7 +433,7 @@ class SSBM(PolarisEnv):
                             player=players[port],
                             gamestate=next_gamestate
                         )
-
+                    #if frame == 0:
                     self.reward_function.accumulate(step_rewards, next_gamestate)
 
                 # check if we are done, and exit if it is the case
@@ -465,7 +468,10 @@ class SSBM(PolarisEnv):
     def step(
         self, action_dict: Dict_T[int, int]
     ) -> Tuple_T[dict, dict, dict, dict, dict]:
-
+        action_dict = {
+            p: np.random.choice([16, 24, 37, 39], p=[0.4, 0.4, 0.1, 0.1])
+            for p in self.observation_builder.bot_ports
+        }
         self.handle_controller_inputs(action_dict)
 
         gamestate, step_rewards = self.get_next_state_reward()
@@ -482,6 +488,8 @@ class SSBM(PolarisEnv):
                 counter += 1
                 if counter > 1000:
                     raise ResetNeeded("Stuck post game.")
+            gamestate = self.step_console(num_steps=1)
+
         elif gamestate.menu_state == melee.Menu.IN_GAME:
             done = False
         else:
@@ -499,8 +507,11 @@ class SSBM(PolarisEnv):
             # merge all metrics:
             reward_function_metrics = self.reward_function.get_metrics(self.episode_length)
             self.game_info["metrics"] = {}
+            extra = {
+                "Average Game Length(s)": self.game_info["length"] / 20
+            }
             for p, k in zip(self.reward_function.get_metrics(self.episode_length), ["bot_a", "bot_b"]):
-                self.game_info["metrics"][k] = reward_function_metrics[p] | self.combo_counters[p].get_metrics()
+                self.game_info["metrics"][k] = reward_function_metrics[p] | self.combo_counters[p].get_metrics() | extra
             self.game_info["replay"] = None # todo
             self.episode_metrics["game_info"] = self.game_info
 

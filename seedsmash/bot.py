@@ -1,7 +1,8 @@
 import json
 from itertools import islice
-from typing import NamedTuple, Dict, Any
+from typing import NamedTuple, Dict, Any, Tuple
 
+import numpy as np
 import tree
 
 from melee import Character, Stage, Action
@@ -131,10 +132,10 @@ class Bot:
             registry: str
     ):
         for n, m in metrics.items():
-            if n == "action_state_counts":
+            if n == "__action_state_counts__":
                 self.action_state_counts.push_samples(m)
                 continue
-            if n == "action_state_hit_counts":
+            if n == "__action_state_hit_counts__":
                 self.action_state_hit_counts.push_samples(m)
                 continue
             if n not in self.metrics[registry]:
@@ -149,6 +150,20 @@ class Bot:
                 self.metrics[registry][n], m
             )
 
+    def get_sorted_dicts(
+            self,
+            name: str,
+            metric: dict
+    )-> Tuple[str, dict]:
+        k = 8
+        if name == "__move_accuracies__":
+            return "Least Accurate Moves (By Accuracy%)", dict(sorted(metric.items(), key=lambda item: item[1])[:k])
+        elif name == "__move_uses__":
+            return "Most Used Moves (By Usage Count)", dict(sorted(metric.items(), key=lambda item: -item[1])[:k])
+        elif name == "__move_hits__":
+            return "Most Hit Moves (By Hit Count)", dict(sorted(metric.items(), key=lambda item: -item[1])[:k])
+        else:
+            return name, metric
 
     def get_state(self, rank: int) -> Dict[str, Any]:
         # filter large metric dicts, suppose they are already sorted
@@ -158,11 +173,13 @@ class Bot:
             coach_tag=self.coach_tag,
             coaching_progression=100 * self.coaching_progression / self.num_coaching_steps,
         )
+
         k = 8
         for registry, metrics in self.metrics.items():
             d[registry] = {}
             for name, metric in metrics.items():
                 if isinstance(metric, dict):
+                    name, metric = self.get_sorted_dicts(name, metric)
                     d[registry][name] = dict(islice(metric.items(), k))
                     continue
                 d[registry][name] = metric
@@ -172,6 +189,9 @@ class Bot:
             elo= self.elo,
         )
 
-        return d
+        return tree.map_structure(
+            lambda v: float(v) if isinstance(v, np.floating) else v,
+            d
+        )
 
 

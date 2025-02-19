@@ -20,7 +20,7 @@ from polaris.models.utils import CategoricalDistribution, GaussianDistribution
 
 
 
-class Debug7(BaseModel):
+class ActionEmbedModel(BaseModel):
     is_recurrent = True
 
     def initialise(self):
@@ -61,8 +61,8 @@ class Debug7(BaseModel):
             action_space: Discrete,
             config,
     ):
-        super(Debug7, self).__init__(
-            name="Debug7",
+        super(ActionEmbedModel, self).__init__(
+            name="ActionEmbedModel",
             observation_space=observation_space,
             action_space=action_space,
             config=config,
@@ -84,7 +84,7 @@ class Debug7(BaseModel):
 
         # undelay LSTM
         self.embed_binary_size = sum([obs.shape[-1] for k, obs in self.observation_space["binary"].items() if "1" in k])
-        self.embed_categorical_sizes = [int(obs.high[0])+1 for k, obs in self.observation_space["categorical"].items() if "1" in k]
+        self.embed_categorical_sizes = [int(obs.high[0])+1 for k, obs in self.observation_space["categorical"].items() if ("1" in k and "action" not in k)]
         self.embed_categorical_total_size = sum(self.embed_categorical_sizes)
         self.embed_continuous_size = sum([obs.shape[-1] for k, obs in self.observation_space["continuous"].items() if "1" in k])
         self.embedding_size = (
@@ -107,6 +107,9 @@ class Debug7(BaseModel):
         self.state_size = 256
         self.rnn = snt.LSTM(self.state_size, name="rnn")
 
+        n_action_states = int(self.observation_space["categorical"]["action1"].high[0])+1
+        self.action_state_embed_dim = 32
+        self.action_state_embedding = snt.Embed(vocab_size=n_action_states, embed_dim=self.action_state_embed_dim, densify_gradients=True)
 
         self._pi_out = snt.nets.MLP([128, self.num_outputs], name="pi_out")
         self._value_out = CategoricalValueHead(value_bounds=(-4., 4.))
@@ -129,15 +132,16 @@ class Debug7(BaseModel):
                 tf.one_hot(tf.cast(categorical_inputs[k], tf.int32),
                            depth=tf.cast(self.observation_space["categorical"][k].high[0],
                                          tf.int32) + 1)[:, :, 0]
-                for k in self.observation_space["categorical"] if aid in k
-            ]
+                for k in self.observation_space["categorical"] if (aid in k and "action" not in k)
+            ] + [self.action_state_embedding(tf.cast(categorical_inputs[f"action{aid}"], tf.int32))[:, :, 0]]
         else:
             one_hots = [
                 tf.one_hot(tf.cast(categorical_inputs[k], tf.int32),
                            depth=tf.cast(self.observation_space["categorical"][k].high[0],
                                          tf.int32) + 1)[0]
-                for k in self.observation_space["categorical"] if aid in k
-            ]
+                for k in self.observation_space["categorical"] if (aid in k and "action" not in k)
+            ] + [self.action_state_embedding(tf.cast(categorical_inputs[f"action{aid}"], tf.int32))[0]]
+
 
         embed_player = tf.concat(
             continuous_inputs + binary_inputs + one_hots, axis=-1)
@@ -315,7 +319,8 @@ class Debug7(BaseModel):
 
         continuous, binary, categoricals = tf.split(pred, [self.embed_continuous_size,
                                                                              self.embed_binary_size,
-                                                                             self.embed_categorical_total_size], axis=-1)
+                                                                             self.embed_categorical_total_size,
+                                                                             ], axis=-1)
         categoricals = tf.split(categoricals, self.embed_categorical_sizes, axis=-1)
 
         return continuous, binary, categoricals
@@ -323,54 +328,47 @@ class Debug7(BaseModel):
 
     def aux_loss(
             self,
-            *
-            obs,
+            *,
+            mask,
             **kwargs
     ):
 
         # todo: dont concat and split...
         continuous, binary, categoricals = self.split_to_predicted_types(self._predicted_opp)
 
-        true_continuous, true_binary, true_categoricals = tf.split(self.opp_ground_truth, [self.embed_continuous_size,
+        true_continuous, true_binary, true_categoricals, action_state_embeddings = tf.split(self.opp_ground_truth, [self.embed_continuous_size,
                                                           self.embed_binary_size,
-                                                          self.embed_categorical_total_size], axis=-1)
+                                                          self.embed_categorical_total_size,
+                                                          self.action_state_embed_dim], axis=-1)
+
         true_categoricals = tf.split(true_categoricals, self.embed_categorical_sizes, axis=-1)
 
-
         self.continuous_loss = tf.reduce_mean(tf.keras.losses.huber(
-            true_continuous, continuous, delta=0.3
+            tf.boolean_mask(true_continuous, mask), tf.boolean_mask(continuous, mask), delta=0.3
         ))
 
         self.binary_loss = tf.reduce_mean(
             # advantage_weights*
             tf.keras.losses.binary_crossentropy(
-                true_binary, binary,
+                tf.boolean_mask(true_binary, mask), tf.boolean_mask(binary, mask),
                 from_logits=True,
             ))
 
         self.categorical_loss = tf.reduce_mean([
             # tf.reduce_mean(advantage_weights *
             tf.keras.losses.categorical_crossentropy(
-                t, p, from_logits=True
+                tf.boolean_mask(t, mask), tf.boolean_mask(p, mask), from_logits=True
             )
             # )
             for t, p in zip(true_categoricals, categoricals)
         ])
-
-        self.tmp1 = true_continuous[0, 0]
-        self.tmp2 = continuous[0, 0]
 
         return self.continuous_loss + self.binary_loss + self.categorical_loss
 
 
     def get_metrics(self):
         return {
-            "continuous_loss": self.continuous_loss,
-            "categorical_loss": self.categorical_loss,
-            "binary_loss": self.binary_loss,
-            "tmp1": self.tmp1,
-            "tmp2": self.tmp2,
+            "Opponent Prediction Continuous Loss": self.continuous_loss,
+            "Opponent Prediction Categorical Loss": self.categorical_loss,
+            "Opponent Prediction Binary Loss": self.binary_loss,
         }
-
-
-

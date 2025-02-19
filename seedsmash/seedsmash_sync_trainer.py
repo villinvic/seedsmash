@@ -114,6 +114,7 @@ class SeedSmashTrainer(Checkpointable):
         self.games_outcome_queue: List[Game] = []
         self.last_database_state_update_time = self.last_database_game_update_time = self.startup_time = time.time()
         self.update_live_bots(self.api_interface.read_db_bots())
+        self.agent_frames_since_startup = 0
 
     def update_live_bots(self, db_bots: List[Bot]):
         db_bot_tags = {bot.tag for bot in db_bots}  # Set of current bot tags in the database
@@ -137,6 +138,8 @@ class SeedSmashTrainer(Checkpointable):
         t = time.time()
         if t - self.last_database_game_update_time > self.config["database_game_update_freq_s"]:
             self.last_database_game_update_time = t
+            # TODO: communicate elo/rank every minute
+            # every 10 mins elo rank but for metrics
             if t - self.last_database_state_update_time > self.config["database_state_update_freq_s"]:
                 self.last_database_state_update_time = t
 
@@ -252,11 +255,6 @@ class SeedSmashTrainer(Checkpointable):
                     bot_a: Bot = self.policy_map[pid1].options
                     bot_b: Bot = self.policy_map[pid2].options
 
-                    bot_a.action_state_counts.push_samples(game_info["metrics"]["bot_a"].pop("__action_state_counts__"))
-                    bot_b.action_state_counts.push_samples(game_info["metrics"]["bot_b"].pop("__action_state_counts__"))
-                    bot_a.action_state_hit_counts.push_samples(game_info["metrics"]["bot_a"].pop("__action_state_hit_counts__"))
-                    bot_b.action_state_hit_counts.push_samples(game_info["metrics"]["bot_b"].pop("__action_state_hit_counts__"))
-
                     winner = game_info["winner"]
                     outcome = 0.5 if winner is None else float(winner == bot_a.tag)
                     self.matchmaking.update(
@@ -280,6 +278,7 @@ class SeedSmashTrainer(Checkpointable):
                     # disable metrics here
                     # experience_metrics.append(exp_batch)
                     GlobalCounter[GlobalCounter.ENV_STEPS] += exp_batch.length
+                    self.agent_frames_since_startup += exp_batch.length * 2
                     GlobalCounter[GlobalCounter.NUM_EPISODES] += 1
 
                 except Exception as e:
@@ -371,9 +370,9 @@ class SeedSmashTrainer(Checkpointable):
 
         self.metricbank.update(
             [
-                ("FPS", GlobalCounter[GlobalCounter.ENV_STEPS] / (time.time()-self.startup_time)),
+                ("FPS", self.agent_frames_since_startup / (time.time()-self.startup_time)),
             ]
-            , prefix="misc/", smoothing=0.9
+            , prefix="misc/", smoothing=0.0
         )
 
         # We should call those only at the report freq...

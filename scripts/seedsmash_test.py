@@ -10,7 +10,7 @@ from sacred import Experiment, Ingredient
 from ml_collections import ConfigDict
 
 
-exp_name = 'seedsmash_test'
+exp_name = 'seedsmash_test_action_embed'
 exp_path = "experiments/" + exp_name
 ex = Experiment(exp_name)
 
@@ -103,10 +103,10 @@ def cfg():
     # TODO: try batched inference
     num_workers = 64
     policy_path = 'policies.seedsmash_PPO'
-    model_path = 'models.debug5'
+    model_path = 'models.action_state_embed_model'
     policy_class = 'PPO'
-    model_class = 'Debug5'
-    trajectory_length = 128 # 256 ?
+    model_class = 'ActionEmbedModel'
+    trajectory_length = 512 #128 # 256 ?
     max_seq_len = 32
     train_batch_size = 8192*4
     max_queue_size = train_batch_size * 10
@@ -140,10 +140,6 @@ def cfg():
     report_freq = 5
     episode_metrics_smoothing = 0.95
     training_metrics_smoothing = 0.8
-    inject_new_bots_freq_s = 60
-    # FSP
-    update_policy_history_freq = 100
-    policy_history_length = 10
 
     checkpoint_config = dict(
         checkpoint_frequency=50,
@@ -152,10 +148,10 @@ def cfg():
         keep=4,
     )
     episode_callback_class = SSBMCallbacks
-    negative_reward_scale = 0.92
+    negative_reward_scale = 0.93
 
-    database_game_update_freq_s = 20 # read new bots and push games
-    database_state_update_freq_s = 20 # for metrics
+    database_game_update_freq_s = 120 # read new bots and push games
+    database_state_update_freq_s = 120 # for metrics
     db_address = "192.168.1.100:5000"
 
     restore = False

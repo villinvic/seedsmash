@@ -79,11 +79,11 @@ class TechSkillHelper(Helper):
                         Action.FALLING_AERIAL_BACKWARD, Action.JUMPING_ARIAL_BACKWARD, Action.JUMPING_ARIAL_FORWARD,
                          Action.JUMPING_FORWARD, Action.JUMPING_FORWARD)
     weights = {
-        "dashing": 0.0015,
+        "dashing": 0.001,
         "ledge_canceling": 0.03,
         "lcanceling": 0.02,
         "wavelanding": 0.02,
-        "wavedash": 0., # easy action
+        "wavedash": 0.004, # easy action
         "wavedash_off_platform": 0.03,
         "walljump": 0.05,
         "edge_drop": 0.,
@@ -123,7 +123,7 @@ class TechSkillHelper(Helper):
         self.lcancel_fails += int(not success)
         self.lcancel_successes += int(success)
 
-        return success
+        return success and is_near
 
     # def dashdance(self, player_state: PlayerState, is_near: bool):
     #     # todo: here this encourages fast ddance
@@ -161,7 +161,7 @@ class TechSkillHelper(Helper):
         old_state = self.previous_player_states[-1]
         return (
             not player_state.on_ground
-            and (old_state.action == Action.LANDING_SPECIAL and abs(old_state.speed_ground_x_self)>1)
+            and (old_state.action == Action.LANDING_SPECIAL and abs(old_state.speed_ground_x_self)>2)
         )
 
     def walljump(self, player_state: PlayerState, is_near: bool):

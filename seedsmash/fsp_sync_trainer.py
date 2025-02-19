@@ -10,7 +10,7 @@ from typing import Dict
 import numpy as np
 import polaris.experience.matchmaking
 import tree
-from melee import Action
+from melee import Action, Character
 from ml_collections import ConfigDict
 
 from polaris.checkpointing.checkpointable import Checkpointable
@@ -24,7 +24,7 @@ from polaris.utils.metrics import MetricBank, GlobalCounter, GlobalTimer
 
 import psutil
 
-from seedsmash.bots.bot_config import BotConfig
+from seedsmash.bot import Bot, BotConfig
 from seedsmash.bots.generate_form import load_filled_form
 from seedsmash.utils import ActionStateCounts, inject_botconfig, ActionStateHitCounts
 
@@ -164,6 +164,8 @@ class FSP(Checkpointable):
         self.inject_bot_configs()
         GlobalTimer["inject_new_bots_timer"] = time.time()
 
+        self.startup_time = time.time()
+        self.agent_frames_since_startup = 0
 
     def inject_bot_configs(self):
 
@@ -185,13 +187,15 @@ class FSP(Checkpointable):
                     policy_config = copy.deepcopy(self.config.default_policy_config)
                     inject_botconfig(policy_config, bot_config)
 
+                    bot = Bot(**BotConfig(character=Character.CPTFALCON)._asdict())
+
                     self.policy_map[pid] = self.PolicylCls(
                         name=pid,
                         action_space=self.env.action_space,
                         observation_space=self.env.observation_space,
                         config=self.config,
                         policy_config=policy_config,
-                        options=bot_config,
+                        options=bot,
                         stats={"rank": 100, "rating": 1000, "games_played": 0, "winrate": 0, "samples_generated": mean_sample_generated},
                         # For any algo that needs to track either we have the online model
                         is_online=True,
@@ -200,9 +204,9 @@ class FSP(Checkpointable):
                     self.params_map[pid] = self.policy_map[pid].get_params()
 
                     self.experience_queue[pid] = ExperienceQueue(self.config)
-                    self.action_state_counts[pid] = ActionStateCounts(self.policy_map[pid].policy_config)
-                    self.action_state_hit_counts[pid] = ActionStateHitCounts(self.policy_map[pid].policy_config,
-                                                                             bot_config.character)
+                    self.action_state_counts[pid] = ActionStateCounts(bot.preferred_move)
+                    self.action_state_hit_counts[pid] = ActionStateHitCounts(bot.preferred_move,
+                                                                             bot.character)
 
                     self.trainable_policies.append(pid)
 
@@ -278,6 +282,7 @@ class FSP(Checkpointable):
                     self.policy_map[owner.name].stats["samples_generated"] += exp_batch.size()
                     GlobalCounter.incr("batch_count")
                     frames += exp_batch.size()
+                    self.agent_frames_since_startup += frames
                 elif owner.version != exp_batch[SampleBatch.VERSION][0]:
                     #pass
                     # toss the batch...
@@ -309,21 +314,21 @@ class FSP(Checkpointable):
         training_metrics = {}
         for policy_name, policy_queue in self.experience_queue.items():
             if policy_queue.is_ready():
-                coaching_policy = None if self.policy_map[policy_name].options.coaching_bot is None\
-                    else self.policy_map.get(self.policy_map[policy_name].options.coaching_bot, None)
-                coaching_batch = None
-                if coaching_policy is not None:
-                    coaching_model = coaching_policy.model
-                    if self.experience_queue[self.policy_map[policy_name].options.coaching_bot].last_batch is None:
-                        # Wait for the batch to be initialised before imitation
-                        # TODO: check if problematic when the batch does not update at a low freq
-                        continue
-                    else:
-                        coaching_batch = self.experience_queue[self.policy_map[policy_name].options.coaching_bot].last_batch
-                else:
-                    coaching_model = None
-                    if coaching_model is None and not (self.policy_map[policy_name].options.coaching_bot is None):
-                        print(f"Missing coaching policy !: {self.policy_map[policy_name].options.coaching_bot}.")
+#                coaching_policy = None if self.policy_map[policy_name].options.coaching_bot is None\
+ #                   else self.policy_map.get(self.policy_map[policy_name].options.coaching_bot, None)
+ #               coaching_batch = None
+  ##              if coaching_policy is not None:
+    ##                coaching_model = coaching_policy.model
+      #              if self.experience_queue[self.policy_map[policy_name].options.coaching_bot].last_batch is None:
+       #                 # Wait for the batch to be initialised before imitation
+        #                # TODO: check if problematic when the batch does not update at a low freq
+         #               continue
+          #          else:
+           #             coaching_batch = self.experience_queue[self.policy_map[policy_name].options.coaching_bot].last_batch
+            #    else:
+             #       coaching_model = None
+              #      if coaching_model is None and not (self.policy_map[policy_name].options.coaching_bot is None):
+               #         print(f"Missing coaching policy !: {self.policy_map[policy_name].options.coaching_bot}.")
 
                 pulled_batch = policy_queue.pull(self.config.train_batch_size)
                 if np.any(pulled_batch[SampleBatch.VERSION] != self.policy_map[policy_name].version):
@@ -389,14 +394,11 @@ class FSP(Checkpointable):
                 policy_training_metrics = mean_metric_batch([policy_training_metrics])
                 self.metricbank.update(policy_training_metrics, prefix=f"training/{policy_name}/",
                                        smoothing=self.config.training_metrics_smoothing)
-        if len(experience_metrics) > 0:
-            for metrics in experience_metrics:
+        #if len(experience_metrics) > 0:
+            #for metrics in experience_metrics:
 
-                # flattened_metrics = [(p, m) for p, m in tree.flatten_with_path(metrics)
-                #                      if ("debug" in m or "agent_debug" in m)]
-
-                self.metricbank.update(tree.flatten_with_path(metrics), prefix=f"experience/",
-                                       smoothing=self.config.episode_metrics_smoothing)
+                #self.metricbank.update(tree.flatten_with_path(metrics), prefix=f"experience/",
+                #                       smoothing=self.config.episode_metrics_smoothing)
 
             # policy_experience_metrics = defaultdict(list)
             # pure_episode_metrics = []
@@ -418,14 +420,13 @@ class FSP(Checkpointable):
                     (f'{pi}_queue_length', queue.size())
                     for pi, queue in self.experience_queue.items()
                 ]
-        if frames > 0:
-            misc_metrics.append(("FPS", frames / prev_frames_dt))
+        misc_metrics.append(("FPS", self.agent_frames_since_startup / (time.time()-self.startup_time)))
         if enqueue_time_ms is not None:
             misc_metrics.append(("experience_enqueue_ms", enqueue_time_ms))
 
         self.metricbank.update(
             misc_metrics
-            , prefix="misc/", smoothing=0.9
+            , prefix="misc/", smoothing=0.
         )
 
         self.metricbank.update(

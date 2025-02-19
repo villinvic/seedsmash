@@ -321,7 +321,7 @@ class Debug5(BaseModel):
         return continuous, binary, categoricals
 
 
-    def aux_loss(
+    def __aux_loss(
             self,
             *,
             mask,
@@ -356,19 +356,14 @@ class Debug5(BaseModel):
             for t, p in zip(true_categoricals, categoricals)
         ])
 
-        self.tmp1 = true_continuous[0, 0]
-        self.tmp2 = continuous[0, 0]
-
         return self.continuous_loss + self.binary_loss + self.categorical_loss
 
 
     def get_metrics(self):
         return {
-            "continuous_loss": self.continuous_loss,
-            "categorical_loss": self.categorical_loss,
-            "binary_loss": self.binary_loss,
-            "tmp1": self.tmp1,
-            "tmp2": self.tmp2,
+            # "Opponent Prediction Continuous Loss": self.continuous_loss,
+            # "Opponent Prediction Categorical Loss": self.categorical_loss,
+            # "Opponent Prediction Binary Loss": self.binary_loss,
         }
 
 

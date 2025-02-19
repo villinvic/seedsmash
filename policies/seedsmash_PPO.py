@@ -116,7 +116,7 @@ class PPO(ParametrisedPolicy):
                 )
             num_minibatch += 1
 
-
+        metrics = tree.map_structure(lambda v: v.numpy(), metrics)
         last_kl = metrics["KL-Divergence"]
         kl_coeff_val = self.kl_coeff.value()
         if kl_coeff_val > 0.:
@@ -201,7 +201,6 @@ class PPO(ParametrisedPolicy):
 
                 total_loss = (critic_loss + policy_loss - mean_entropy * self.policy_config.entropy_cost + kl_loss)
                 if hasattr(self.model, "aux_loss"):
-                    print("h", mask)
                     total_loss += self.policy_config.aux_loss_weight * self.model.aux_loss(
                         obs=obs,
                         action=action,
@@ -251,10 +250,14 @@ class PPO(ParametrisedPolicy):
             "KL Loss": kl_loss,
             "KL Loss Weight": self.kl_coeff,
             "Log-probabilities Ratio": tf.reduce_mean(tf.boolean_mask(ratio, mask)),
-            "Clipped Fraction": clip_frac
+            "Clipped Fraction": clip_frac,
+            "Policy Version": self.version
         }
         if coach_model is not None:
             train_metrics["Coaching Loss"] = coaching_loss
+        else:
+            train_metrics["Coaching Loss"] = 0
+
 
         train_metrics.update(self.model.get_metrics())
 
