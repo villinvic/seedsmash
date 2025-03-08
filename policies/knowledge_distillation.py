@@ -2,7 +2,7 @@
 import tensorflow as tf
 
 def distil_knowledge(
-        *
+        *,
         obs,
         prev_action,
         prev_reward,

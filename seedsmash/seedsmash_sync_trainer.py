@@ -44,7 +44,7 @@ class SeedSmashTrainer(Checkpointable):
         self.config = config
         self.worker_set = SyncWorkerSet(
             config,
-            with_spectator=True,
+            with_spectator=False,
         )
 
         # Init environment
@@ -52,7 +52,6 @@ class SeedSmashTrainer(Checkpointable):
 
         self.PolicylCls = getattr(importlib.import_module(self.config.policy_path), self.config.policy_class)
         self.policy_map: Dict[str, Policy] = {}
-
 
         self.params_map = ParamsMap()
 
@@ -125,7 +124,12 @@ class SeedSmashTrainer(Checkpointable):
                 self.inject_bot(bot)
 
         # Remove bots that are no longer in db_bots
-        to_remove = set(self.params_map) - db_bot_tags
+        coaches = set()
+        for pid, params in self.params_map.items():
+            bot: Bot = params.options
+            if bot.is_coached():
+                coaches.add(bot.coach_tag)
+        to_remove = set(self.params_map) - (db_bot_tags | coaches)
         for tag in to_remove:
             # TODO:
             # handle the case where this gets deleted but some games with this bot are still ongoing.
@@ -140,27 +144,36 @@ class SeedSmashTrainer(Checkpointable):
             self.last_database_game_update_time = t
             # TODO: communicate elo/rank every minute
             # every 10 mins elo rank but for metrics
+            params = list(self.params_map.values())
+
+            def rank_value(p):
+                bot = p.options
+                if bot.is_out:
+                    return 1e8
+                else:
+                    return -bot.elo
+
+            params = sorted(params, key=rank_value)
             if t - self.last_database_state_update_time > self.config["database_state_update_freq_s"]:
                 self.last_database_state_update_time = t
 
-                params = list(self.params_map.values())
-                def rank_value(i):
-                    bot = params[i].options
-                    if bot.is_out:
-                        return 1e8
-                    else:
-                        return -bot.elo
-                ranks = sorted(range(len(self.params_map)), key=rank_value)
                 bot_states = [
                     p.options.get_state(rank+1)
-                    for rank, p in zip(ranks, params)
+                    for rank, p in enumerate(params)
                 ]
 
             else:
                 bot_states = None
+
             data = SeedSmashDataBag(
                 games=self.games_outcome_queue,
-                bot_states=bot_states
+                bot_states=bot_states,
+                bot_rankings=[{
+                    "tag": p.options.tag,
+                    "elo": p.options.elo,
+                    "rank": rank+1}
+                    for rank, p in enumerate(params)
+                ]
             )
 
             db_bots: List[Bot] = self.api_interface.communicate(data)
@@ -219,22 +232,16 @@ class SeedSmashTrainer(Checkpointable):
         experience_metrics = self.process_experience(experience)
         training_metrics = self.train()
 
-        self.process_metrics(experience_metrics, training_metrics)
-
+        #self.process_metrics(experience_metrics, training_metrics)
 
 
     def recv(self) -> List[EpisodeMetrics | SampleBatch]:
-        experience_jobs = [self.matchmaking.next(self.params_map, wid) for wid in self.worker_set.available_workers if wid != 0]
-        spectate_jobs = [] if 0 not in self.worker_set.available_workers else [self.matchmaking.next(self.params_map, 0)]
+        experience_jobs = [self.matchmaking.next(self.params_map, wid) for wid in self.worker_set.available_workers]
 
         self.running_experience_jobs += self.worker_set.push_jobs(self.params_map, experience_jobs)
-        self.running_spectate_jobs += self.worker_set.push_jobs(self.params_map, spectate_jobs)
         experience, self.running_experience_jobs = self.worker_set.wait(self.params_map, self.running_experience_jobs, timeout=1e-2)
         if len(experience)>0:
             print("collected ", len(experience), "experiences")
-
-        spectate_experience, self.running_spectate_jobs = self.worker_set.wait(self.params_map, self.running_spectate_jobs, timeout=1e-2)
-        experience += spectate_experience
 
         return experience
 
@@ -274,7 +281,6 @@ class SeedSmashTrainer(Checkpointable):
                     )
                     bot_a.push_metrics(game_info["metrics"]["bot_a"], registry="progression")
                     bot_b.push_metrics(game_info["metrics"]["bot_b"], registry="progression")
-
                     # disable metrics here
                     # experience_metrics.append(exp_batch)
                     GlobalCounter[GlobalCounter.ENV_STEPS] += exp_batch.length

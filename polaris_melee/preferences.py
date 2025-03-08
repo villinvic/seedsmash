@@ -4,7 +4,8 @@ import numpy as np
 import tree
 from melee import PlayerState, GameState, Action, InvulnerabilityType, EDGE_POSITION, character_moves
 from polaris_melee.observation_space import ObsBuilder
-from polaris_melee.rewards_core import StepRewards, RewardModule, NEUTRAL_ACTIONS, GETUP_ATTACKS, ROLL_STATES
+from polaris_melee.rewards_core import StepRewards, RewardModule, NEUTRAL_ACTIONS, GETUP_ATTACKS, ROLL_STATES, \
+    NEUTRAL_GROUND_ACTIONS
 from polaris_melee.techskill import Techskill
 from seedsmash.bot import Bot
 from seedsmash.utils import action_idx
@@ -69,7 +70,7 @@ class CloseupReward(RewardModule):
             advantage: float,
             opponent_combo_counter: int
     ) -> float:
-        return self.closeup * 1e-3
+        return self.closeup * 8e-4
 
     def get_metrics(
             self,
@@ -132,22 +133,32 @@ class CoreReward(RewardModule):
         death = int(self.stock < self.prev_stock) * (1 - advantage)
 
         damage = np.maximum(self.percent - self.prev_percent, 0.)
-        combo_boost = 1 + opponent_combo_counter / ObsBuilder.MAX_COMBO
+        combo_boost = 1 + opponent_combo_counter / ObsBuilder.MAX_COMBO * 1.2
         damage_r = combo_boost * damage
 
         # Encourage bots to exploit intangibility from the ledge
         if (not self.is_opponent_getup_attack) and self.is_opponent_intangible:
-            damage_r *= 1.5
+            damage_r *= 1.
             self.total_intangible_damage += damage
         if self.offstage:
             # TODO: I think offstage here is not doing great
-            damage_r *= (1 - advantage)
+            #damage_r *= (1 - advantage)
             self.total_offstage_offstage += damage
 
         self.total_damage += damage
 
+        # death boost
+        if self.offstage:
+            kill_combo_boost = 1 + opponent_combo_counter / ObsBuilder.MAX_COMBO * 1.2
+        else:
+            counter = np.maximum(opponent_combo_counter-1, 0)
+            kill_combo_boost = 1 + counter / ObsBuilder.MAX_COMBO
+
+
+        death_r = kill_combo_boost * death
+
         return -(
-            death * 1.1 + damage_r * 0.006
+            death_r * 1.1 + damage_r * 0.006
         )
 
     def get_metrics(
@@ -260,9 +271,6 @@ class ActionStateReward(RewardModule):
         if self.is_hitting:
             # use prev action if moves finished this frame (move interrupted)
             r += self.hit_values(self.prev_action_state)
-
-        if abs(r) > 0:
-            print(self.curr_action_state, r)
 
         return r
 
@@ -382,14 +390,14 @@ class OffStageReward(RewardModule):
 
 
         # Only mark the player as offstage here if it was ejected and far from the ledge
-        if player.off_stage and is_ejected and dist_to_ledge > 30:
+        if player.off_stage and is_ejected and dist_to_ledge > 20:
             if not self.is_pushed_off:
                 self.times_offstage += 1
             self.is_pushed_off = True
             return
 
         # set the flag to off if we successfully recovered.
-        if not player.action in NEUTRAL_ACTIONS or player.action == Action.EDGE_CATCHING:
+        if player.action in NEUTRAL_GROUND_ACTIONS or player.action == Action.EDGE_CATCHING:
             self.is_pushed_off = False
 
     def reward(
@@ -397,7 +405,10 @@ class OffStageReward(RewardModule):
             advantage: float,
             opponent_combo_counter: int
     ) -> float:
-        return np.maximum(int(self.was_pushed_off) - int(self.is_pushed_off), 0.) * 0.1
+
+        return (
+                (int(self.was_pushed_off) - int(self.is_pushed_off)) * 0.1 # reward for coming back and penalty for getting pushed off
+        )
 
     def get_metrics(
             self,
@@ -437,7 +448,7 @@ class NeutralGameReward(RewardModule):
         if (
             player.action in NEUTRAL_ACTIONS and
             player.hitstun_frames_left == 0 and
-            player.on_ground
+                (player.on_ground or (not player.off_stage and gamestate.distance > 120))
         ):
             self.is_neutral = True
 
@@ -470,7 +481,7 @@ class NeutralGameReward(RewardModule):
             advantage: float,
             opponent_combo_counter: int
     ) -> float:
-        return -0.0009 * int(not self.is_neutral)
+        return -0.001 * int(not self.is_neutral)
 
     def get_metrics(
             self,
@@ -541,7 +552,7 @@ class PlayerRewards:
             "techskill_rewards": Techskill(bot.character)
         }
 
-        def log_scale(stat, low=5e-2, high=5):
+        def log_scale(stat, low=5e-2, high=5.):
             x = (stat - 50) / 50
             if x < 0.:
                 return np.exp(-x * np.log(low))
@@ -551,12 +562,12 @@ class PlayerRewards:
 
         self.weights: StepRewards = {
             "core_rewards": 1.,
-            "action_state_rewards": 1.,
+            "action_state_rewards": log_scale(preferences.creativity, low=0.5, high=2.5),
             "closeup_rewards": log_scale(preferences.aggressivity),
             "stage_control_rewards": log_scale(preferences.stagecontrol),
-            "offstage_rewards": log_scale(preferences.offstage, low=0.3),
+            "offstage_rewards": log_scale(preferences.offstage, low=0.3, high=3),
             "neutral_rewards": log_scale(preferences.neutral),
-            "techskill_rewards": log_scale(preferences.techskill, high=3),
+            "techskill_rewards": log_scale(preferences.techskill, high=2.8),
         }
 
     def accumulate(
@@ -615,7 +626,7 @@ class RewardFunction:
                 gamestate.players[other_port],
                 gamestate,
                 adv,
-                gamestate.custom["combo_counters"][other_port]
+                gamestate.players[other_port].custom["combo_counter"]
             )
 
     def zero_sum(

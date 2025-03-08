@@ -1,5 +1,6 @@
 from typing import Set
 
+import numpy as np
 from melee import Character, PlayerState, GameState
 
 from melee.enums import LuigiMoves, DKMoves, SamusMoves, MewtwoMoves, MarioMoves, DocMoves, GameAndWatchMoves
@@ -126,13 +127,16 @@ class ChargeObservation(CharacterSpecificObservation):
     ):
         # KO, used charges or canceled upb, remove charges
         if (player.action.value <= 0xa or player.action.value in self.discharging_moves or
-            (self.prev_action in self.canceling_moves and player.hitstun_frames_left > 0)
+            (self.prev_action in (self.canceling_moves | self.charging_moves) and player.hitstun_frames_left > 0)
         ):
             self.charges = 0
 
         elif player.action.value in self.charging_moves and player.action_frame == self.charge_frame:
             self.charges += 1
-            assert self.charges <= self.max_charge, ("exceeded number of possible charges somehow", self.charges)
+            # TODO, looks like if you cancel at the "charge frame exactly, you do not get the charge" ?
+            if self.charges > self.max_charge:
+                print("exceeded number of possible charges somehow", player.character, self.charges)
+                self.charges = self.max_charge
 
         self.prev_action = player.action.value
 
@@ -173,7 +177,6 @@ class SamusObservations(ChargeObservation):
             max_charge=11,
             charging_move_values={
                 SamusMoves.ChargeShotGroundLoop.value,
-                DKMoves.GiantPunchGroundChargeLoop.value
             },
             discharging_moves={
                 SamusMoves.ChargeShotGroundFire.value,

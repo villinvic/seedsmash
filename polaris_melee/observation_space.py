@@ -1,17 +1,24 @@
 import copy
 from copy import deepcopy
+from enum import Enum
 
 from sortedcontainers import SortedDict
 from gymnasium.spaces.dict import Dict
+from typing import Tuple
+
+import melee
 from melee import Stage, PlayerState, Character, Action, stages, enums, Projectile, GameState, AttackState, \
     left_platform_position, right_platform_position, top_platform_position, ProjectileType, Moves, character_moves
+from polaris_melee.actions import is_shield, AERIAL_MOVEMENT_ACTIONS, CROUCH_ACTIONS, DODGE_ACTIONS
 
 from polaris_melee.compiled_libmelee_framedata import CompiledFrameData
 import numpy as np
-from gymnasium.spaces import Box, Discrete, MultiBinary, Tuple, MultiDiscrete
+from gymnasium.spaces import Box, Discrete, MultiBinary, MultiDiscrete
 
 from polaris_melee.enums import PlayerType
 from polaris_melee.make_data import FrameData as FastFrameData
+from polaris_melee.normalised_char_attributes import NormalisedCharacterAttributes
+from polaris_melee.playstyle_tracker import PlayStyleTracker
 
 action_idx = {
     s: i for i, s in enumerate(Action)
@@ -45,6 +52,27 @@ def randall_position(frame, stage):
         x2 = 0.
 
     return y, x1, x2
+
+platform_presences = {
+    Stage.YOSHIS_STORY: (1, 1, 1, 1),
+    Stage.FINAL_DESTINATION: (0, 0, 0, 0),
+    Stage.DREAMLAND: (1, 1, 1, 0),
+    Stage.POKEMON_STADIUM: (1, 1, 0, 0),
+    Stage.BATTLEFIELD: (1, 1, 1, 0),
+    Stage.FOUNTAIN_OF_DREAMS: (1, 1, 1, 0),
+}
+
+class ActionType(Enum):
+    DODGE = 0
+    ATTACK = 1
+    SHIELD = 2
+    GRAB = 3
+    CROUCH = 4
+    OTHER = 5
+
+
+
+
 
 class StateDataInfo:
     CONTINUOUS = "continuous"
@@ -213,6 +241,9 @@ class ObsBuilder:
             for i, s in enumerate(config["playable_characters"])
         }
 
+        self.character_data = NormalisedCharacterAttributes(observed=("size", "weight", "Gravity", "Friction", "AirFriction"))
+        num_tracked_options = PlayStyleTracker(self.FD).dim
+
         n_characters = len(all_chars_to_used)
         n_stages = len(all_stages_to_used)
 
@@ -220,6 +251,62 @@ class ObsBuilder:
         self.bot_ports = [i + 1 for i, p_type in enumerate(config["player_types"]) if p_type == PlayerType.BOT]
 
         self.num_players = len(config["player_types"])
+
+        def platforms(gamestate: GameState):
+            obs = (stages.side_platform_position(right_platform=False, gamestate=gamestate)
+                   + stages.side_platform_position(right_platform=True, gamestate=gamestate)
+                   +stages.top_platform_position(gamestate.stage)
+                   + randall_position(gamestate.frame, gamestate.stage)
+                   )
+
+            return obs
+
+        def platform_distance(platform: Tuple[float, float, float], player: PlayerState):
+            py, px1, px2 = platform
+            dy = py - player.position.y
+
+            if px1 < player.position.x < px2:
+                dx = 0
+            else:
+                absx1 = abs(px1 - player.position.x)
+                absx2 = abs(px2 - player.position.x)
+                if absx1 < absx2:
+                    dx = px1 - player.position.x
+                else:
+                    dx = px2 - player.position.x
+            return dx, dy
+
+        def platform_distances(gamestate: GameState, player: PlayerState):
+
+            distances = ()
+            for platform, plaform_present in zip(
+                    (stages.side_platform_position(right_platform=False, gamestate=gamestate),
+                    stages.side_platform_position(right_platform=True, gamestate=gamestate),
+                    stages.top_platform_position(gamestate.stage),
+                    randall_position(gamestate.frame, gamestate.stage)),
+                    platform_presences[gamestate.stage]
+            ):
+                if plaform_present:
+                    distances += platform_distance(platform, player)
+                else:
+                    distances += (0., 0.)
+            return distances
+
+        def action_type(player: PlayerState):
+            action = player.action
+            act_type = ActionType.OTHER.value
+            if self.FD.is_attack(player.character, action):
+                act_type = ActionType.ATTACK.value
+            elif self.FD.is_grab(player.character, action):
+                act_type = ActionType.GRAB.value
+            elif is_shield(player):
+                act_type = ActionType.SHIELD.value
+            elif action in DODGE_ACTIONS:
+                act_type = ActionType.DODGE.value
+            elif action in CROUCH_ACTIONS:
+                act_type = ActionType.CROUCH.value
+
+            return act_type
 
         def projectile_dist(p: Projectile, player: PlayerState):
             return np.sqrt(np.square(p.position.x - player.position.x) + np.square(p.position.y - player.position.y))
@@ -281,7 +368,7 @@ class ObsBuilder:
 
         def get_pos(state: GameState, port: int):
             if state.players[port].action.value <= 0xa:
-                return 0., 0.
+                return 0., stages.BLASTZONES[state.stage][-1]
             return ObsBuilder.FD.FD.roll_end_position(state.players[port], state), state.players[port].position.y
 
 
@@ -296,6 +383,17 @@ class ObsBuilder:
                                 scale=self.POS_SCALE,
                                 config=self.config,
                                 ),
+            platforms=StateDataInfo(platforms,
+                                      StateDataInfo.CONTINUOUS,
+                                      scale=self.POS_SCALE,
+                                      size=3*4,
+                                      config=self.config,
+                                      ),
+            platform_presences=StateDataInfo(lambda s: platform_presences[s.stage],
+                                    StateDataInfo.BINARY,
+                                    size=4,
+                                    config=self.config,
+                                    ),
         )
 
         def get_action_index(state: GameState, port: int):
@@ -344,11 +442,11 @@ class ObsBuilder:
                                    player_port=port,
                                    config=self.config),
 
-                is_attack=StateDataInfo(lambda s: ObsBuilder.FD.is_attack(s.players[port].character,
-                                                                          s.players[port].action),
-                                        StateDataInfo.BINARY,
-                                        player_port=port,
-                                        config=self.config),
+                # is_attack=StateDataInfo(lambda s: ObsBuilder.FD.is_attack(s.players[port].character,
+                #                                                           s.players[port].action),
+                #                         StateDataInfo.BINARY,
+                #                         player_port=port,
+                #                         config=self.config),
                 percent=StateDataInfo(lambda s: s.players[port].percent,
                                       # putting other_port inseast could be a trick to help combos,
                                       # but prevents overreacting to hitstun, etc.
@@ -451,17 +549,17 @@ class ObsBuilder:
                                          size=6,
                                          player_port=port,
                                          config=self.config),
-                button_a=StateDataInfo(lambda s:
+                controller_a=StateDataInfo(lambda s:
                                        s.players[port].controller_state.button[enums.Button.BUTTON_A],
                                        StateDataInfo.BINARY,
                                        player_port=port,
                                        config=self.config),
-                button_b=StateDataInfo(lambda s:
+                controller_b=StateDataInfo(lambda s:
                                        s.players[port].controller_state.button[enums.Button.BUTTON_B],
                                        StateDataInfo.BINARY,
                                        player_port=port,
                                        config=self.config),
-                button_jump=StateDataInfo(lambda s:
+                controller_jump=StateDataInfo(lambda s:
                                           int(
                                               s.players[port].controller_state.button[enums.Button.BUTTON_X]
                                               or
@@ -470,7 +568,7 @@ class ObsBuilder:
                                           StateDataInfo.BINARY,
                                           player_port=port,
                                           config=self.config),
-                button_shield=StateDataInfo(lambda s:
+                controller_shield=StateDataInfo(lambda s:
                                             int(
                                                 s.players[port].controller_state.button[enums.Button.BUTTON_L]
                                                 or
@@ -479,12 +577,12 @@ class ObsBuilder:
                                             StateDataInfo.BINARY,
                                             player_port=port,
                                             config=self.config),
-                button_z=StateDataInfo(lambda s:
+                controller_z=StateDataInfo(lambda s:
                                        s.players[port].controller_state.button[enums.Button.BUTTON_Z],
                                        StateDataInfo.BINARY,
                                        player_port=port,
                                        config=self.config),
-                sticks=StateDataInfo(lambda s:
+                controller_sticks=StateDataInfo(lambda s:
                                      s.players[port].controller_state.main_stick
                                      + s.players[port].controller_state.c_stick,
                                      StateDataInfo.CONTINUOUS,
@@ -509,9 +607,9 @@ class ObsBuilder:
                                        scale=ObsBuilder.POS_SCALE,
                                        player_port=port,
                                        config=self.config),
-                nearest_platform=StateDataInfo(lambda s: get_nearest_platform(s, port),
+                platform_distances=StateDataInfo(lambda s: platform_distances(s, s.players[port]),
                                        StateDataInfo.CONTINUOUS,
-                                       size=3,
+                                       size=8,
                                        scale=ObsBuilder.POS_SCALE,
                                        player_port=port,
                                        config=self.config),
@@ -520,10 +618,20 @@ class ObsBuilder:
                                         size=n_characters,
                                         player_port=port,
                                         config=self.config),
+                character_stats=StateDataInfo(lambda s: self.character_data.get(s.players[port].character),
+                                        StateDataInfo.CONTINUOUS,
+                                        size=self.character_data.dim,
+                                        player_port=port,
+                                        config=self.config),
                 # split general and char_specific actions
                 action=StateDataInfo(lambda s: get_action_index(s, port),
                                      StateDataInfo.CATEGORICAL,
                                      size=n_actions+n_moves,
+                                     player_port=port,
+                                     config=self.config),
+                action_type=StateDataInfo(lambda s: action_type(s.players[port]),
+                                     StateDataInfo.CATEGORICAL,
+                                     size=len(ActionType),
                                      player_port=port,
                                      config=self.config),
                 # Projectiles
@@ -537,15 +645,22 @@ class ObsBuilder:
                                          config=self.config
                                          ),
 
-                consecutive_hits=StateDataInfo(lambda s: 0. if "combo_counters" not in s.custom else s.custom["combo_counters"][port],
+                consecutive_hits=StateDataInfo(lambda s: 0. if "combo_counter" not in s.players[port].custom else s.players[port].custom["combo_counter"],
                                          StateDataInfo.CONTINUOUS,
                                          scale=1/self.MAX_COMBO,
                                          bounds=(0, self.MAX_COMBO),
                                          player_port=port,
                                          config=self.config
                                          ),
+                playstyle=StateDataInfo(lambda s: 0. if "playstyle" not in s.players[port].custom else s.players[port].custom["playstyle"],
+                                         StateDataInfo.CONTINUOUS,
+                                         size=num_tracked_options,
+                                         bounds=(0, 1),
+                                         player_port=port,
+                                         config=self.config
+                                         ),
                 # Luigi cyclone, etc.
-                character_specific=StateDataInfo(lambda s: 0. if "character_specific" not in s.custom else s.custom["character_specific"][port],
+                character_specific=StateDataInfo(lambda s: 0. if "character_specific" not in s.players[port].custom else s.players[port].custom["character_specific"],
                                          StateDataInfo.CONTINUOUS,
                                          scale=1,
                                          bounds=(0, 1),
@@ -576,12 +691,12 @@ class ObsBuilder:
             to_pop.append("character")
         if not self.config["obs_config"]["controller_state"]:
             to_pop.extend([
-                "button_a",
-                "button_b",
-                "button_jump",
-                "button_shield",
-                "button_z",
-                "sticks"])
+                "controller_a",
+                "controller_b",
+                "controller_jump",
+                "controller_shield",
+                "controller_z",
+                "controller_sticks"])
         if not self.config["obs_config"]["projectiles"]:
             to_pop.append("projectile")
 

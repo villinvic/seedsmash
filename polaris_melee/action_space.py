@@ -427,7 +427,7 @@ def allow_waveland(game_state: GameState, char_state: PlayerState, curr_action: 
     return allow
 
 def allow_wavedash(game_state, char_state: PlayerState, curr_action: InputSequence):
-    allow = char_state.action == Action.KNEE_BEND
+    allow = char_state.action == Action.KNEE_BEND and abs(abs(char_state.x) - stages.EDGE_GROUND_POSITION[game_state.stage]) > 2
     if not allow:
         curr_action.terminate()
     return allow
@@ -499,7 +499,9 @@ while len(MARIO_TORNADO) < 41:  # actually 37
 
 
 def continue_gentleman(game_state: GameState, char_state: PlayerState, curr_action: InputSequence):
-    allow = (char_state.action == Action.NEUTRAL_ATTACK_2 or
+    allow = (
+            char_state.action == Action.NEUTRAL_ATTACK_1 or
+            char_state.action == Action.NEUTRAL_ATTACK_2 or
              char_state.action == Action.NEUTRAL_ATTACK_3  and char_state.action_frame < 33)
     # TODO: allow if hitlag on first two hits.
     if not allow:
@@ -507,11 +509,11 @@ def continue_gentleman(game_state: GameState, char_state: PlayerState, curr_acti
     return allow
 
 LONG_A_PRESS = [
-# ControllerInput(buttons=Button.BUTTON_A, duration=3),
-# ControllerInput(duration=6, test_func=continue_gentleman),
-# ControllerInput(buttons=Button.BUTTON_A, duration=3, test_func=continue_gentleman),
-# ControllerInput(duration=6, test_func=continue_gentleman),
-ControllerInput(buttons=Button.BUTTON_A, duration=31+8+6, test_func=continue_gentleman),
+ControllerInput(buttons=Button.BUTTON_A, duration=3),
+ControllerInput(duration=6, test_func=continue_gentleman),
+ControllerInput(buttons=Button.BUTTON_A, duration=3, test_func=continue_gentleman),
+ControllerInput(duration=6, test_func=continue_gentleman),
+ControllerInput(buttons=Button.BUTTON_A, duration=31+8, test_func=continue_gentleman),
 ]
 
 TAP_DOWN_B = [
@@ -550,22 +552,22 @@ class SSBMActionSpace:
     A_NEUTRAL = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_A))
     #Disable this when in the air, its the same as c stick
     TILT_UP = lambda *_: InputSequence(
-        [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.UP_TILT, duration=2, test_func=disable_in_air),
+        [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.UP_TILT, duration=2),
          ControllerInput(test_func=disable_in_air, duration=1),
          ]
     )
     TILT_DOWN = lambda *_: InputSequence(
-        [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.DOWN_TILT, duration=2, test_func=disable_in_air),
+        [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.DOWN_TILT, duration=2),
          ControllerInput(test_func=disable_in_air, duration=1),
          ]
     )
     TILT_LEFT = lambda *_: InputSequence(
-        [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.LEFT_TILT, duration=2, test_func=disable_in_air),
+        [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.LEFT_TILT, duration=2),
          ControllerInput(test_func=disable_in_air, duration=1),
          ]
     )
     TILT_RIGHT = lambda *_: InputSequence(
-        [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.RIGHT_TILT, duration=2, test_func=disable_in_air),
+        [ControllerInput(buttons=Button.BUTTON_A, stick=StickPosition.RIGHT_TILT, duration=2),
          ControllerInput(test_func=disable_in_air, duration=1),
          ]
     )

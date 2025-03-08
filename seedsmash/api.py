@@ -55,6 +55,7 @@ def jsonify_game(
 class SeedSmashDataBag(NamedTuple):
     games: List[Game]
     bot_states: List[Dict[str, Any]] | None = None
+    bot_rankings: List[Dict[str, Any]] | None = None
 
 
 class ApiInterface:

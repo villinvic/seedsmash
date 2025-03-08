@@ -76,12 +76,14 @@ class SSBMConfig(FunctionalConfig):
             faster_melee_path: str,
             exiai_path: str,
             iso_path: str,
+            replay_path: str | None = None
     ):
 
         paths = dict(
             FM=faster_melee_path,
             ExiAI=exiai_path,
-            iso=iso_path
+            iso=iso_path,
+            replay=replay_path
         )
         super().__init__(
             paths=paths,

@@ -14,7 +14,7 @@ class BotStats(NamedTuple):
     aggressivity: float = 50
     techskill: float = 50
     offstage: float = 50
-    survival: float = 50
+    creativity: float = 50 #survival: float = 50
     neutral: float = 50
     # increases the length of the move history
     adaptability: float = 50
@@ -47,7 +47,7 @@ class Bot:
             elo: float,
             coach_tag: str = None,
             coaching_progression: int = None,
-            num_coaching_steps: int = 160,
+            num_coaching_steps: int = 250,
 
             **kwargs
     ):
@@ -103,7 +103,7 @@ class Bot:
 
     @property
     def offset_samples_generated(self):
-        return self.num_samples_generated - self.mean_samples_at_creation
+        return self.num_samples_generated + self.mean_samples_at_creation
 
 
     def is_coached(self):
@@ -115,7 +115,7 @@ class Bot:
         Returns True if we are done coaching.
         """
 
-        if self.is_coached():
+        if not self.is_coached():
             return False
 
         self.coaching_progression += 1

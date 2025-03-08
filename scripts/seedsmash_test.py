@@ -1,29 +1,14 @@
 
-import wandb
 from melee.enums import Character, Stage
 from polaris_melee.enums import PlayerType
 from polaris_melee.env import SSBM
 from polaris_melee.configs import SSBMConfig, SSBMObsConfig
 from seedsmash.game_metrics_callbacks import SSBMCallbacks
 
-from sacred import Experiment, Ingredient
 from ml_collections import ConfigDict
 
+from seedsmash.schedule import ParameterSchedule
 
-exp_name = 'seedsmash_test_action_embed'
-exp_path = "experiments/" + exp_name
-ex = Experiment(exp_name)
-
-# TODO :
-# take as input belief state, for ex...:
-# - distance travelled
-# - actions picked
-# - habits: techs
-# - option habits: shielding, grabbing, dd, dash back, etc ? list of things ???
-# - off stage
-# - prefered move
-# - moves that hit them
-# - make this small !
 
 obs_config = (
     SSBMObsConfig()
@@ -31,15 +16,18 @@ obs_config = (
     # .ecb()
     .stage()
     .projectiles()
-    # .controller_state()
+    # this may not be fair to observe oppponent controller states, but this helps learning faster
+    # .controller_state() # does not work with fastforwarding
     .delay(4)  # 4 (* 3)
 )
 
-@ex.config
-def cfg():
-    iso = ''
-    fm_path = ''
-    exiai_path = ''
+def cfg(
+
+):
+    iso = ""
+    fm_path = ""
+    exiai_path = ""
+    replay_path = ""
 
     if iso == '':
         raise ValueError("Need a path for the melee iso.")
@@ -47,12 +35,15 @@ def cfg():
         raise ValueError("Need a path for the Faster Melee executable.")
     if exiai_path == '':
         raise ValueError("Need a path for the ExiAI executable.")
+    if replay_path == '':
+        raise ValueError("Need a path for slippi replays.")
 
     env_config = (
         SSBMConfig(
             faster_melee_path=fm_path,
             exiai_path=exiai_path,
-            iso_path=iso
+            iso_path=iso,
+            replay_path=replay_path
         )
         .playable_characters([
             Character.MARIO,
@@ -92,7 +83,8 @@ def cfg():
         ])
         .player_types([PlayerType.BOT, PlayerType.BOT])
         .obs_config(obs_config)
-        .render()
+        #.render()
+        .save_replays()
         .online_delay(0)
         .use_ffw()
         .polling_mode()
@@ -106,11 +98,11 @@ def cfg():
     model_path = 'models.action_state_embed_model'
     policy_class = 'PPO'
     model_class = 'ActionEmbedModel'
-    trajectory_length = 512 #128 # 256 ?
+    trajectory_length = 256 #128 # 256 ?
     max_seq_len = 32
     train_batch_size = 8192*4
     max_queue_size = train_batch_size * 10
-    n_epochs=3
+    # n_epochs=3
     minibatch_size= train_batch_size//16
 
     default_policy_config = {
@@ -120,6 +112,19 @@ def cfg():
         'gae_lambda': 0.95, # 0.98
         'entropy_cost': 1e-2,#5e-4, # 1e-3 with impala, or around " 0.3, 0.4
         'lr': 5e-4,
+
+        'schedule': dict(
+            lr = {
+                '0': 5e-4,
+                1000: 4e-4,
+                2000: 2e-4,
+                4000: 1e-4,
+            },
+            n_epochs = {
+                0: 3,
+                2000: 1
+            },
+        ),
 
         # PPO
         'grad_clip': 5.,
@@ -134,6 +139,7 @@ def cfg():
         'distillation_weight': 0.05,
         'distillation_temperature': 2.,
     }
+    default_policy_config["schedule"] = ParameterSchedule(**default_policy_config["schedule"])
 
     compute_advantages_on_workers = True
     wandb_logdir = 'logs'
@@ -150,8 +156,8 @@ def cfg():
     episode_callback_class = SSBMCallbacks
     negative_reward_scale = 0.93
 
-    database_game_update_freq_s = 120 # read new bots and push games
-    database_state_update_freq_s = 120 # for metrics
+    database_game_update_freq_s = 58 # read new bots and push games
+    database_state_update_freq_s = 60*5 # for metrics
     db_address = "192.168.1.100:5000"
 
     restore = False
@@ -166,19 +172,10 @@ def main(_config):
         tf.config.experimental.set_memory_growth(gpu, False)
     from seedsmash.seedsmash_sync_trainer import SeedSmashTrainer
 
+    print(_config["default_policy_config"]["schedule"].schedules)
+    exit()
     config = ConfigDict(_config)
     SSBM(**config["env_config"]).register()
-
-
-    wandb.init(
-        config=_config,
-        project="Seedsmash",
-        mode='online',
-        group="debug",
-        name="seedsmash_test",
-        notes=None,
-        dir=config["wandb_logdir"]
-    )
 
     trainer = SeedSmashTrainer(config, restore=config.restore)
     trainer.run()

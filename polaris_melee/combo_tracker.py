@@ -80,7 +80,7 @@ class ComboTracker:
 
     def get_metrics(self):
         return {
-            "Mean Combo Length": 0 if len(self.combos) == 0 else np.mean(self.combos)
+            "Max Combo Length": 0 if len(self.combos) == 0 else np.max(self.combos)
         }
 
 

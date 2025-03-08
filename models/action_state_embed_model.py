@@ -9,7 +9,7 @@ from gymnasium.spaces import Discrete
 import tensorflow as tf
 
 from polaris.experience import SampleBatch
-from models.modules import LayerNormLSTM, ResLSTMBlock, ResGRUBlock, ResMLP, CategoricalValueHead
+from models.modules import CategoricalValueHead
 
 tf.compat.v1.enable_eager_execution()
 
@@ -84,7 +84,7 @@ class ActionEmbedModel(BaseModel):
 
         # undelay LSTM
         self.embed_binary_size = sum([obs.shape[-1] for k, obs in self.observation_space["binary"].items() if "1" in k])
-        self.embed_categorical_sizes = [int(obs.high[0])+1 for k, obs in self.observation_space["categorical"].items() if ("1" in k and "action" not in k)]
+        self.embed_categorical_sizes = [int(obs.high[0])+1 for k, obs in self.observation_space["categorical"].items() if ("1" in k and "action" not in k and "character" not in k)]
         self.embed_categorical_total_size = sum(self.embed_categorical_sizes)
         self.embed_continuous_size = sum([obs.shape[-1] for k, obs in self.observation_space["continuous"].items() if "1" in k])
         self.embedding_size = (
@@ -109,7 +109,9 @@ class ActionEmbedModel(BaseModel):
 
         n_action_states = int(self.observation_space["categorical"]["action1"].high[0])+1
         self.action_state_embed_dim = 32
-        self.action_state_embedding = snt.Embed(vocab_size=n_action_states, embed_dim=self.action_state_embed_dim, densify_gradients=True)
+        self.action_state_embedding = snt.Embed(vocab_size=n_action_states, embed_dim=self.action_state_embed_dim, densify_gradients=True, name="action_state_embedding")
+        self.char_embed_dim = 4
+        self.char_embedding = snt.Embed(vocab_size=n_action_states, embed_dim=self.char_embed_dim, densify_gradients=True, name="char_embedding")
 
         self._pi_out = snt.nets.MLP([128, self.num_outputs], name="pi_out")
         self._value_out = CategoricalValueHead(value_bounds=(-4., 4.))
@@ -132,15 +134,19 @@ class ActionEmbedModel(BaseModel):
                 tf.one_hot(tf.cast(categorical_inputs[k], tf.int32),
                            depth=tf.cast(self.observation_space["categorical"][k].high[0],
                                          tf.int32) + 1)[:, :, 0]
-                for k in self.observation_space["categorical"] if (aid in k and "action" not in k)
-            ] + [self.action_state_embedding(tf.cast(categorical_inputs[f"action{aid}"], tf.int32))[:, :, 0]]
+                for k in self.observation_space["categorical"] if (aid in k and "action" not in k and "character" not in k)
+            ] + [self.action_state_embedding(tf.cast(categorical_inputs[f"action{aid}"], tf.int32))[:, :, 0],
+                 self.char_embedding(tf.cast(categorical_inputs[f"character{aid}"], tf.int32))[:, :, 0]
+                 ]
         else:
             one_hots = [
                 tf.one_hot(tf.cast(categorical_inputs[k], tf.int32),
                            depth=tf.cast(self.observation_space["categorical"][k].high[0],
                                          tf.int32) + 1)[0]
-                for k in self.observation_space["categorical"] if (aid in k and "action" not in k)
-            ] + [self.action_state_embedding(tf.cast(categorical_inputs[f"action{aid}"], tf.int32))[0]]
+                for k in self.observation_space["categorical"] if (aid in k and "action" not in k and "character" not in k)
+            ] + [self.action_state_embedding(tf.cast(categorical_inputs[f"action{aid}"], tf.int32))[0],
+                 self.char_embedding(tf.cast(categorical_inputs[f"character{aid}"], tf.int32))[0]
+                 ]
 
 
         embed_player = tf.concat(
@@ -336,10 +342,10 @@ class ActionEmbedModel(BaseModel):
         # todo: dont concat and split...
         continuous, binary, categoricals = self.split_to_predicted_types(self._predicted_opp)
 
-        true_continuous, true_binary, true_categoricals, action_state_embeddings = tf.split(self.opp_ground_truth, [self.embed_continuous_size,
+        true_continuous, true_binary, true_categoricals, _ = tf.split(self.opp_ground_truth, [self.embed_continuous_size,
                                                           self.embed_binary_size,
                                                           self.embed_categorical_total_size,
-                                                          self.action_state_embed_dim], axis=-1)
+                                                          self.action_state_embed_dim + self.char_embed_dim], axis=-1)
 
         true_categoricals = tf.split(true_categoricals, self.embed_categorical_sizes, axis=-1)
 

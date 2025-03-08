@@ -18,8 +18,11 @@ from seedsmash.bot import Bot, BotConfig
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--fm-path', type=str, required=True)
+parser.add_argument('--fm-path', type=str, default="")
+parser.add_argument('--exiai-path', type=str, default="")
 parser.add_argument('--iso', type=str, required=True)
+parser.add_argument('--replay-path', type=str, required=True)
+
 
 class PolarisEnvTest(unittest.TestCase):
 
@@ -28,15 +31,15 @@ class PolarisEnvTest(unittest.TestCase):
 
         def do_stuff(env):
             actions = {
-                p: np.random.choice([16, 24, 37, 39], p = [0.4, 0.4,0.1,0.1])
+                p: env.action_space.sample() #np.random.choice([16, 24, 37, 39], p = [0.4, 0.4,0.1,0.1])
                 for p in env.observation_builder.bot_ports
             }
             return actions
             # do stuff
 
 
-        bot_configs = {1: Bot(**BotConfig(character=Character.FALCO, preferred_stage=Stage.YOSHIS_STORY)._asdict()),
-                       2: Bot(**BotConfig(character=Character.DOC, preferred_stage=Stage.YOSHIS_STORY)._asdict())}
+        bot_configs = {1: Bot(**BotConfig(character=Character.DK, preferred_stage=Stage.YOSHIS_STORY)._asdict()),
+                       2: Bot(**BotConfig(character=Character.CPTFALCON, preferred_stage=Stage.YOSHIS_STORY)._asdict())}
 
         env = SSBM(env_index=0, **ENV_CONFIG)
         env.reset(options=bot_configs)
@@ -46,7 +49,15 @@ class PolarisEnvTest(unittest.TestCase):
             t = time.time()
             actions = do_stuff(env)
             t2 = time.time()
-            _, _, dones, _, _ = env.step(actions)
+            obs, _, dones, _, _ = env.step(actions)
+            gs = env.get_gamestate()
+            print(obs)
+
+            input()
+            # for port, tracker in env.playstyle_trackers.items():
+            #     print(port)
+            #     tracker.print()
+            # input()
             t3 = time.time()
             if dones["__all__"]:
                 print(env.get_episode_metrics())
@@ -71,8 +82,9 @@ if __name__ == '__main__':
     ENV_CONFIG = (
         SSBMConfig(
             faster_melee_path=ARGS.fm_path,
-            exiai_path="",
-            iso_path=ARGS.iso
+            exiai_path=ARGS.exiai_path,
+            iso_path=ARGS.iso,
+            replay_path=ARGS.replay_path,
         )
         .obs_config(obs_config)
         .playable_characters([
@@ -87,9 +99,10 @@ if __name__ == '__main__':
             # Stage.FOUNTAIN_OF_DREAMS
         ])
         .player_types([PlayerType.BOT, PlayerType.BOT])
-        .render()
+        #.render()
         .online_delay(0)
         .polling_mode()
+        .save_replays()
     )
 
     unittest.main()

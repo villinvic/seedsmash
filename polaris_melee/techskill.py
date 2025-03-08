@@ -7,7 +7,7 @@ from melee import LCancelState
 from melee.enums import Character, Action
 from melee.gamestate import GameState, PlayerState
 from polaris_melee.preferences import RewardModule
-from seedsmash.bot import BotStats
+from melee.enums import DKMoves
 
 
 class Helper:
@@ -82,12 +82,13 @@ class TechSkillHelper(Helper):
         "dashing": 0.001,
         "ledge_canceling": 0.03,
         "lcanceling": 0.02,
-        "wavelanding": 0.02,
-        "wavedash": 0.004, # easy action
-        "wavedash_off_platform": 0.03,
-        "walljump": 0.05,
+        "wavelanding": 0.015,
+        "wavedash": 0.002, # easy action
+        "wavedash_off_platform": 0.01,
+        "walljump": 0.03,
         "edge_drop": 0.,
         "moonwalk": 0.,
+        "fast_fall": 0.00, # todo
     }
 
     def __init__(self):
@@ -97,6 +98,12 @@ class TechSkillHelper(Helper):
 
     def dashing(self, player_state: PlayerState, is_near: bool):
         return player_state.action == Action.DASHING# and self.previous_player_states[-1].action != Action.DASHING
+
+    def fast_fall(self, player_state: PlayerState, is_near: bool):
+        # todo we should find a way to detect players fast falling, using normall fall speed vs fast fall.
+        prev_state = self.previous_player_states[-1]
+        faster_falling = prev_state.speed_y_self - player_state.speed_y_self < 0
+        return faster_falling and (prev_state.action in self.NORMAL_AIR_STATES and player_state.action in self.NORMAL_AIR_STATES)
 
     def edge_drop(self, player_state: PlayerState, is_near: bool):
         prev_state = self.previous_player_states[-1]
@@ -110,7 +117,7 @@ class TechSkillHelper(Helper):
         return (self.previous_player_states[-1].action in TechSkillHelper.LANDING_ACTIONS
         and not (self.previous_player_states[-4].on_ground
                  and self.previous_player_states[-4] not in TechSkillHelper.NORMAL_AIR_STATES)
-        and not player_state.on_ground
+        and not player_state.on_ground and is_near
         )
 
     def lcanceling(self, player_state: PlayerState, is_near: bool):
@@ -148,11 +155,12 @@ class TechSkillHelper(Helper):
             and was_in_air)
 
     def wavedash(self, player_state: PlayerState, is_near: bool):
-        old_state = self.previous_player_states[-2]
+        old_state = self.previous_player_states[-1]
         not_hit = player_state.percent == old_state.percent
+
         return (
             not_hit and
-            player_state.action_frame == 1 and
+            #player_state.action_frame == 1 and
             player_state.action == Action.LANDING_SPECIAL
             and (old_state.action == Action.KNEE_BEND)
         )
@@ -193,7 +201,7 @@ class TechSkillHelper(Helper):
 class CptFalconHelper(Helper):
 
     weights = {
-        "gentleman": 0.03,
+        "gentleman": 0.02,
     }
 
     def __init__(self):
@@ -206,20 +214,21 @@ class CptFalconHelper(Helper):
 class MarioHelper(Helper):
 
     weights = {
-        "upb_walljump": 0.5,
+        "upb_walljump": 0.1,
     }
 
     def __init__(self):
         super().__init__(hist_len=1)
 
     def upb_walljump(self, player_state: PlayerState, is_near: bool):
+        # TODO: looks too random.
         old_state = self.previous_player_states[-1]
         return old_state.action == Action.NEUTRAL_B_FULL_CHARGE_AIR and player_state.action == Action.WALL_TECH_JUMP
 
 class DocHelper(Helper):
 
     weights = {
-        "upb_cancel": 0.1,
+        "upb_cancel": 0.02,
     }
 
     def __init__(self):
@@ -232,6 +241,37 @@ class DocHelper(Helper):
                 and (player_state.action == Action.LANDING_SPECIAL
                      )
                 )
+
+
+class ChargingHelper(Helper):
+    weights = {
+        "neutralb_charge": 0.01,
+    }
+
+    def __init__(self):
+        super().__init__(hist_len=1)
+
+    def neutralb_charge(self, player_state: PlayerState, is_near: bool):
+        if "character_specific" not in self.previous_player_states[-1].custom:
+            return False
+        prev_charge = self.previous_player_states[-1].custom["character_specific"]
+        curr_charge = player_state.custom["character_specific"]
+        return curr_charge > prev_charge
+
+class LuigiHelper(Helper):
+    weights = {
+        "cyclone_charge": 0.01,
+    }
+
+    def __init__(self):
+        super().__init__(hist_len=1)
+
+    def neutralb_charge(self, player_state: PlayerState, is_near: bool):
+        if "character_specific" not in self.previous_player_states[-1].custom:
+            return False
+        prev_charge = self.previous_player_states[-1].custom["character_specific"]
+        curr_charge = player_state.custom["character_specific"]
+        return curr_charge > prev_charge
 
 
 class LinkHelper(Helper):
@@ -260,6 +300,9 @@ char_helpers = {
     Character.CPTFALCON: CptFalconHelper,
     Character.MARIO: MarioHelper,
     Character.DOC: DocHelper,
+    Character.DK: ChargingHelper,
+    Character.SAMUS: ChargingHelper,
+    Character.MEWTWO: ChargingHelper
     # Character.LINK: LinkHelper,
     # Character.YLINK: LinkHelper,
     # fox/falco waveshines ?

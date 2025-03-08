@@ -62,10 +62,10 @@ class ActionStateCounts:
     def __init__(
             self,
             preferred_move: Action | None,
-            underused_prob=5e-4,
+            underused_prob=6e-4,
             overused_prob=0.16,
             min_prob=1e-6,
-            reward_scale=0.015,
+            reward_scale=0.013,
             penalty_scale=0.003
     ):
         preferred_move = preferred_move if preferred_move is not None else Action.DEAD_FLY_STAR # death move, does not count
@@ -76,7 +76,7 @@ class ActionStateCounts:
         self.action_state_weights = np.ones((self.n_action_states,), dtype=np.float32)
         self.action_state_weights[self.discarded_states] = 0.
 
-        self.action_state_weights[self.preferred_move_idx] *= 5
+        self.action_state_weights[self.preferred_move_idx] *= 4
 
         self.preferred_move_min_logp = np.log(underused_prob * 3)
         self.underused_logp = np.log(underused_prob)
@@ -162,7 +162,7 @@ class ActionStateHitCounts(ActionStateCounts):
             underused_prob=1/25,
             overused_prob=15/25,
             min_prob=1e-4,
-            reward_scale=0.02,
+            reward_scale=0.026,
             penalty_scale=0.1
         )
 

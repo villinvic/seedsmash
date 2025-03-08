@@ -64,6 +64,20 @@ class PPO(ParametrisedPolicy):
 
         super().set_weights(weights)
 
+    def update_lr_schedule(self):
+        self.model.optimiser.learning_rate = self.policy_config.schedule.get(
+            version=self.version,
+            parameter="lr"
+        )
+
+    def setup(
+            self,
+            policy_params: "PolicyParams"
+    ) -> "Policy":
+        super().setup(policy_params)
+        self.update_lr_schedule()
+        return self
+
     def train(
             self,
             input_batch: SampleBatch,
@@ -94,9 +108,13 @@ class PPO(ParametrisedPolicy):
 
         tm_input_batch[SampleBatch.ADVANTAGES][:] = (adv - np.mean(adv)) / (1e-8 + np.std(adv))
 
+        n_epochs = self.policy_config.schedule.get(
+            version=self.version,
+            parameter="n_epochs"
+        )
 
         for minibatch in get_epochs(tm_input_batch,
-                                    n_epochs=self.config.n_epochs,
+                                    n_epochs=n_epochs,
                                     minibatch_size=self.config.minibatch_size,
                                     shuffle_minibatches=True,
                                     ):
@@ -128,9 +146,12 @@ class PPO(ParametrisedPolicy):
             elif last_kl < 0.5 * self.policy_config.kl_target:
                 kl_coeff_val *= 0.5
                 self.kl_coeff.assign(kl_coeff_val)
-        metrics.update(**res,
-                       preprocess_time_ms=(nn_train_time-preprocess_start_time)*1000.,
-                       grad_time_ms=(time.time() - nn_train_time) * 1000.)
+        # metrics.update(**res,
+        #                preprocess_time_ms=(nn_train_time-preprocess_start_time)*1000.,
+        #                grad_time_ms=(time.time() - nn_train_time) * 1000.)
+        metrics["Policy Version"] = self.version
+        self.update_lr_schedule()
+        metrics["Learning Rate"] = self.model.optimiser.learning_rate
 
         return metrics
 
@@ -216,6 +237,7 @@ class PPO(ParametrisedPolicy):
                     )
                 if coach_model is not None:
                     coaching_loss = distil_knowledge(
+                        obs=obs,
                         prev_action=prev_action,
                         prev_reward=prev_reward,
                         state=state,
@@ -251,7 +273,6 @@ class PPO(ParametrisedPolicy):
             "KL Loss Weight": self.kl_coeff,
             "Log-probabilities Ratio": tf.reduce_mean(tf.boolean_mask(ratio, mask)),
             "Clipped Fraction": clip_frac,
-            "Policy Version": self.version
         }
         if coach_model is not None:
             train_metrics["Coaching Loss"] = coaching_loss

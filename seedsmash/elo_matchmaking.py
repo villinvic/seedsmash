@@ -65,7 +65,7 @@ class SeedSmashMatchmaking(MatchMaking):
         rating_gaps = params_map[pid_a].options.elo - ratings
 
         winning_probs = self.expected_outcome(rating_gaps)
-        sigma_squared = (1/5)**2 #(1/6)**2 #
+        sigma_squared = (1/6)**2 #(1/6)**2 #
         probabilities = np.exp(-(winning_probs-0.5)**2/(2*sigma_squared)) / np.sqrt(2*np.pi*sigma_squared)
         probabilities /= probabilities.sum()
 
