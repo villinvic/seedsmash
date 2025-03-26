@@ -633,10 +633,11 @@ class SSBMActionSpace:
     # For teching and l cancel without windows
     L_NEUTRAL_LIGHT = lambda *_: InputSequence(
         ControllerInput(analog_press=True)) # was disabled in air
+    # dont disable in air
     L_RIGHT = lambda *_: InputSequence(
-        ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.RIGHT, test_func=disable_in_air))
+        ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.RIGHT))
     L_LEFT = lambda *_: InputSequence(
-        ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.LEFT, test_func=disable_in_air))
+        ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.LEFT))
 
     # Do not use those actions on ground, this is the same as L_LEFT and L_RIGHT otherwise
     WAVELAND_LEFT = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.DOWN_LEFT,

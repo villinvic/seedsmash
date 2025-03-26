@@ -11,6 +11,10 @@ class CompiledFrameData:
         self.attack = defaultdict(
             dict
         )
+        self.projectile = defaultdict(
+            dict
+        )
+
         self.first_hitbox_frame = defaultdict(
             dict
         )
@@ -38,6 +42,8 @@ class CompiledFrameData:
         for char in Character:
             for action in Action:
                 self.attack[char][action] = self.FD.is_attack(char, action)
+                self.projectile[char][action] = self.FD.has_projectile(char, action)
+
                 self.first_hitbox_frame[char][action] = self.FD.first_hitbox_frame(char, action)
                 self.last_hitbox_frame[char][action] = self.FD.last_hitbox_frame(char, action)
                 self.iasa[char][action] = self.FD.iasa(char, action)
@@ -72,6 +78,9 @@ class CompiledFrameData:
 
     def is_attack(self, character, action):
         return self.attack[character][action]
+
+    def has_projectile(self, character, action):
+        return self.projectile[character][action]
 
     def attack_state(self, character, action, action_frame):
         if not self.is_attack(character, action):

@@ -62,11 +62,11 @@ class ActionStateCounts:
     def __init__(
             self,
             preferred_move: Action | None,
-            underused_prob=6e-4,
+            underused_prob=8e-4,
             overused_prob=0.16,
             min_prob=1e-6,
-            reward_scale=0.013,
-            penalty_scale=0.003
+            reward_scale=0.015,
+            penalty_scale=0.005
     ):
         preferred_move = preferred_move if preferred_move is not None else Action.DEAD_FLY_STAR # death move, does not count
         self.preferred_move_idx = action_idx[preferred_move]
@@ -76,7 +76,7 @@ class ActionStateCounts:
         self.action_state_weights = np.ones((self.n_action_states,), dtype=np.float32)
         self.action_state_weights[self.discarded_states] = 0.
 
-        self.action_state_weights[self.preferred_move_idx] *= 4
+        self.action_state_weights[self.preferred_move_idx] = 5
 
         self.preferred_move_min_logp = np.log(underused_prob * 3)
         self.underused_logp = np.log(underused_prob)
@@ -114,17 +114,19 @@ class ActionStateCounts:
             probs = np.maximum(np.sum(self.queue, dtype=np.float32, axis=0), 1e-8)
             probs /= probs.sum()
             probs = np.maximum(probs, self.min_prob)
-        else:
-            probs = self.probs
 
-        logprobs = np.log(probs)
-        penalty = np.maximum((logprobs-self.overused_logp) * np.maximum(self.action_state_weights, 1.), 0.)
-        # offset the prob of the preferred move
-        logprobs[self.preferred_move_idx] += (self.underused_logp - self.preferred_move_min_logp)
-        rewards = np.maximum((self.underused_logp - logprobs) * self.action_state_weights, 0.)
+            logprobs = np.log(probs)
+            penalty = np.maximum((logprobs - self.overused_logp) * np.maximum(self.action_state_weights, 1.), 0.)
+            # offset the prob of the preferred move
+            logprobs[self.preferred_move_idx] += (self.underused_logp - self.preferred_move_min_logp)
+            rewards = np.maximum((self.underused_logp - logprobs) * self.action_state_weights, 0.)
+            self.probs = probs
+        else:
+            rewards = penalty = np.zeros_like(self.probs)
 
         self.last_rewards = rewards * self.reward_scale
         self.last_penalty = penalty * self.penalty_scale
+
 
         return ActionStateValues(
             self.last_rewards - self.last_penalty,
@@ -154,19 +156,22 @@ class ActionStateHitCounts(ActionStateCounts):
 
         self.discarded_states = np.array([action_idx[a] for a in [Action.EDGE_ATTACK_SLOW, Action.EDGE_ATTACK_QUICK,
                                                                   Action.GETUP_ATTACK, Action.GROUND_ATTACK_UP] +
-                        [attack for attack in Action if not ObsBuilder.FD.is_attack(character, attack)]
+                        [attack for attack in Action if (ObsBuilder.FD.has_projectile(character, attack) or
+                                                         not ObsBuilder.FD.is_attack(character, attack))]
+
                         ])
 
         super().__init__(
             preferred_move,
             underused_prob=1/25,
-            overused_prob=15/25,
+            overused_prob=10/25,
             min_prob=1e-4,
-            reward_scale=0.026,
-            penalty_scale=0.1
+            reward_scale=0.02,
+            penalty_scale=0.12
         )
 
         self.character = character
+        self.action_state_weights[self.preferred_move_idx] = 2
         self.probs[:] = 3/25
 
 

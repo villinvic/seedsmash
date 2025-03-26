@@ -119,12 +119,12 @@ class NeutralOptionsTracker(PlayStyleTrackerModule):
 
     def _update(self, gamestate: GameState, player: PlayerState):
         option = None
-        if self.framedata.is_attack(player.character, player.action):
+        if self.framedata.is_grab(player.character, player.action):
+            option = NeutralOptions.GRAB
+        elif self.framedata.is_attack(player.character, player.action):
             option = NeutralOptions.GROUND_ATTACK if player.on_ground else NeutralOptions.AERIAL_ATTACK
         elif is_shield(player):
             option = NeutralOptions.SHIELD
-        elif self.framedata.is_grab(player.character, player.action):
-            option = NeutralOptions.GRAB
         elif player.action in MOVEMENT_ACTIONS:
             option = NeutralOptions.GROUND_MOVEMENT
         elif player.action in AERIAL_MOVEMENT_ACTIONS:

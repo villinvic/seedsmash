@@ -167,6 +167,7 @@ class SSBM(PolarisEnv):
         gamestate = self.get_gamestate()
         with FileLock("tag_replays.lock"):  # This will block if another process is using the lock
             # TODO: change how replays are named by dolphin ?
+            #time.sleep(0.99)
             while not (gamestate.frame == -20 and gamestate.menu_state == Menu.IN_GAME):
                 gamestate = self.step_console()
             self.slp_replay_manager.tag_replay()
@@ -382,7 +383,7 @@ class SSBM(PolarisEnv):
             p1_final_score = 1000 * self.prev_gamestate.players[1].stock - self.prev_gamestate.players[1].percent
             p2_final_score = 1000 * self.prev_gamestate.players[2].stock - self.prev_gamestate.players[2].percent
             if p1_final_score == p2_final_score:
-                self.game_info["winner"] = None
+                self.game_info["winner"] = self.game_info["bot_b"]
             elif p1_final_score > p2_final_score:
                 self.game_info["winner"] = self.game_info["bot_b"]
             else:
@@ -533,7 +534,7 @@ class SSBM(PolarisEnv):
         elif gamestate.menu_state == melee.Menu.IN_GAME:
             done = False
         else:
-            raise ResetNeeded(f"We went to a strange state: {gamestate.menu_state}")
+            raise ResetNeeded(f"We went to a strange state: {gamestate.menu_state}, {gamestate.players}, {self.game_info}")
 
         self.observation_builder.update(gamestate)
         obs_dict = self.observation_builder.build()

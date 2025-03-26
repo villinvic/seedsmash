@@ -5,11 +5,10 @@ import tree
 from melee import PlayerState, GameState, Action, InvulnerabilityType, EDGE_POSITION, character_moves
 from polaris_melee.observation_space import ObsBuilder
 from polaris_melee.rewards_core import StepRewards, RewardModule, NEUTRAL_ACTIONS, GETUP_ATTACKS, ROLL_STATES, \
-    NEUTRAL_GROUND_ACTIONS
+    NEUTRAL_GROUND_ACTIONS, P, D
 from polaris_melee.techskill import Techskill
 from seedsmash.bot import Bot
 from seedsmash.utils import action_idx
-
 
 
 class CloseupReward(RewardModule):
@@ -19,10 +18,12 @@ class CloseupReward(RewardModule):
         self.self_position = None
         self.opponent_position = None
 
-        self.y_scale = 0.4
+        self.y_scale = 0.75
         self.closeup = 0.
         self.total_closeup = 0.
         self.cummulated_distance = 0.
+
+        self.scale = P / 8 # 1 percent reward per 7 closeup
 
     def update(
             self,
@@ -47,7 +48,7 @@ class CloseupReward(RewardModule):
             closeup = prev_dist - dist
 
             # We do not want to reward closeups with roll states
-            if (closeup > 0 and player.action not in ROLL_STATES) or closeup < 0:
+            if (opponent.action.value > 0xA) and ((closeup > 0 and player.action not in ROLL_STATES) or closeup < 0):
 
                 # Reward running away when the opponent is invulnerable.
                 if (opponent.invulnerability_type == InvulnerabilityType.INVULNERABLE
@@ -70,7 +71,8 @@ class CloseupReward(RewardModule):
             advantage: float,
             opponent_combo_counter: int
     ) -> float:
-        return self.closeup * 8e-4
+
+        return self.closeup * self.scale
 
     def get_metrics(
             self,
@@ -81,7 +83,8 @@ class CloseupReward(RewardModule):
             return {}
         return {
             "Closeup$s": self.total_closeup / game_length_s,
-            "Average Player Distance": self.cummulated_distance / (game_length_s * 20 * 3)
+            "Average Player Distance": self.cummulated_distance / (game_length_s * 20 * 3),
+            **super().get_metrics(game_length_s, as_opponent)
         }
 
 
@@ -158,7 +161,7 @@ class CoreReward(RewardModule):
         death_r = kill_combo_boost * death
 
         return -(
-            death_r * 1.1 + damage_r * 0.006
+            death_r * D + damage_r * P
         )
 
     def get_metrics(
@@ -179,6 +182,7 @@ class CoreReward(RewardModule):
             "Damage Incurred$s": self.total_damage / game_length_s,
             "Intangible Damage Incurred$game": self.total_intangible_damage,
             "Offstage Damage Incurred$game": self.total_offstage_offstage,
+            ** super().get_metrics(game_length_s, as_opponent)
         }
 
 
@@ -197,6 +201,8 @@ class ActionStateReward(RewardModule):
             self,
             bot: Bot
     ):
+        super().__init__()
+
         self.values = bot.action_state_counts.get_values()
         self.hit_values = bot.action_state_hit_counts.get_values()
 
@@ -222,6 +228,8 @@ class ActionStateReward(RewardModule):
         self.hit_move = Action.SHIELD
         self.has_move_hit = False
 
+        self.distance = 0.
+
     def update(
             self,
             player: PlayerState,
@@ -233,6 +241,8 @@ class ActionStateReward(RewardModule):
 
         self.curr_percent = opponent.percent
         self.curr_action_state = player.action
+
+        self.distance = gamestate.distance
 
         self.action_state_counts[action_idx[self.curr_action_state]] += 1
 
@@ -272,7 +282,15 @@ class ActionStateReward(RewardModule):
             # use prev action if moves finished this frame (move interrupted)
             r += self.hit_values(self.prev_action_state)
 
-        return r
+        # scale with distance
+        proximity = 1 - np.minimum(self.distance, 100) / 100
+        scale = 0.3 + (1 - 0.3) * proximity
+
+        # if abs(r) > 1e-4:
+        #     print(f"{self.values(self.curr_action_state) * scale:.5f}", self.curr_action_state)
+        #     print(f"{self.hit_values(self.prev_action_state)*scale:.5f}", self.prev_action_state)
+
+        return r * scale
 
     def get_metrics(
             self,
@@ -287,12 +305,14 @@ class ActionStateReward(RewardModule):
         }
         return {
             "Wall Tech$game": self.wall_techs,
+            "ShieldStun$s": self.action_state_counts[action_idx[Action.SHIELD_STUN]] / game_length_s,
             "__move_hits__": self.move_hits,
             "__move_uses__": self.used_moves,
             "__move_accuracies__": move_accuracies,
 
             "__action_state_counts__": self.action_state_counts,
-            "__action_state_hit_counts__": self.action_state_hit_counts
+            "__action_state_hit_counts__": self.action_state_hit_counts,
+            ** super().get_metrics(game_length_s, as_opponent)
 
         }
 
@@ -300,10 +320,12 @@ class ActionStateReward(RewardModule):
 class StageControlReward(RewardModule):
 
     def __init__(self):
-
+        super().__init__()
         self.controlled_frames = 0
 
         self.is_controlling = False
+
+        self.scale = 0.5 * P / 20  # 0.5 percent reward for each second we control the stage
 
     def update(
             self,
@@ -325,7 +347,7 @@ class StageControlReward(RewardModule):
             advantage: float,
             opponent_combo_counter: int
     ) -> float:
-        return 0.0003 * int(self.is_controlling)
+        return int(self.is_controlling) * self.scale
 
     def get_metrics(
             self,
@@ -336,7 +358,9 @@ class StageControlReward(RewardModule):
             return {}
 
         return {
-            "Stage Control%": 100 * self.controlled_frames / (game_length_s * 20 * 3)
+            "Stage Control%": 100 * self.controlled_frames / (game_length_s * 20 * 3),
+                              ** super().get_metrics(game_length_s, as_opponent)
+
         }
 
 
@@ -346,7 +370,7 @@ class OffStageReward(RewardModule):
     """
 
     def __init__(self):
-
+        super().__init__()
         self.was_pushed_off = False
         self.is_pushed_off = False
 
@@ -355,6 +379,8 @@ class OffStageReward(RewardModule):
         self.KOs = 0
         self.prev_stock = 4
         self.stock = 4
+
+        self.scale = P * 20 # 20 percent reward for pushing off opponents.
 
     def dist_to_ledge(
             self,
@@ -390,7 +416,7 @@ class OffStageReward(RewardModule):
 
 
         # Only mark the player as offstage here if it was ejected and far from the ledge
-        if player.off_stage and is_ejected and dist_to_ledge > 20:
+        if player.off_stage and is_ejected and dist_to_ledge > 55:
             if not self.is_pushed_off:
                 self.times_offstage += 1
             self.is_pushed_off = True
@@ -407,7 +433,7 @@ class OffStageReward(RewardModule):
     ) -> float:
 
         return (
-                (int(self.was_pushed_off) - int(self.is_pushed_off)) * 0.1 # reward for coming back and penalty for getting pushed off
+                (int(self.was_pushed_off) - int(self.is_pushed_off)) * self.scale # reward for coming back and penalty for getting pushed off
         )
 
     def get_metrics(
@@ -423,20 +449,25 @@ class OffStageReward(RewardModule):
             return {
                 "Successful Recoveries%": 100 if self.times_offstage == 0 else 100 * (1 - (self.KOs / self.times_offstage)),
                 "Self-Destructs$game": self.suicides,
-
+            ** super().get_metrics(game_length_s, as_opponent)
             }
 
 
 class NeutralGameReward(RewardModule):
 
     def __init__(self):
+        super().__init__()
         self.was_neutral = True
         self.is_neutral = True
         self.opponent_was_neutral = True
         self.opponent_is_neutral = True
 
+        self.distance = 0
+
         self.neutral_wins = 0
         self.neutral_losses = 0
+
+        self.scale = 2.5 * P / 20
 
     def update(
             self,
@@ -445,10 +476,11 @@ class NeutralGameReward(RewardModule):
             gamestate: GameState,
     ):
         self.was_neutral = self.is_neutral
+        self.distance = gamestate.distance
         if (
             player.action in NEUTRAL_ACTIONS and
-            player.hitstun_frames_left == 0 and
-                (player.on_ground or (not player.off_stage and gamestate.distance > 120))
+            player.hitstun_frames_left == 0
+            #and (player.on_ground or (not player.off_stage and gamestate.distance > 120))
         ):
             self.is_neutral = True
 
@@ -463,8 +495,8 @@ class NeutralGameReward(RewardModule):
         self.opponent_was_neutral = self.opponent_is_neutral
         if (
                 opponent.action in NEUTRAL_ACTIONS and
-                opponent.hitstun_frames_left == 0 and
-                opponent.on_ground
+                opponent.hitstun_frames_left == 0
+                # and opponent.on_ground
         ):
             self.opponent_is_neutral = True
 
@@ -481,7 +513,9 @@ class NeutralGameReward(RewardModule):
             advantage: float,
             opponent_combo_counter: int
     ) -> float:
-        return -0.001 * int(not self.is_neutral)
+        if self.distance > 50:
+            return 0.
+        return - int(not self.is_neutral) * self.scale
 
     def get_metrics(
             self,
@@ -493,7 +527,9 @@ class NeutralGameReward(RewardModule):
 
         return {
             "Neutral Win%": 50 if self.neutral_wins + self.neutral_losses == 0 else
-            100 * self.neutral_wins / (self.neutral_wins + self.neutral_losses)
+            100 * self.neutral_wins / (self.neutral_wins + self.neutral_losses),
+            **super().get_metrics(game_length_s, as_opponent)
+
         }
 
 class LedgeRewards(RewardModule):
@@ -540,7 +576,7 @@ def reward_weighted_sum(rewards: StepRewards, weights: StepRewards) -> float:
 
 class PlayerRewards:
     def __init__(self, bot: Bot):
-
+        super().__init__()
         preferences = bot.stats
         self.modules: StepRewards = {
             "core_rewards": CoreReward(),
@@ -552,8 +588,10 @@ class PlayerRewards:
             "techskill_rewards": Techskill(bot.character)
         }
 
-        def log_scale(stat, low=5e-2, high=5.):
+        def log_scale(stat, low=0.1, high=5.):
             x = (stat - 50) / 50
+            if stat == 0:
+                return 0.
             if x < 0.:
                 return np.exp(-x * np.log(low))
             else:
@@ -562,12 +600,12 @@ class PlayerRewards:
 
         self.weights: StepRewards = {
             "core_rewards": 1.,
-            "action_state_rewards": log_scale(preferences.creativity, low=0.5, high=2.5),
-            "closeup_rewards": log_scale(preferences.aggressivity),
-            "stage_control_rewards": log_scale(preferences.stagecontrol),
-            "offstage_rewards": log_scale(preferences.offstage, low=0.3, high=3),
-            "neutral_rewards": log_scale(preferences.neutral),
-            "techskill_rewards": log_scale(preferences.techskill, high=2.8),
+            "action_state_rewards": log_scale(preferences.creativity, low=0.3, high=4.),
+            "closeup_rewards": log_scale(preferences.aggressivity, high=3.0),
+            "stage_control_rewards": log_scale(preferences.stagecontrol, high=3.),
+            "offstage_rewards": log_scale(preferences.offstage, low=0.2, high=3.),
+            "neutral_rewards": log_scale(preferences.neutral, high=2.5),
+            "techskill_rewards": log_scale(preferences.techskill, low=0.2, high=2.8),
         }
 
     def accumulate(
@@ -582,7 +620,9 @@ class PlayerRewards:
 
         for name, module in self.modules.items():
             module.update(player, opponent, gamestate)
-            step_reward[name] += module.reward(advantage, opponent_combo_counter)
+            r = module.reward(advantage, opponent_combo_counter)
+            module.track_magnitude(r)
+            step_reward[name] += r
 
         return step_reward
 

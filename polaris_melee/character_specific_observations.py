@@ -163,7 +163,11 @@ class DKObservations(ChargeObservation):
             },
             canceling_moves={
                 DKMoves.SpinningKongAir.value,
-                DKMoves.SpinningKongGround.value
+                DKMoves.SpinningKongGround.value,
+                DKMoves.GiantPunchGroundChargeStop.value,
+                DKMoves.GiantPunchAirChargeStartup.value,
+                DKMoves.GiantPunchGroundChargeStartup.value,
+                DKMoves.GiantPunchAirChargeStop.value,
             }
         )
 
@@ -184,7 +188,10 @@ class SamusObservations(ChargeObservation):
             },
             canceling_moves={
                 SamusMoves.ScrewAttackAir.value,
-                SamusMoves.ScrewAttackGround.value
+                SamusMoves.ScrewAttackGround.value,
+                SamusMoves.ChargeShotAirStart.value,
+                SamusMoves.ChargeShotGroundEnd.value,
+                SamusMoves.ChargeShotGroundStart.value
             }
         )
 
@@ -203,6 +210,12 @@ class MewTwoObservations(ChargeObservation):
             discharging_moves={
                 MewtwoMoves.ShadowBallAirFire.value,
                 MewtwoMoves.ShadowBallGroundFire.value,
+            },
+            canceling_moves={
+                MewtwoMoves.ShadowBallAirStartCharge.value,
+                MewtwoMoves.ShadowBallAirEndCharge.value,
+                MewtwoMoves.ShadowBallGroundStartCharge.value,
+                MewtwoMoves.ShadowBallGroundEndCharge.value,
             }
         )
 

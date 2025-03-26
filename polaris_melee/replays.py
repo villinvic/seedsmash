@@ -1,6 +1,7 @@
 import glob
 import os
 import time
+from collections import deque
 from pathlib import Path
 
 import peppi_py as peppi
@@ -61,7 +62,7 @@ def update_metadata(
     pattern = rb"(U\x05names{})"
 
     to_fill = "U\x05names{{U\x07netplaySU{tag_length}{tag}U\x04codeSU\x05SS#01}}"
-
+    # TODO: underscores are not read properly
     for tag in [tag1, tag2]:
         filled = to_fill.format(tag_length=bytes([len(tag)]).decode(), tag=tag)
         data = re.sub(pattern, filled.encode(), data, count=1)
@@ -92,11 +93,16 @@ def update_start_frame(
     return bytes(b)
 
 
-def get_latest_file(folder_path: Path, extension: str = "") -> str | None:
+def get_latest_file(folder_path: Path, exclude: deque = None, extension: str = "") -> str | None:
 
     files = glob.glob(str((folder_path / "*").with_suffix(extension)))
 
     if not files:
+        return None
+
+    if exclude is not None:
+        files = [f for f in files if f not in exclude]
+    if len(files) == 0:
         return None
 
     latest_file = max(files, key=os.path.getctime)

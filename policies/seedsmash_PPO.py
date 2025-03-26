@@ -124,6 +124,14 @@ class PPO(ParametrisedPolicy):
                 coach_model=coach_model
             )
 
+            # print(minibatch)
+            # print(minibatch_metrics)
+            #
+            # print(np.max(minibatch["obs"]["categorical"]["jumps_left1"]),
+            #       np.max(minibatch["obs"]["categorical"]["jumps_left2"]))
+            #
+            # raise ValueError
+
             if metrics is None:
                 metrics = minibatch_metrics
             else:

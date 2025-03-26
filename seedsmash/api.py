@@ -63,7 +63,7 @@ class ApiInterface:
             self,
             address: str
     ):
-        self.address = "http://" + address
+        self.address = address
         self.api_key = input("Enter SeedSmash private API key:")
 
 

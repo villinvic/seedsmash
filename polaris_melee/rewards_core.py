@@ -1,7 +1,15 @@
 from abc import abstractmethod
 from typing import TypedDict, Dict
 
+import numpy as np
+
 from melee import PlayerState, GameState, Action
+
+# rewards for 1 percent damage
+P = 0.005
+# reward for kills
+D = 1.
+
 
 NEUTRAL_ACTIONS = {
     Action.STANDING,
@@ -14,7 +22,15 @@ NEUTRAL_ACTIONS = {
     Action.FALLING_FORWARD,
     Action.FALLING_BACKWARD,
     Action.FALLING_AERIAL_FORWARD,
-    Action.FALLING_AERIAL_BACKWARD
+    Action.FALLING_AERIAL_BACKWARD,
+    Action.JUMPING_BACKWARD,
+    Action.JUMPING_FORWARD,
+    Action.JUMPING_ARIAL_FORWARD,
+    Action.JUMPING_ARIAL_BACKWARD,
+
+    Action.GRAB_PULLING,
+    Action.GRAB_PULLING_HIGH,
+    Action.GRAB_RUNNING_PULLING
 }
 
 NEUTRAL_GROUND_ACTIONS = {
@@ -39,10 +55,56 @@ GETUP_ATTACKS = {
 INTANGIBLE_STATES = ROLL_STATES | GETUP_ATTACKS | {Action.GROUND_GETUP, Action.GROUND_SPOT_UP}
 
 
+def discounted_cumsum(x, gamma):
+    """Compute the discounted cumulative sum of a 1D array efficiently.
+
+    Args:
+        x (np.ndarray): Input array of rewards or advantages (1D).
+        gamma (float): Discount factor (0 <= gamma <= 1).
+
+    Returns:
+        np.ndarray: Discounted cumulative sum.
+    """
+    n = len(x)
+    y = np.zeros(n, dtype=np.float32)
+    y[-1] = x[-1]
+
+    for i in range(n - 2, -1, -1):
+        y[i] = x[i] + gamma * y[i + 1]
+
+    return y
+
 class RewardModule:
     """
     Here we need information about both players to compute the rewards
     """
+
+    def __init__(
+            self,
+    ):
+        self.name = self.__class__.__name__
+        self.magnitude = 0
+        self.discount = 0.994
+        self.frameskip = 3
+        self.trajectory_length = 256
+        self.num_trajectories = 0
+        self.rs = []
+        self.step = 0
+        self.frame = 0
+
+    def track_magnitude(self, new_r: float):
+        t = self.step % self.trajectory_length
+        if self.step > 0 and t == 0:
+            gs = np.mean(np.abs(discounted_cumsum(self.rs, self.discount)))
+            self.magnitude = gs / (self.num_trajectories + 1) + self.magnitude * self.num_trajectories / (self.num_trajectories + 1)
+            self.num_trajectories += 1
+            self.rs = []
+
+        self.rs.append(new_r)
+        self.frame += 1
+        if self.frame % self.frameskip:
+            self.step += 1
+
 
     @abstractmethod
     def update(
@@ -52,6 +114,7 @@ class RewardModule:
             gamestate: GameState,
     ):
         pass
+
 
     @abstractmethod
     def reward(
@@ -66,6 +129,8 @@ class RewardModule:
             game_length_s: float,
             as_opponent: bool = False
     ) -> Dict[str, float | Dict[str, float]]:
+        if not as_opponent:
+            return {f"Magnitude[{self.name}]": self.magnitude}
         return {}
 
 

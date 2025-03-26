@@ -8,6 +8,7 @@ from melee.enums import Character, Action
 from melee.gamestate import GameState, PlayerState
 from polaris_melee.preferences import RewardModule
 from melee.enums import DKMoves
+from polaris_melee.rewards_core import P
 
 
 class Helper:
@@ -69,6 +70,7 @@ class EmptyHelper(Helper):
         return 0.
 
 
+
 class TechSkillHelper(Helper):
 
     LANDING_ACTIONS = (Action.LANDING_SPECIAL, Action.BAIR_LANDING, Action.FAIR_LANDING, Action.DAIR_LANDING,
@@ -78,14 +80,16 @@ class TechSkillHelper(Helper):
                          Action.FALLING_FORWARD, Action.FALLING_AERIAL, Action.FALLING_AERIAL_FORWARD,
                         Action.FALLING_AERIAL_BACKWARD, Action.JUMPING_ARIAL_BACKWARD, Action.JUMPING_ARIAL_FORWARD,
                          Action.JUMPING_FORWARD, Action.JUMPING_FORWARD)
+
     weights = {
-        "dashing": 0.001,
-        "ledge_canceling": 0.03,
-        "lcanceling": 0.02,
-        "wavelanding": 0.015,
-        "wavedash": 0.002, # easy action
-        "wavedash_off_platform": 0.01,
-        "walljump": 0.03,
+        "dashing": P * 0.25,
+        "ledge_canceling": P * 2.5,
+        "lcanceling": P * 2.5,
+        "wavelanding": P * 1.25,
+        "wavedash": P * 0.35, # easy action
+        "wavedash_off_platform": P * 1.25,
+        "walljump": P * 5,
+        "shielding": 2.5 * P, # just to incentivise learning shields as it is much harder than hitting smashes early on
         "edge_drop": 0.,
         "moonwalk": 0.,
         "fast_fall": 0.00, # todo
@@ -181,6 +185,15 @@ class TechSkillHelper(Helper):
             and old_state.action in TechSkillHelper.NORMAL_AIR_STATES
         )
 
+    def shielding(self, player_state: PlayerState, is_near: bool):
+        old_state = self.previous_player_states[-1]
+
+        # WALL_TECH_JUMP -> both wall tech jump and wall jump
+        return (
+            player_state.action == Action.SHIELD_STUN
+            and old_state.action in (Action.SHIELD, Action.SHIELD_REFLECT, Action.SHIELD_START)
+        )
+
     # do we make this char specific ?
     def moonwalk(self, player_state: PlayerState, is_near: bool):
         # TODO: improve
@@ -201,7 +214,7 @@ class TechSkillHelper(Helper):
 class CptFalconHelper(Helper):
 
     weights = {
-        "gentleman": 0.02,
+        "gentleman": P * 3,
     }
 
     def __init__(self):
@@ -214,7 +227,7 @@ class CptFalconHelper(Helper):
 class MarioHelper(Helper):
 
     weights = {
-        "upb_walljump": 0.1,
+        "upb_walljump": P * 10,
     }
 
     def __init__(self):
@@ -228,7 +241,7 @@ class MarioHelper(Helper):
 class DocHelper(Helper):
 
     weights = {
-        "upb_cancel": 0.02,
+        "upb_cancel": P * 2,
     }
 
     def __init__(self):
@@ -245,7 +258,7 @@ class DocHelper(Helper):
 
 class ChargingHelper(Helper):
     weights = {
-        "neutralb_charge": 0.01,
+        "neutralb_charge": P * 2,
     }
 
     def __init__(self):
@@ -260,7 +273,7 @@ class ChargingHelper(Helper):
 
 class LuigiHelper(Helper):
     weights = {
-        "cyclone_charge": 0.01,
+        "cyclone_charge": P * 3,
     }
 
     def __init__(self):
@@ -314,7 +327,7 @@ char_helpers = {
 
 class Techskill(RewardModule):
     def __init__(self, char: Character):
-
+        super().__init__()
         self.helpers = [
             char_helpers.get(char, EmptyHelper)(),
             TechSkillHelper()
@@ -350,7 +363,7 @@ class Techskill(RewardModule):
         if as_opponent:
             return {}
 
-        metrics = {}
+        metrics = super().get_metrics(game_length_s, as_opponent)
         for helper in self.helpers:
             metrics.update(helper._get_metrics())
         return metrics

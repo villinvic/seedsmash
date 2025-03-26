@@ -295,10 +295,10 @@ class ObsBuilder:
         def action_type(player: PlayerState):
             action = player.action
             act_type = ActionType.OTHER.value
-            if self.FD.is_attack(player.character, action):
-                act_type = ActionType.ATTACK.value
-            elif self.FD.is_grab(player.character, action):
+            if self.FD.is_grab(player.character, action):
                 act_type = ActionType.GRAB.value
+            elif self.FD.is_attack(player.character, action):
+                act_type = ActionType.ATTACK.value
             elif is_shield(player):
                 act_type = ActionType.SHIELD.value
             elif action in DODGE_ACTIONS:
@@ -398,6 +398,8 @@ class ObsBuilder:
 
         def get_action_index(state: GameState, port: int):
             action = state.players[port].action
+            return action_idx[action]
+
             a_val = action.value
             char = state.players[port].character
             if a_val in character_moves[char]._value2member_map_:
@@ -441,7 +443,13 @@ class ObsBuilder:
                                    bounds=(0., 180.),
                                    player_port=port,
                                    config=self.config),
-
+                attack_state=StateDataInfo(
+                    lambda s: ObsBuilder.FD.attack_state(s.players[port].character, s.players[port].action, s.players[port].action_frame).value,
+                    StateDataInfo.CATEGORICAL,
+                    size=len(AttackState),
+                    player_port=port,
+                    config=self.config
+                ),
                 # is_attack=StateDataInfo(lambda s: ObsBuilder.FD.is_attack(s.players[port].character,
                 #                                                           s.players[port].action),
                 #                         StateDataInfo.BINARY,
@@ -546,7 +554,7 @@ class ObsBuilder:
                 #                           config=self.config),
                 jumps_left=StateDataInfo(lambda s: s.players[port].jumps_left,
                                          StateDataInfo.CATEGORICAL,
-                                         size=6,
+                                         size=7,
                                          player_port=port,
                                          config=self.config),
                 controller_a=StateDataInfo(lambda s:
@@ -626,7 +634,7 @@ class ObsBuilder:
                 # split general and char_specific actions
                 action=StateDataInfo(lambda s: get_action_index(s, port),
                                      StateDataInfo.CATEGORICAL,
-                                     size=n_actions+n_moves,
+                                     size=n_actions,#+n_moves,
                                      player_port=port,
                                      config=self.config),
                 action_type=StateDataInfo(lambda s: action_type(s.players[port]),

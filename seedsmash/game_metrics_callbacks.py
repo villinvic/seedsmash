@@ -34,7 +34,7 @@ class SSBMCallbacks(
         defensivity = 1. - policy.options.stats.aggressivity / 100
 
         neg_scale_min = 0.93
-        neg_scale_max = 0.97
+        neg_scale_max = 0.99
         neg_scale = defensivity * (neg_scale_max - neg_scale_min) + neg_scale_min
 
         batch[SampleBatch.REWARD][:] = \

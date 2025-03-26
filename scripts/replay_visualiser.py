@@ -3,6 +3,7 @@ import os
 import select
 import subprocess
 import time
+from collections import deque
 from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from subprocess import Popen
@@ -92,21 +93,20 @@ class PlayBackConsole:
 def load_next_replay(
         comm_path: Path,
         replay_dir: Path,
-        replay_comm: ReplayCommunication
+        replay_comm: ReplayCommunication,
+        watched_replays: deque
 ):
     # load requested matchup if any
     # TODO
     next_replay = None
     while next_replay is None:
         try:
-            next_replay = get_latest_file(replay_dir, extension=".sslp")
+            next_replay = get_latest_file(replay_dir, watched_replays, extension=".sslp")
         except FileNotFoundError:
             next_replay = None
 
-        # Do not visualise a game twice
-        if next_replay == replay_comm.replay:
-            next_replay = None
     replay_comm.replay= str(replay_dir / next_replay)
+    watched_replays.append(next_replay)
     replay_comm.write(comm_path)
 
 
@@ -116,16 +116,17 @@ def auto_watch_replays(
         replay_dir: str,
         comm_path: str,
 ):
+    watched_replays = deque(maxlen=100)
     comm_path = Path(comm_path)
     replay_dir = Path(replay_dir)
     console = PlayBackConsole(playback_path)
     replay_comm = ReplayCommunication()
-    load_next_replay(comm_path, replay_dir, replay_comm)
+    load_next_replay(comm_path, replay_dir, replay_comm, watched_replays)
     console.run(comm_path, iso)
     try:
         while True:
             console.wait()
-            load_next_replay(comm_path, replay_dir, replay_comm)
+            load_next_replay(comm_path, replay_dir, replay_comm, watched_replays)
 
     except KeyboardInterrupt:
         console.stop()

@@ -95,7 +95,6 @@ class SeedSmashTrainer(Checkpointable):
                 GlobalCounter[GlobalCounter.ENV_STEPS] = self.metrics["counters/" + GlobalCounter.ENV_STEPS].get()
 
             for policy_name, params in self.params_map.items():
-
                 self.policy_map[policy_name] = self.PolicylCls(
                     name=policy_name,
                     action_space=self.env.action_space,
@@ -116,6 +115,8 @@ class SeedSmashTrainer(Checkpointable):
         self.agent_frames_since_startup = 0
 
     def update_live_bots(self, db_bots: List[Bot]):
+        if len(db_bots) == 0:
+            return
         db_bot_tags = {bot.tag for bot in db_bots}  # Set of current bot tags in the database
 
         # Add missing bots from db_bots to params_map
@@ -232,7 +233,7 @@ class SeedSmashTrainer(Checkpointable):
         experience_metrics = self.process_experience(experience)
         training_metrics = self.train()
 
-        #self.process_metrics(experience_metrics, training_metrics)
+        self.process_metrics(experience_metrics, training_metrics)
 
 
     def recv(self) -> List[EpisodeMetrics | SampleBatch]:
@@ -240,8 +241,8 @@ class SeedSmashTrainer(Checkpointable):
 
         self.running_experience_jobs += self.worker_set.push_jobs(self.params_map, experience_jobs)
         experience, self.running_experience_jobs = self.worker_set.wait(self.params_map, self.running_experience_jobs, timeout=1e-2)
-        if len(experience)>0:
-            print("collected ", len(experience), "experiences")
+        # if len(experience)>0:
+        #     print("collected ", len(experience), "experiences")
 
         return experience
 
@@ -390,7 +391,7 @@ class SeedSmashTrainer(Checkpointable):
         try:
             while not self.is_done(self.metricbank):
                 self.training_step()
-                self.metricbank.report(print_metrics=False)
+                #self.metricbank.report(print_metrics=False)
                 self.checkpoint_if_needed()
         except KeyboardInterrupt:
             print("Caught C^.")

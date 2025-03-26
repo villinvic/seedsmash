@@ -143,12 +143,15 @@ class Bot:
                 continue
 
             # perform an EMA update over metrics
-            # averaging over the last 20-ish games
-            smoothing = 0.1
-            self.metrics[registry][n] = tree.map_structure(
-                lambda x, y: x * (1-smoothing) + y * smoothing,
-                self.metrics[registry][n], m
-            )
+            # averaging over the last 40-ish games
+            smoothing = 0.05
+            try:
+                self.metrics[registry][n] = tree.map_structure(
+                    lambda x, y: x * (1-smoothing) + y * smoothing,
+                    self.metrics[registry][n], m
+                )
+            except Exception:
+                self.metrics[registry][n] = m
 
     def get_sorted_dicts(
             self,

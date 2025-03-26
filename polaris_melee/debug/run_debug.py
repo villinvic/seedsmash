@@ -51,13 +51,14 @@ class PolarisEnvTest(unittest.TestCase):
             t2 = time.time()
             obs, _, dones, _, _ = env.step(actions)
             gs = env.get_gamestate()
-            print(obs)
-
-            input()
             # for port, tracker in env.playstyle_trackers.items():
             #     print(port)
             #     tracker.print()
-            # input()
+            input()
+            print(obs[1].keys())
+            print(obs[1]["categorical"]["action_type1"], obs[2]["categorical"]["action_type1"],
+                  obs[1]["continuous"]["frames_before_next_hitbox1"] * 50, obs[2]["continuous"]["frames_before_next_hitbox1"] * 50,
+                  )
             t3 = time.time()
             if dones["__all__"]:
                 print(env.get_episode_metrics())
@@ -99,7 +100,7 @@ if __name__ == '__main__':
             # Stage.FOUNTAIN_OF_DREAMS
         ])
         .player_types([PlayerType.BOT, PlayerType.BOT])
-        #.render()
+        .render()
         .online_delay(0)
         .polling_mode()
         .save_replays()

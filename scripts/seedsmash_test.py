@@ -1,3 +1,4 @@
+from sacred import Experiment
 
 from melee.enums import Character, Stage
 from polaris_melee.enums import PlayerType
@@ -7,8 +8,11 @@ from seedsmash.game_metrics_callbacks import SSBMCallbacks
 
 from ml_collections import ConfigDict
 
-from seedsmash.schedule import ParameterSchedule
 
+from seedsmash.schedule import ParameterSchedule
+exp_name = 'seedsmash'
+exp_path = "experiments/" + exp_name
+ex = Experiment(exp_name)
 
 obs_config = (
     SSBMObsConfig()
@@ -21,6 +25,7 @@ obs_config = (
     .delay(4)  # 4 (* 3)
 )
 
+@ex.config
 def cfg(
 
 ):
@@ -92,54 +97,61 @@ def cfg(
 
     env = SSBM.env_id
 
-    # TODO: try batched inference
     num_workers = 64
     policy_path = 'policies.seedsmash_PPO'
-    model_path = 'models.action_state_embed_model'
+    model_path = 'models.default'
     policy_class = 'PPO'
-    model_class = 'ActionEmbedModel'
+    model_class = 'Default'
     trajectory_length = 256 #128 # 256 ?
-    max_seq_len = 32
-    train_batch_size = 8192*4
+    max_seq_len = 64
+    train_batch_size = 8192 * 4
     max_queue_size = train_batch_size * 10
     # n_epochs=3
     minibatch_size= train_batch_size//16
 
     default_policy_config = {
+        # model
+        'action_state_embed_dim': 32,
+        'character_embed_dim': 8,
+        'stage_embed_dim': 8,
+        'mlp_dims': [256, 256],
+        'lstm_dim': 512,
+        'policy_head_dims': [128],
+        'value_head_dims': [],
+
         'discount': 0.994,  # 0.997
         'action_state_reward_scale': 1.,
 
         'gae_lambda': 0.95, # 0.98
-        'entropy_cost': 1e-2,#5e-4, # 1e-3 with impala, or around " 0.3, 0.4
+        'entropy_cost': 2e-3,#5e-4, # 1e-3 with impala, or around " 0.3, 0.4
         'lr': 5e-4,
 
-        'schedule': dict(
+        'schedule': ParameterSchedule(
             lr = {
-                '0': 5e-4,
-                1000: 4e-4,
-                2000: 2e-4,
-                4000: 1e-4,
+                0: 5e-4,
+                10000: 4e-4,
+                20000: 2e-4,
+                40000: 1e-4,
             },
             n_epochs = {
                 0: 3,
-                2000: 1
+                20000: 1
             },
         ),
 
         # PPO
-        'grad_clip': 5.,
+        'grad_clip': 1.,
         'ppo_clip': 0.25, # 0.3
         'initial_kl_coeff': 1.,
-        'baseline_coeff': 0.25,
+        'baseline_coeff': 0.1,
         'vf_clip': 10.,
         'kl_target': 1e-2,
 
         # seedsmash
-        'aux_loss_weight': 0.05,
+        'aux_loss_weight': 0.1,
         'distillation_weight': 0.05,
         'distillation_temperature': 2.,
     }
-    default_policy_config["schedule"] = ParameterSchedule(**default_policy_config["schedule"])
 
     compute_advantages_on_workers = True
     wandb_logdir = 'logs'
@@ -157,8 +169,8 @@ def cfg(
     negative_reward_scale = 0.93
 
     database_game_update_freq_s = 58 # read new bots and push games
-    database_state_update_freq_s = 60*5 # for metrics
-    db_address = "192.168.1.100:5000"
+    database_state_update_freq_s = 60 * 20 #60*20 # for metrics
+    db_address = "http://192.168.1.100:5000"
 
     restore = False
 
@@ -172,8 +184,6 @@ def main(_config):
         tf.config.experimental.set_memory_growth(gpu, False)
     from seedsmash.seedsmash_sync_trainer import SeedSmashTrainer
 
-    print(_config["default_policy_config"]["schedule"].schedules)
-    exit()
     config = ConfigDict(_config)
     SSBM(**config["env_config"]).register()
 

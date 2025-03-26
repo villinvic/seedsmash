@@ -5,6 +5,11 @@ from polaris_melee.compiled_libmelee_framedata import CompiledFrameData
 from polaris_melee.rewards_core import NEUTRAL_ACTIONS
 
 
+UNLOCK_ACTIONS = (
+    Action.KNEE_BEND,
+    Action.DASHING
+)
+
 class ComboTracker:
 
     def __init__(
@@ -12,7 +17,7 @@ class ComboTracker:
             max_combo: int,
             framedata: CompiledFrameData,
             small_hit_scale=0.1,
-            small_hit_percent=5,
+            small_hit_percent=4,
             repeated_hit_scale=0.5,
     ):
         self.max_combo = max_combo
@@ -24,6 +29,7 @@ class ComboTracker:
         self.last_action = Action.UNKNOWN_ANIMATION
 
         self.last_percent = 0
+        self.opp_last_percent = 0
 
         self.combos = []
 
@@ -47,9 +53,8 @@ class ComboTracker:
         has_died = player.action.value <= 0xa
         has_killed = opponent.action.value <= 0xa
 
-        dealt_damage = np.maximum(opponent.percent - self.last_percent, 0)
-
-        if has_died or has_killed or opponent.action in NEUTRAL_ACTIONS:
+        dealt_damage = np.maximum(opponent.percent - self.opp_last_percent, 0)
+        if (has_died or has_killed or opponent.action in UNLOCK_ACTIONS): # find a way to count combos even when crouch canceling (getup attacks).
             self.reset()
         elif dealt_damage > 1:
             combo_increment = 1
@@ -57,26 +62,11 @@ class ComboTracker:
                 combo_increment *= self.small_hit_scale * dealt_damage
             if self.last_action == curr_action:
                 combo_increment *= self.repeated_hit_scale
-            self.current_combo_length = np.minimum(self.current_combo_length + combo_increment, self.max_combo)
+            self.current_combo_length = self.current_combo_length + combo_increment
 
-        self.last_percent = opponent.percent
+        self.opp_last_percent = opponent.percent
 
-        return self.current_combo_length
-
-
-    def is_opp_attacking(
-            self,
-            opp_state: PlayerState
-    ) -> bool:
-        """
-        Helper function to know whether a player has initiated an action state that counts as combo breaker.
-        """
-        char = opp_state.character
-        action_state = opp_state.action
-        action_frame = opp_state.action_frame
-
-        return (self.framedata.attack_state(char, action_state, action_frame) == AttackState.ATTACKING
-                        and action_state not in (Action.GETUP_ATTACK, Action.GROUND_ATTACK_UP))
+        return np.minimum(self.current_combo_length, self.max_combo)
 
     def get_metrics(self):
         return {
