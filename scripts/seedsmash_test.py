@@ -31,6 +31,7 @@ def cfg(
     exiai_path = ""
     replay_path = ""
 
+
     if iso == '':
         raise ValueError("Need a path for the melee iso.")
     if fm_path == '':
