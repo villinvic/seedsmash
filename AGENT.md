@@ -8,8 +8,8 @@
 - Ask questions only if blocked.
 
 ## Code Style
-- Python 3.11+
-- Full type hints everywhere.
+- Python 3.10
+- Clean type hints, no clutter.
 - Small focused functions.
 - Avoid deep inheritance.
 - Prefer dataclasses for structured data.
@@ -34,41 +34,22 @@ Seedsmash.ai integrates Twitch chat with a Super Smash Bros Melee AI tournament 
 
 This repo only handles:
 
-* visuals
-* user interactions
-* feedback gathering
-* feedback/game alignment
-* tournament management
-* chat integration
+* agent (seed) pool management
+* agent model architecture
+* viewers can provide binary feedback via chat 
+* reward function learning
 
 Out of scope:
 
-* RL training
-* reward optimization
-* model architectures
+* stream frontend/overlays.
 
 ## Core Features
 
-* Twitch chat integration
-* Stream overlay UI
-* Agent feedback (+1/-1)
-* Feedback timestamp alignment with delayed streams
-* Newborn agent voting:
-
-  * name
-  * character
-  * costume/color
-* Tournament lifecycle:
-
-  * daily tournament
-  * lowest elo eliminated
-  * newborn inherits winner reward fn
-* Anti-abuse systems:
-
-  * rate limiting
-  * vote weighting
-  * spam detection
-* User engagement / points
+* Twitch bot
+* A user can send feedback (+1/-1) via chat
+* each feedback is then registered, by matching it to a corresponding T-timestep trajectory.
+* To update the reward function of the agent, we minimize a classification loss via a simple Bradley-Terry model:
+  * liked/disliked trajectories for the current version of the bot must be all more/less likely than all other trajectories sampled via this bot version.
 
 ## Technical Constraints
 
@@ -83,17 +64,10 @@ Out of scope:
 * Preserve current architecture unless instructed otherwise.
 * Avoid large refactors unless necessary.
 * Do not remove comments/tests without reason.
-* Update @plan.md according to your changes if relevant.
-
+* Update @plan.md according to your changes to keep track of our progress in the future. Refer to @plan.md when unsure about some past implementations.
 ## Testing
 
-After modifying a module:
-
-1. Add/update tests.
-2. Provide validation steps.
-3. Check edge cases and failure modes.
-4. Do not write tests for styles.css
-5. For visual tests, notify me you wrote a new test and indicate how to run it by hand, but do not run such test yourself.
+After modifying a module, add/update basic tests.
 
 ## Planning
 
@@ -102,10 +76,3 @@ When proposing plans:
 * Keep phases short.
 * End with unresolved questions.
 * Questions must be concise.
-
-## UI
-
-* Stream-friendly.
-* Reactive and animated.
-* Dark blue theme preferred.
-* Low latency updates.

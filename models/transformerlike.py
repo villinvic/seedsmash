@@ -145,7 +145,7 @@ class TransformerLikeModel(BaseModel):
             state
     ):
         stage_embeds = self.stage_embedder(obs, single_obs=True)
-        self_embeds = self.self_embedder(obs, single_obs=True)
+        self_embeds = self.self_embedder(obs, delayed=False, single_obs=True)
         opp_embeds = self.opponent_embedder(obs, delayed=True, single_obs=True)
         projectiles = self.projectile_embedder(obs)
 
@@ -201,7 +201,5 @@ class TransformerLikeModel(BaseModel):
     def get_metrics(self) -> dict:
 
         d = super().get_metrics()
-        d.update(self.sym_regulariser.get_metrics())
-
         return d
 

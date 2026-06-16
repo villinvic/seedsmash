@@ -6,7 +6,7 @@ import numpy as np
 from melee import LCancelState, YoshiMoves
 from melee.enums import Character, Action
 from melee.gamestate import GameState, PlayerState
-from polaris_melee.preferences import RewardModule
+from polaris_melee.base_rewards import RewardModule
 from melee.enums import DKMoves
 from polaris_melee.rewards_core import P
 
@@ -358,11 +358,7 @@ class Techskill(RewardModule):
         for helper in self.helpers:
             self.frame_score += helper(player, gamestate.distance)
 
-    def reward(
-            self,
-            advantage: float,
-            opponent_combo_counter: int
-    ) -> float:
+    def reward(self) -> float:
 
         return self.frame_score
 

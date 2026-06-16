@@ -147,7 +147,6 @@ def cfg(
 
         # seedsmash
         'aux_loss_weight': 1.,
-        'symmetry_weight': 0.5,
         'distillation_weight': 0.04,
         'distillation_temperature': 2.,
     }
@@ -165,7 +164,6 @@ def cfg(
         keep=4,
     )
     episode_callback_class = SSBMCallbacks
-    negative_reward_scale = 0.93
 
     database_game_update_freq_s = 58 # read new bots and push games
     database_state_update_freq_s = 60 * 5 #60*20 # for metrics

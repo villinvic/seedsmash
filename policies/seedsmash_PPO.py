@@ -113,9 +113,9 @@ class PPO(ParametrisedPolicy):
         num_minibatch = 0
         metrics = None
 
-        adv = tm_input_batch[SampleBatch.ADVANTAGES]
-
-        tm_input_batch[SampleBatch.ADVANTAGES][:] = (adv - np.mean(adv)) / (1e-8 + np.std(adv))
+        # Normalization is bad for entropy, and pbrl
+        #adv = tm_input_batch[SampleBatch.ADVANTAGES]
+        #tm_input_batch[SampleBatch.ADVANTAGES][:] = (adv - np.mean(adv)) / (1e-8 + np.std(adv))
 
         n_epochs = self.policy_config.schedule.get(
             version=self.version,

@@ -83,9 +83,6 @@ class FSP(Checkpointable):
 
         self.PolicylCls = getattr(importlib.import_module(self.config.policy_path), self.config.policy_class)
         self.policy_map: Dict[str, Policy] = {}
-        self.action_state_counts: Dict[str, ActionStateCounts] = {}
-        self.action_state_hit_counts: Dict[str, ActionStateHitCounts] = {}
-
 
         self.params_map = ParamsMap()
 
@@ -104,13 +101,6 @@ class FSP(Checkpointable):
         )
         self.metrics = self.metricbank.metrics
 
-        # self.grad_thread = GradientThread(
-        #     env=self.env,
-        #     config=self.config
-        # )
-        # self.grad_lock = self.grad_thread.lock
-        # self.grad_thread.start()
-
         super().__init__(
             checkpoint_config = config.checkpoint_config,
 
@@ -119,8 +109,6 @@ class FSP(Checkpointable):
                 "config": self.config,
                 "params_map": self.params_map,
                 "metrics": self.metrics,
-                "action_state_counts": self.action_state_counts,
-                "action_state_hit_counts": self.action_state_hit_counts,
                 "discarded_policies": self.discarded_policies,
                 "old_policies": self.old_policies,
                 "trainable_policies": self.trainable_policies,
@@ -144,8 +132,8 @@ class FSP(Checkpointable):
                 GlobalCounter[GlobalCounter.ENV_STEPS] = self.metrics["counters/" + GlobalCounter.ENV_STEPS].get()
 
             for policy_name, params in self.params_map.items():
-                params.config["entropy_cost"] = 1e-2
-                params.config["aux_loss_weight"] = 5e-2
+                # params.config["entropy_cost"] = 1e-2
+                # params.config["aux_loss_weight"] = 5e-2
 
                 self.policy_map[policy_name] = self.PolicylCls(
                     name=policy_name,
@@ -160,55 +148,29 @@ class FSP(Checkpointable):
                 )
                 self.policy_map[policy_name].setup(params)
                 self.experience_queue[policy_name] = ExperienceQueue(self.config)
+        else:
+            pid = "debug"
+            bot = Bot(**BotConfig(character=Character.CPTFALCON)._asdict())
 
-        self.inject_bot_configs()
-        GlobalTimer["inject_new_bots_timer"] = time.time()
+            self.policy_map[pid] = self.PolicylCls(
+                name=pid,
+                action_space=self.env.action_space,
+                observation_space=self.env.observation_space,
+                config=self.config,
+                policy_config=self.config.default_policy_config,
+                options=bot,
+                stats={"rank": 100, "rating": 1000, "games_played": 0, "winrate": 0,
+                       "samples_generated": 0},
+                # For any algo that needs to track either we have the online model
+                is_online=True,
+            )
+
+            self.params_map[pid] = self.policy_map[pid].get_params()
+            self.experience_queue[pid] = ExperienceQueue(self.config)
+            self.trainable_policies.append(pid)
 
         self.startup_time = time.time()
         self.agent_frames_since_startup = 0
-
-    def inject_bot_configs(self):
-
-        _, _, bot_configs = next(os.walk("bot_configs"))
-
-        if len(self.params_map)> 0:
-            # init new policies with same amount of samples, so that they do not get sampled all the time !
-            mean_sample_generated = np.mean([
-                p.stats["samples_generated"] for p in self.params_map.values()
-            ])
-        else:
-            mean_sample_generated = 0
-
-        for bot_config_txt in bot_configs:
-            pid = bot_config_txt.rstrip(".txt")
-            if pid not in self.policy_map and pid not in self.discarded_policies:
-                bot_config = load_filled_form("bot_configs/"+bot_config_txt)
-                if bot_config.tag == pid:
-                    policy_config = copy.deepcopy(self.config.default_policy_config)
-                    inject_botconfig(policy_config, bot_config)
-
-                    bot = Bot(**BotConfig(character=Character.CPTFALCON)._asdict())
-
-                    self.policy_map[pid] = self.PolicylCls(
-                        name=pid,
-                        action_space=self.env.action_space,
-                        observation_space=self.env.observation_space,
-                        config=self.config,
-                        policy_config=policy_config,
-                        options=bot,
-                        stats={"rank": 100, "rating": 1000, "games_played": 0, "winrate": 0, "samples_generated": mean_sample_generated},
-                        # For any algo that needs to track either we have the online model
-                        is_online=True,
-                    )
-
-                    self.params_map[pid] = self.policy_map[pid].get_params()
-
-                    self.experience_queue[pid] = ExperienceQueue(self.config)
-                    self.action_state_counts[pid] = ActionStateCounts(bot.preferred_move)
-                    self.action_state_hit_counts[pid] = ActionStateHitCounts(bot.preferred_move,
-                                                                             bot.character)
-
-                    self.trainable_policies.append(pid)
 
     def training_step(self):
         """
@@ -248,19 +210,6 @@ class FSP(Checkpointable):
         for exp_batch in experience:
             if isinstance(exp_batch, EpisodeMetrics):
                 try:
-                    # If this fails, it means the episode exited early
-                    for pid in exp_batch.policy_metrics.keys():
-                        if pid in self.trainable_policies:
-                            action_state_counts = exp_batch.custom_metrics.pop(f"{pid}/to_pop/action_states_counts", None)
-                            action_state_hit_counts = exp_batch.custom_metrics.pop(f"{pid}/to_pop/action_states_hit_counts", None)
-                            if action_state_counts is not None and action_state_hit_counts is not None:
-                                self.action_state_counts[pid].push_samples(action_state_counts)
-                                self.policy_map[pid].stats["action_state_values"] = self.action_state_counts[pid].get_values()
-                                self.action_state_hit_counts[pid].push_samples(action_state_hit_counts)
-                                self.policy_map[pid].stats["action_state_hit_values"] = self.action_state_hit_counts[
-                                    pid].get_values()
-                            else:
-                                print("???", exp_batch.custom_metrics)
 
                     experience_metrics.append(exp_batch)
                     env_steps += exp_batch.length
@@ -306,29 +255,10 @@ class FSP(Checkpointable):
         if n_experience_metrics > 0:
             GlobalCounter[GlobalCounter.NUM_EPISODES] += n_experience_metrics
 
-
-
-
-
         t.append(time.time())
         training_metrics = {}
         for policy_name, policy_queue in self.experience_queue.items():
             if policy_queue.is_ready():
-#                coaching_policy = None if self.policy_map[policy_name].options.coaching_bot is None\
- #                   else self.policy_map.get(self.policy_map[policy_name].options.coaching_bot, None)
- #               coaching_batch = None
-  ##              if coaching_policy is not None:
-    ##                coaching_model = coaching_policy.model
-      #              if self.experience_queue[self.policy_map[policy_name].options.coaching_bot].last_batch is None:
-       #                 # Wait for the batch to be initialised before imitation
-        #                # TODO: check if problematic when the batch does not update at a low freq
-         #               continue
-          #          else:
-           #             coaching_batch = self.experience_queue[self.policy_map[policy_name].options.coaching_bot].last_batch
-            #    else:
-             #       coaching_model = None
-              #      if coaching_model is None and not (self.policy_map[policy_name].options.coaching_bot is None):
-               #         print(f"Missing coaching policy !: {self.policy_map[policy_name].options.coaching_bot}.")
 
                 pulled_batch = policy_queue.pull(self.config.train_batch_size)
                 if np.any(pulled_batch[SampleBatch.VERSION] != self.policy_map[policy_name].version):
@@ -337,13 +267,7 @@ class FSP(Checkpointable):
 
                 train_results = self.policy_map[policy_name].train(
                     pulled_batch,
-                    #coaching_model=coaching_model,
-                    #coaching_batch=coaching_batch
                 )
-
-                train_results["action_state_counts"] = self.action_state_counts[policy_name].get_metrics()
-                train_results["action_state_hit_counts"] = self.action_state_hit_counts[policy_name].get_metrics()
-
 
                 training_metrics[f"{policy_name}"] = train_results
                 GlobalCounter.incr(GlobalCounter.STEP)
@@ -371,50 +295,17 @@ class FSP(Checkpointable):
                         self.discarded_policies.append(removed)
                         print("removed policy:", removed)
 
-        #grad_thread_out = self.grad_thread.get_metrics()
-
-        # training_metrics = []
-        # for data in grad_thread_out:
-        #     if isinstance(data, list):
-        #         for policy_param in data:
-        #             self.params_map[policy_param.name] = policy_param
-        #     else:
-        #         training_metrics.append(data)
-
         def mean_metric_batch(b):
             return tree.flatten_with_path(tree.map_structure(
                 lambda *samples: np.mean(samples),
                 *b
             ))
 
-        # Make it policy specific, thus extract metrics of policies.
-
         if len(training_metrics)> 0:
             for policy_name, policy_training_metrics in training_metrics.items():
                 policy_training_metrics = mean_metric_batch([policy_training_metrics])
                 self.metricbank.update(policy_training_metrics, prefix=f"training/{policy_name}/",
                                        smoothing=self.config.training_metrics_smoothing)
-        #if len(experience_metrics) > 0:
-            #for metrics in experience_metrics:
-
-                #self.metricbank.update(tree.flatten_with_path(metrics), prefix=f"experience/",
-                #                       smoothing=self.config.episode_metrics_smoothing)
-
-            # policy_experience_metrics = defaultdict(list)
-            # pure_episode_metrics = []
-            # for episode_metrics in experience_metrics:
-            #     for policy_name, metrics in episode_metrics.policy_metrics.items():
-            #         policy_experience_metrics[policy_name].append(metrics)
-            #
-            #     episode_metrics = episode_metrics._asdict()
-            #     del episode_metrics["policy_metrics"]
-            #     pure_episode_metrics.append(EpisodeMetrics(**episode_metrics))
-            # mean_batched_experience_metrics = mean_metric_batch(pure_episode_metrics)
-            # self.metricbank.update(mean_batched_experience_metrics, prefix="experience/",
-            #                     smoothing=self.config.episode_metrics_smoothing)
-            # for policy_name, metrics in policy_experience_metrics.items():
-            #     metrics = mean_metric_batch(metrics)
-            #     self.metricbank.update(metrics, prefix=f"experience/{policy_name}/", smoothing=self.config.episode_metrics_smoothing)
 
         misc_metrics =  [
                     (f'{pi}_queue_length', queue.size())
@@ -434,19 +325,10 @@ class FSP(Checkpointable):
             prefix="matchmaking/", smoothing=0.9
         )
 
-        # We should call those only at the report freq...
         self.metricbank.update(
             tree.flatten_with_path(GlobalCounter.get()), prefix="counters/"
         )
-        # self.metrics.update(
-        #     tree.flatten_with_path(GlobalCounter), prefix="timers/", smoothing=0.9
-        # )
 
-
-        if (time.time() - GlobalTimer.startup_time) - GlobalTimer[
-            "inject_new_bots_timer"] > self.config.inject_new_bots_freq_s:
-            GlobalTimer["inject_new_bots_timer"] = time.time()
-            self.inject_bot_configs()
 
     def run(self):
         try:

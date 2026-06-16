@@ -10,8 +10,6 @@ import re
 from codename import codename
 
 from melee import Stage
-from seedsmash.twitch_bot import MUQueue
-
 
 class SlpReplayManager:
     # TODO: https://github.com/project-slippi/slippi-js/blob/master/README.md
@@ -20,7 +18,6 @@ class SlpReplayManager:
             replay_path: str = "/home/goji/Slippi",
     ):
         self.replay_path = Path(replay_path)
-        self.replay_queue = MUQueue()
         self.replay_name: None | str = None
 
     def tag_replay(self):
@@ -51,7 +48,6 @@ class SlpReplayManager:
         with open(self.replay_path / actual_replay_name, "wb") as file:
             file.write(data)
 
-        self.replay_queue.push_replay(actual_replay_name)
         self.replay_name = None
 
 

@@ -17,7 +17,6 @@ class SSBMCallbacks(
 ):
     def __init__(self, config):
         super().__init__(config)
-        self.negative_reward_scale = config.negative_reward_scale
         # self.action_state_counts = defaultdict(lambda: np.zeros((len(Action),), dtype=np.int32))
         # self.action_state_hit_counts = defaultdict(lambda: np.zeros((len(Action),), dtype=np.int32))
         #

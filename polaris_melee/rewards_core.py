@@ -109,27 +109,6 @@ class RewardModule:
         self.name = name
         self.w = w
 
-    def update_magnitude(self):
-        gs = np.mean(np.abs(discounted_cumsum(self.rs, self.discount)))
-        self.magnitude = gs / (self.num_trajectories + 1) + self.magnitude * self.num_trajectories / (
-                    self.num_trajectories + 1)
-        self.num_trajectories += 1
-        self.rs = []
-
-    def track_magnitude(self, new_r: float):
-        t = self.step % self.trajectory_length
-        self.rs.append(new_r)
-
-        if self.step > 0 and t == 0:
-            self.update_magnitude()
-
-        self.step += 1
-
-    def on_episode_end(self):
-        if len(self.rs) > 0:
-            self.update_magnitude()
-
-
     @abstractmethod
     def update(
             self,
@@ -139,39 +118,21 @@ class RewardModule:
     ):
         pass
 
-
     @abstractmethod
-    def reward(
-            self,
-            advantage: float,
-            opponent_combo_counter: int
-    ) -> float:
+    def reward(self) -> float:
         return 0.
+
+    def on_episode_end(self):
+        pass
 
     def get_metrics(
             self,
             game_length_s: float,
             as_opponent: bool = False
     ) -> Dict[str, float | Dict[str, float]]:
-        if not as_opponent:
-            return {
-                f"__magnitude__{self.name}": self.magnitude,
-                f"Scaled Magnitude ({self.__class__.__name__})": self.magnitude * self.w,
-                f"Reward Scale ({self.__class__.__name__})": self.w
-
-            }
         return {}
 
 
 class StepRewards(TypedDict):
-    win_rewards: float | RewardModule
     stock_rewards: float | RewardModule
-    sd_rewards: float | RewardModule
     damage_rewards: float | RewardModule
-    action_state_rewards: float | RewardModule
-    closeup_rewards: float | RewardModule
-    stalling_rewards: float | RewardModule
-    stage_control_rewards: float | RewardModule
-    offstage_rewards: float | RewardModule
-    neutral_rewards: float | RewardModule
-    techskill_rewards: float | RewardModule

@@ -6,18 +6,16 @@ from typing import Optional, Union
 from typing import Dict as Dict_T
 from typing import Tuple as Tuple_T
 from gymnasium.error import ResetNeeded
-from melee import GameState, Console, Button
+from melee import GameState, Button
 import melee
 import numpy as np
-from melee.enums import ControllerType, Action, Menu, Stage
+from melee.enums import ControllerType, Menu
 from polaris_melee.character_specific_observations import get_character_specific_observations
 
-from polaris_melee.combo_tracker import ComboTracker
 from polaris_melee.enums import PlayerType
 from polaris_melee.action_space import ComboPad, InputQueue, ActionControllerInterface, SSBMActionSpace
 from polaris_melee.observation_space import ObsBuilder
-from polaris_melee.playstyle_tracker import PlayStyleTracker
-from polaris_melee.preferences import RewardFunction, StepRewards
+from polaris_melee.base_rewards import RewardFunction, StepRewards
 from polaris.environments import PolarisEnv
 
 from polaris_melee.replays import SlpReplayManager
@@ -349,15 +347,6 @@ class SSBM(PolarisEnv):
         }
         self.episode_metrics = defaultdict(float)
         self.reward_function = RewardFunction(options)
-        self.combo_counters = {p: ComboTracker(
-            ObsBuilder.MAX_COMBO,
-            self.observation_builder.FD,
-        ) for p in self.populated_ports}
-
-        self.playstyle_trackers = {p: PlayStyleTracker(
-            self.observation_builder.FD, options[p].stats
-        ) for p in self.populated_ports
-        }
 
         self.character_specific_observations = {p: get_character_specific_observations(
             options[p].character,
@@ -468,27 +457,14 @@ class SSBM(PolarisEnv):
                     # Put in our custom combo counter and char specific helpers
 
                     for port in self.populated_ports:
-                        next_gamestate.players[port].custom["playstyle"] = self.playstyle_trackers[port].update(
-                            next_gamestate,
-                            players[port]  # don't pass opponent, as this will leak information (should be delayed!)
-                        )
                         next_gamestate.players[port].custom["character_specific"] = self.character_specific_observations[port].update(
                             player=players[port],
                             gamestate=next_gamestate
                         )
-                        next_gamestate.players[port].custom["combo_counter"] = self.combo_counters[port].get()
                         next_gamestate.players[port].custom["elo"] = self.elos[port] # todo pass to critic
                     #if frame == 0:
                     self.reward_function.accumulate(step_rewards, next_gamestate)
 
-                    for port in self.populated_ports:
-                        # update combos after computing rewards, otherwise, we boost every hits
-                        other_port = port % 2 + 1
-                        next_gamestate.players[port].custom["combo_counter"] = self.combo_counters[port].update(
-                            players[port],
-                            players[other_port],
-                            next_gamestate.distance
-                        )
 
                 # check if we are done, and exit if it is the case
                 if self.is_episode_finished():
@@ -582,7 +558,7 @@ class SSBM(PolarisEnv):
                 "Average Game Length(s)": self.game_info["length"] / 20
             }
             for p, k in zip(self.reward_function.get_metrics(self.episode_length), ["bot_a", "bot_b"]):
-                self.game_info["metrics"][k] = reward_function_metrics[p] | self.combo_counters[p].get_metrics() | extra
+                self.game_info["metrics"][k] = reward_function_metrics[p] | extra
             self.game_info["replay"] = None # todo
             self.episode_metrics["game_info"] = self.game_info
             if self.slp_replay_manager is not None:

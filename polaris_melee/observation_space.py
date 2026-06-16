@@ -18,7 +18,6 @@ from gymnasium.spaces import Box, Discrete, MultiBinary, MultiDiscrete
 from polaris_melee.enums import PlayerType
 from polaris_melee.make_data import FrameData as FastFrameData
 from polaris_melee.normalised_char_attributes import NormalisedCharacterAttributes
-from polaris_melee.playstyle_tracker import PlayStyleTracker
 
 action_idx = {
     s: i for i, s in enumerate(Action)
@@ -230,8 +229,6 @@ class ObsBuilder:
         }
     }
 
-    MAX_COMBO = 4
-
     def __init__(
             self,
             config: dict,
@@ -248,7 +245,6 @@ class ObsBuilder:
         }
 
         self.character_data = NormalisedCharacterAttributes(observed=("size", "weight", "Gravity", "Friction", "AirFriction"))
-        num_tracked_options = PlayStyleTracker(self.FD).dim
 
         n_characters = len(all_chars_to_used)
         n_stages = len(all_stages_to_used)
@@ -711,17 +707,10 @@ class ObsBuilder:
                                         config=self.config,
                 ),
 
-                consecutive_hits=StateDataInfo(lambda s: 0. if "combo_counter" not in s.players[port].custom else s.players[port].custom["combo_counter"],
-                                         StateDataInfo.CONTINUOUS,
-                                         scale=1/self.MAX_COMBO,
-                                         bounds=(0, self.MAX_COMBO),
-                                         player_port=port,
-                                         config=self.config
-                                         ),
-                # playstyle=StateDataInfo(lambda s: 0. if "playstyle" not in s.players[port].custom else s.players[port].custom["playstyle"],
+                # consecutive_hits=StateDataInfo(lambda s: 0. if "combo_counter" not in s.players[port].custom else s.players[port].custom["combo_counter"],
                 #                          StateDataInfo.CONTINUOUS,
-                #                          size=num_tracked_options,
-                #                          bounds=(0, 1),
+                #                          scale=1/self.MAX_COMBO,
+                #                          bounds=(0, self.MAX_COMBO),
                 #                          player_port=port,
                 #                          config=self.config
                 #                          ),
