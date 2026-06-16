@@ -1,9 +1,9 @@
 import numpy as np
-from melee import Action, AttackState, PlayerState
+from melee import Action, AttackState, PlayerState, Character, character_moves
 
 from polaris_melee.compiled_libmelee_framedata import CompiledFrameData
 from polaris_melee.rewards_core import NEUTRAL_ACTIONS
-
+from polaris_melee.utils import HittingMoveTracker
 
 UNLOCK_ACTIONS = (
     Action.KNEE_BEND,
@@ -16,22 +16,19 @@ class ComboTracker:
             self,
             max_combo: int,
             framedata: CompiledFrameData,
-            small_hit_scale=0.1,
-            small_hit_percent=4,
-            repeated_hit_scale=0.5,
     ):
+
         self.max_combo = max_combo
         self.framedata = framedata
-        self.small_hit_scale = small_hit_scale
-        self.small_hit_percent = small_hit_percent
-        self.repeated_hit_scale = repeated_hit_scale
         self.current_combo_length = 0
         self.last_action = Action.UNKNOWN_ANIMATION
-
         self.last_percent = 0
         self.opp_last_percent = 0
+        self.has_hit = False
+        self.hitting_move_tracker = HittingMoveTracker()
 
         self.combos = []
+        self.cool_states = [Action.WALL_TECH, Action.WALL_TECH_JUMP]
 
     def reset(self):
         if self.current_combo_length > 0:
@@ -39,34 +36,46 @@ class ComboTracker:
         self.current_combo_length = 0
         self.last_action = Action.UNKNOWN_ANIMATION
 
+    def get(self):
+        return np.minimum(self.current_combo_length, self.max_combo)
 
     def update(
             self,
             player: PlayerState,
-            opponent: PlayerState
+            opponent: PlayerState,
+            distance: float
     ) -> float:
         """
         Computes next combo length.
         Combo length reset to 0 if opponent escapes.
         """
-        curr_action = player.action,
         has_died = player.action.value <= 0xa
         has_killed = opponent.action.value <= 0xa
 
-        dealt_damage = np.maximum(opponent.percent - self.opp_last_percent, 0)
+        dealt_damage = opponent.percent - self.opp_last_percent
+
+        is_fresh_hit, has_move_ended = self.hitting_move_tracker.update(player.action, dealt_damage, distance) # TODO include hitlag/stun ?
+
         if (has_died or has_killed or opponent.action in UNLOCK_ACTIONS): # find a way to count combos even when crouch canceling (getup attacks).
             self.reset()
-        elif dealt_damage > 1:
-            combo_increment = 1
-            if dealt_damage < self.small_hit_percent:
-                combo_increment *= self.small_hit_scale * dealt_damage
-            if self.last_action == curr_action:
-                combo_increment *= self.repeated_hit_scale
-            self.current_combo_length = self.current_combo_length + combo_increment
+        elif is_fresh_hit:
+            self.has_hit = True
+        if has_move_ended and self.has_hit:
+            self.has_hit = False
+            if self.hitting_move_tracker.prev_action_state == Action.GRAB_PUMMEL:
+                self.current_combo_length += 1/3
+            else:
+                self.current_combo_length += 1
+
+        if player.action in self.cool_states and self.last_action not in self.cool_states:
+            # why not ...
+            self.current_combo_length += 1.
+
 
         self.opp_last_percent = opponent.percent
+        self.last_action = player.action
 
-        return np.minimum(self.current_combo_length, self.max_combo)
+        return self.get()
 
     def get_metrics(self):
         return {

@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 import os
 import select
 import subprocess
@@ -11,6 +12,7 @@ from typing import NamedTuple, List
 import json
 import melee
 from polaris_melee.replays import get_latest_file
+from seedsmash.twitch_bot import SSTwitchBot
 
 
 @dataclass
@@ -26,7 +28,6 @@ class ReplayCommunication:
     rollbackDisplayMethod: str = "off"  # "off" | "normal" | "visible"; // default off; normal shows like a player experienced it, visible shows ALL frames (normal and rollback)
     gameStation: str = "SeedSmash"
     mode: str = "normal"  # normal / queue / mirror
-
 
     def write(self, path: Path):
         with open(path, "w") as f:
@@ -53,9 +54,9 @@ class PlayBackConsole:
 
         self._process = Popen(command,
                              stdout=subprocess.PIPE,
-                             #stderr=subprocess.DEVNULL,
+                             stderr=subprocess.PIPE,
                              env=env,
-                             text = True  # Returns output as a string instead of bytes
+                             #text=True  # Returns output as a string instead of bytes
         )
 
     def stop(self):
@@ -71,75 +72,87 @@ class PlayBackConsole:
             self._process.wait()
 
     def wait(self):
-        end_frame = 1e8
-
+        repeat_c = 0
+        prev_line = "*"
         while True:
-            ready, _, _ = select.select([self._process.stdout], [], [], 10)
-            if not ready:
+            ready, _, _ = select.select([self._process.stdout], [], [], 4)
+            if not ready or repeat_c > 10:
+                print("replay finished.")
                 return
-            line = self._process.stdout.readline()
-            cout = line.split()
-            if len(cout) != 2:
-                continue
-            msg_type, val = line.split()
-            if msg_type == "[GAME_END_FRAME]":
-                end_frame = int(val)
-                continue
-            if msg_type == "[CURRENT_FRAME]":
-                frame = int(val)
-                if end_frame == frame:
-                    return
+            newline = self._process.stdout.readline().decode("utf-8").strip()
+            if prev_line == newline:
+                repeat_c += 1
+            else:
+                repeat_c = 0
+            prev_line = newline
 
-def load_next_replay(
-        comm_path: Path,
-        replay_dir: Path,
-        replay_comm: ReplayCommunication,
-        watched_replays: deque
-):
-    # load requested matchup if any
-    # TODO
-    next_replay = None
-    while next_replay is None:
+class ReplayAutoWatcher:
+
+    def __init__(
+            self,
+            playback_path: str,
+            iso: str,
+            replay_dir: str,
+            comm_path: str,
+            db_address: str,
+            enable_bot: bool,
+    ):
+
+        self.replay_dir = Path(replay_dir)
+        self.comm_path = Path(comm_path)
+        self.console = PlayBackConsole(playback_path)
+        self.iso = iso
+        self.replay_comm = ReplayCommunication()
+        self.twitchbot = SSTwitchBot(db_address)
+        self.enable_bot = enable_bot
+
+    def loop(self):
+        if self.enable_bot:
+            self.twitchbot.start()
+            time.sleep(7)
+        self.console.run(self.comm_path, self.iso)
         try:
-            next_replay = get_latest_file(replay_dir, watched_replays, extension=".sslp")
-        except FileNotFoundError:
-            next_replay = None
+            while True:
+                replay, msg, user_replay = self.twitchbot.mu_queue.pull_replay()
+                if replay is None or not self.load_next_replay(replay):
+                    time.sleep(3)
+                    continue
+                if self.enable_bot and user_replay:
+                    asyncio.run(self.twitchbot.alert(msg))
+                self.console.wait()
 
-    replay_comm.replay= str(replay_dir / next_replay)
-    watched_replays.append(next_replay)
-    replay_comm.write(comm_path)
-
-
-def auto_watch_replays(
-        playback_path: str,
-        iso: str,
-        replay_dir: str,
-        comm_path: str,
-):
-    watched_replays = deque(maxlen=100)
-    comm_path = Path(comm_path)
-    replay_dir = Path(replay_dir)
-    console = PlayBackConsole(playback_path)
-    replay_comm = ReplayCommunication()
-    load_next_replay(comm_path, replay_dir, replay_comm, watched_replays)
-    console.run(comm_path, iso)
-    try:
-        while True:
-            console.wait()
-            load_next_replay(comm_path, replay_dir, replay_comm, watched_replays)
-
-    except KeyboardInterrupt:
-        console.stop()
+        except KeyboardInterrupt:
+            self.console.stop()
+            self.twitchbot.stop()
 
 
+    def load_next_replay(self, replay):
+        path = self.replay_dir / replay
+        if not os.path.exists(path):
+            return False
+        self.replay_comm.replay = str(path)
+        self.replay_comm.write(self.comm_path)
+        return True
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--comm-path', type=str, default="seedsmash_comm.json")
+parser.add_argument('--enable-bot', type=bool, default=False, action=argparse.BooleanOptionalAction)
+parser.add_argument('--db-address', type=str, required=True)
 parser.add_argument('--playback-path', type=str, required=True)
 parser.add_argument('--replay-path', type=str, required=True)
 parser.add_argument('--iso', type=str, required=True)
 
 if __name__ == '__main__':
     ARGS = parser.parse_args()
-    auto_watch_replays(ARGS.playback_path, ARGS.iso, ARGS.replay_path, comm_path=ARGS.comm_path)
+
+    auto = ReplayAutoWatcher(
+        ARGS.playback_path,
+        ARGS.iso,
+        ARGS.replay_path,
+        comm_path=ARGS.comm_path,
+        db_address=ARGS.db_address,
+        enable_bot=ARGS.enable_bot
+    )
+
+    auto.loop()

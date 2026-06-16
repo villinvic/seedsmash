@@ -1,3 +1,4 @@
+import datetime
 import glob
 import os
 import time
@@ -8,6 +9,8 @@ import peppi_py as peppi
 import re
 from codename import codename
 
+from melee import Stage
+from seedsmash.twitch_bot import MUQueue
 
 
 class SlpReplayManager:
@@ -17,19 +20,19 @@ class SlpReplayManager:
             replay_path: str = "/home/goji/Slippi",
     ):
         self.replay_path = Path(replay_path)
-
+        self.replay_queue = MUQueue()
         self.replay_name: None | str = None
 
     def tag_replay(self):
         # clean up replays
-        delete_old_files(self.replay_path, age_in_seconds=60*16)
-        self.replay_name = get_latest_file(self.replay_path, extension=".slp")
-        print(self.replay_name)
+        delete_old_files(self.replay_path, age_in_seconds=60*60)
+        self.replay_name = get_latest_slp_file(self.replay_path, extension=".slp")
 
-    def inject_bot_info(
+    def inject_info(
             self,
             tag1: str,
             tag2: str,
+            stage: Stage
     ):
         if self.replay_name is None:
             return
@@ -40,7 +43,7 @@ class SlpReplayManager:
         data = update_metadata(data, tag1, tag2)
         data = update_start_frame(data, tag1, tag2)
 
-        actual_replay_name = f"{tag1}_{tag2}_{codename(separator='', capitalize=True)}.sslp"
+        actual_replay_name = f"{tag1}@{tag2}@{stage.name.lower()}@{codename(separator='', capitalize=True)}.sslp"
         try:
             os.remove(self.replay_path / self.replay_name)
         except Exception as e:
@@ -48,6 +51,7 @@ class SlpReplayManager:
         with open(self.replay_path / actual_replay_name, "wb") as file:
             file.write(data)
 
+        self.replay_queue.push_replay(actual_replay_name)
         self.replay_name = None
 
 
@@ -62,7 +66,6 @@ def update_metadata(
     pattern = rb"(U\x05names{})"
 
     to_fill = "U\x05names{{U\x07netplaySU{tag_length}{tag}U\x04codeSU\x05SS#01}}"
-    # TODO: underscores are not read properly
     for tag in [tag1, tag2]:
         filled = to_fill.format(tag_length=bytes([len(tag)]).decode(), tag=tag)
         data = re.sub(pattern, filled.encode(), data, count=1)
@@ -82,7 +85,7 @@ def update_start_frame(
 
     def format_tag(tag: str) -> bytes:
         # Ensure the tag is 112 bytes long (pad with spaces or truncate if necessary)
-        tag_bytes = tag.encode('utf-8')
+        tag_bytes = tag.replace("_", "-").encode('utf-8')
         if len(tag_bytes) > 30:
             return tag_bytes[:30]  # truncate if the tag is longer than 112 bytes
         return tag_bytes.ljust(30, b'\x00')  # pad with 0x00 if the tag is shorter than 112 bytes
@@ -92,6 +95,29 @@ def update_start_frame(
     b[start+32: start+62] = format_tag(tag2)
     return bytes(b)
 
+
+def get_latest_slp_file(folder_path: Path, extension: str = "") -> str | None:
+
+    files = glob.glob(str((folder_path / "*").with_suffix(extension)))
+
+    if not files:
+        return None
+
+    pattern = re.compile(r"Game_(\d{8}T\d{6})\.slp")
+
+    def extract_timestamp(filename):
+        match = pattern.search(filename)
+        if match:
+            return time.strptime(match.group(1), "%Y%m%dT%H%M%S")
+        return None
+
+    valid_files = [(filename, extract_timestamp(filename)) for filename in files]
+    valid_files = [f for f in valid_files if f[1] is not None]
+
+    if not valid_files:
+        return None
+
+    return max(valid_files, key=lambda x: x[1])[0]
 
 def get_latest_file(folder_path: Path, exclude: deque = None, extension: str = "") -> str | None:
 

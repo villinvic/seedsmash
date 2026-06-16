@@ -14,16 +14,6 @@ exp_name = 'falcon_ditto_fsp_debug'
 exp_path = "experiments/" + exp_name
 ex = Experiment(exp_name)
 
-# TODO :
-# take as input belief state, for ex...:
-# - distance travelled
-# - actions picked
-# - habits: techs
-# - option habits: shielding, grabbing, dd, dash back, etc ? list of things ???
-# - off stage
-# - prefered move
-# - moves that hit them
-# - make this small !
 
 obs_config = (
     SSBMObsConfig()
@@ -100,7 +90,6 @@ def cfg():
 
     env = SSBM.env_id
 
-    # TODO: try batched inference
     num_workers = 64
     policy_path = 'polaris.policies.PPO'
     model_path = 'models.debug5'

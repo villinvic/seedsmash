@@ -9,6 +9,7 @@ from polaris.models import BaseModel
 import numpy as np
 import tensorflow as tf
 
+from polaris_melee import data_augmentation
 from policies.knowledge_distillation import distil_knowledge
 
 tf.compat.v1.enable_eager_execution()
@@ -64,18 +65,22 @@ class PPO(ParametrisedPolicy):
 
         super().set_weights(weights)
 
-    def update_lr_schedule(self):
+    def update_schedule(self):
         self.model.optimiser.learning_rate = self.policy_config.schedule.get(
             version=self.version,
             parameter="lr"
         )
+        with self.config.unlocked():
+            self.policy_config.discount = self.policy_config.schedule.get(
+                version=self.version,
+                parameter="discount"
+            )
 
     def setup(
             self,
             policy_params: "PolicyParams"
     ) -> "Policy":
         super().setup(policy_params)
-        self.update_lr_schedule()
         return self
 
     def train(
@@ -84,7 +89,11 @@ class PPO(ParametrisedPolicy):
             coach_model: BaseModel
     ):
         preprocess_start_time = time.time()
+        sample_staleness = self.version - np.mean(input_batch[SampleBatch.VERSION])
+
         res = super().train(input_batch)
+        self.update_schedule()
+
 
         to_del = []
 
@@ -113,6 +122,8 @@ class PPO(ParametrisedPolicy):
             parameter="n_epochs"
         )
 
+        tm_input_batch[SampleBatch.OBS]["x_swapped"] = data_augmentation.swap_x(tm_input_batch[SampleBatch.OBS])
+
         for minibatch in get_epochs(tm_input_batch,
                                     n_epochs=n_epochs,
                                     minibatch_size=self.config.minibatch_size,
@@ -123,6 +134,25 @@ class PPO(ParametrisedPolicy):
                 **minibatch,
                 coach_model=coach_model
             )
+
+            # reconstructed = minibatch_metrics.pop("rec")
+            #
+            # def get(x):
+            #     if hasattr(x, "numpy"):
+            #         x = x.numpy()
+            #     return x[3]
+            #
+            # for k, v in reconstructed.items():
+            #
+            #
+            #
+            #     one_traj = tree.map_structure(
+            #         get,
+            #         v
+            #     )
+            #     print(one_traj)
+            #
+            #     input()
 
             # print(minibatch)
             # print(minibatch_metrics)
@@ -143,6 +173,7 @@ class PPO(ParametrisedPolicy):
             num_minibatch += 1
 
         metrics = tree.map_structure(lambda v: v.numpy(), metrics)
+        print(self.name, metrics)
         last_kl = metrics["KL-Divergence"]
         kl_coeff_val = self.kl_coeff.value()
         if kl_coeff_val > 0.:
@@ -158,8 +189,9 @@ class PPO(ParametrisedPolicy):
         #                preprocess_time_ms=(nn_train_time-preprocess_start_time)*1000.,
         #                grad_time_ms=(time.time() - nn_train_time) * 1000.)
         metrics["Policy Version"] = self.version
-        self.update_lr_schedule()
         metrics["Learning Rate"] = self.model.optimiser.learning_rate
+        metrics["Sample Staleness"] = sample_staleness
+        print(f"Took {time.time()-nn_train_time:.2f} seconds for the train step.")
 
         return metrics
 
@@ -184,7 +216,6 @@ class PPO(ParametrisedPolicy):
         If an auxiliary loss is required,
         subclass the PPO class. The parameters of the _train function may not be enough.
         """
-
         with tf.GradientTape() as tape:
             with tf.device('/gpu:0'):
                 curr_action_logits, vf_preds = self.model(
@@ -229,8 +260,11 @@ class PPO(ParametrisedPolicy):
                     kl_loss = tf.constant(0.0)
 
                 total_loss = (critic_loss + policy_loss - mean_entropy * self.policy_config.entropy_cost + kl_loss)
+
                 if hasattr(self.model, "aux_loss"):
                     total_loss += self.policy_config.aux_loss_weight * self.model.aux_loss(
+                        curr_action_logits=tf.stop_gradient(curr_action_logits),
+                        values=tf.stop_gradient(vf_preds),
                         obs=obs,
                         action=action,
                         prev_action=prev_action,
@@ -270,6 +304,7 @@ class PPO(ParametrisedPolicy):
 
         clip_frac = tf.reduce_mean(tf.boolean_mask(tf.abs(tf.cast(ratio - 1.0 > self.policy_config.ppo_clip, dtype=tf.float32)), mask))
 
+        #self.model.prediction_module.reconstruct(obs["ground_truth"])
         train_metrics = {
             "Entropy": mean_entropy,
             "Value Function Loss": critic_loss,
@@ -281,6 +316,10 @@ class PPO(ParametrisedPolicy):
             "KL Loss Weight": self.kl_coeff,
             "Log-probabilities Ratio": tf.reduce_mean(tf.boolean_mask(ratio, mask)),
             "Clipped Fraction": clip_frac,
+            **{
+                f"Gradient Norm [{var.name.replace(':','').replace('/','')}]": tf.linalg.norm(grad)
+                for var, grad in zip(self.model.trainable_variables, gradients)
+            }
         }
         if coach_model is not None:
             train_metrics["Coaching Loss"] = coaching_loss

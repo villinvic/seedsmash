@@ -127,13 +127,14 @@ class ChargeObservation(CharacterSpecificObservation):
     ):
         # KO, used charges or canceled upb, remove charges
         if (player.action.value <= 0xa or player.action.value in self.discharging_moves or
-            (self.prev_action in (self.canceling_moves | self.charging_moves) and player.hitstun_frames_left > 0)
+            (self.prev_action in (self.canceling_moves | self.charging_moves) and player.hitlag_left > 0)
         ):
             self.charges = 0
 
         elif player.action.value in self.charging_moves and player.action_frame == self.charge_frame:
             self.charges += 1
             # TODO, looks like if you cancel at the "charge frame exactly, you do not get the charge" ?
+            #       OR, not reset properly when hit ?
             if self.charges > self.max_charge:
                 print("exceeded number of possible charges somehow", player.character, self.charges)
                 self.charges = self.max_charge
@@ -249,7 +250,7 @@ class GameAndWatchObservations(CharacterSpecificObservation):
 
     def get(self):
         if 9 in self.judgment_store:
-            return 0
+            return 0.
         return 7/(9 - len(self.judgment_store))
 
     def update(
@@ -267,6 +268,9 @@ class GameAndWatchObservations(CharacterSpecificObservation):
                 self.judgment_store.append(GameAndWatchObservations.JUDGEMENT_VALUES[action_value])
                 if len(self.judgment_store) > 2:
                     self.judgment_store.pop(0)
+
+        return super().update(player, gamestate)
+
 
 
 

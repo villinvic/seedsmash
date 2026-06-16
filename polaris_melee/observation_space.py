@@ -116,10 +116,12 @@ class StateDataInfo:
             (self.delay + 1, self.size), dtype=dtype,
         )
 
-    def observe(self, undelay=False):
+    def observe(self, delay=0):
         observed = (self.delay_idx % (self.delay + 1))
-        if not undelay:
-            observed -= self.delay
+
+        assert delay <= self.delay, f"Got unexpectedly large delay requested for observation {self.name}"
+
+        observed -= delay
 
         if self.debug:
             print(self.name, self.value[self.delay_idx % (self.delay + 1)], "(undelayed)", self.value[observed], "(observed)")
@@ -146,7 +148,11 @@ class StateDataInfo:
     def build_op(self):
         def op(state):
             extracted = self.extractor(state)
-            self.value[self.delay_idx % (self.delay + 1), :] = extracted
+            try:
+                self.value[self.delay_idx % (self.delay + 1), :] = extracted
+            except Exception as e:
+                print(self.name)
+                raise e
         return op
 
     def advance(self):
@@ -310,6 +316,7 @@ class ObsBuilder:
 
         def projectile_dist(p: Projectile, player: PlayerState):
             return np.sqrt(np.square(p.position.x - player.position.x) + np.square(p.position.y - player.position.y))
+            return np.sqrt(np.square(p.position.x - player.position.x) + np.square(p.position.y - player.position.y))
 
         def own_projectile_getter(state, port):
             other_port = 1 + port % 2
@@ -328,6 +335,28 @@ class ObsBuilder:
             else:
 
                 return 0., 0., 0.
+
+        def get_projectiles(gamestate: GameState, owner_port=-1):
+            projectile_infos = []
+            projs = gamestate.projectiles[:config["obs_config"]["max_projectiles_per_owner"]]
+            n_proj = 0
+            for projectile in projs:
+                if projectile.type == ProjectileType.UNKNOWN_PROJECTILE or projectile.owner != owner_port:
+                    continue
+                n_proj += 1
+                ownership = [0, 0, 0]
+                if owner_port == -1:
+                    ownership[0] = 1
+                else:
+                    ownership[owner_port] = 1
+                projectile_infos.extend([projectile.x_speed * self.SPEED_SCALE, projectile.y_speed * self.SPEED_SCALE,
+                                         projectile.x * self.POS_SCALE, projectile.y * self.POS_SCALE,
+                ] + ownership)
+
+            padding = [0] * 7 * (config["obs_config"]["max_projectiles_per_owner"] - n_proj)
+            projectile_infos = projectile_infos + padding
+
+            return projectile_infos
 
         def get_nearest_platform(state, port):
             """
@@ -394,6 +423,12 @@ class ObsBuilder:
                                     size=4,
                                     config=self.config,
                                     ),
+
+            projectiles=StateDataInfo(lambda s: get_projectiles(s, -1),
+                                    StateDataInfo.CONTINUOUS,
+                                    size=config["obs_config"]["max_projectiles_per_owner"] * 7, # x, y, vx, vy, existence
+                                    config=self.config,
+            ),
         )
 
         def get_action_index(state: GameState, port: int):
@@ -470,9 +505,14 @@ class ObsBuilder:
                                               bounds=(0., 60.),
                                               player_port=port,
                                               config=self.config),
+                # stock=StateDataInfo(lambda s: s.players[port].stock,
+                #                     StateDataInfo.CATEGORICAL,
+                #                     size=5,
+                #                     player_port=port,
+                #                     config=self.config),
                 stock=StateDataInfo(lambda s: s.players[port].stock,
-                                    StateDataInfo.CATEGORICAL,
-                                    size=5,
+                                    StateDataInfo.CONTINUOUS,
+                                    scale=1/4,
                                     player_port=port,
                                     config=self.config),
                 action_frame=StateDataInfo(lambda s: self.FFD.remaining_frame(s.players[port].character,
@@ -499,7 +539,7 @@ class ObsBuilder:
                 #                                    config=self.config),
                 hitlag_left=StateDataInfo(lambda s: s.players[port].hitlag_left,
                                           StateDataInfo.CONTINUOUS,
-                                          scale=ObsBuilder.FRAME_SCALE,
+                                          scale=1/10,
                                           player_port=port,
                                           bounds=(0., 180.),
                                           config=self.config),
@@ -553,10 +593,22 @@ class ObsBuilder:
                 #                           player_port=port,
                 #                           config=self.config),
                 jumps_left=StateDataInfo(lambda s: s.players[port].jumps_left,
-                                         StateDataInfo.CATEGORICAL,
-                                         size=7,
+                                         StateDataInfo.CONTINUOUS,
+                                         scale=1/2,
                                          player_port=port,
                                          config=self.config),
+                # jumps_left=StateDataInfo(lambda s: s.players[port].jumps_left,
+                #                          StateDataInfo.CATEGORICAL,
+                #                          size=7,
+                #                          player_port=port,
+                #                          config=self.config),
+                # TODO: not working in ff mode: we encode our own controller inputs instead of passing "past_action"
+                encoded_action=StateDataInfo(lambda s: 0 if "encored_action" not in s.players[port].custom else
+                                       s.players[port].custom["encoded_action"],
+                                       StateDataInfo.CONTINUOUS,
+                                       size=2+2+5+1,
+                                       player_port=port,
+                                       config=self.config),
                 controller_a=StateDataInfo(lambda s:
                                        s.players[port].controller_state.button[enums.Button.BUTTON_A],
                                        StateDataInfo.BINARY,
@@ -615,12 +667,12 @@ class ObsBuilder:
                                        scale=ObsBuilder.POS_SCALE,
                                        player_port=port,
                                        config=self.config),
-                platform_distances=StateDataInfo(lambda s: platform_distances(s, s.players[port]),
-                                       StateDataInfo.CONTINUOUS,
-                                       size=8,
-                                       scale=ObsBuilder.POS_SCALE,
-                                       player_port=port,
-                                       config=self.config),
+                # platform_distances=StateDataInfo(lambda s: platform_distances(s, s.players[port]),
+                #                        StateDataInfo.CONTINUOUS,
+                #                        size=8,
+                #                        scale=ObsBuilder.POS_SCALE,
+                #                        player_port=port,
+                #                        config=self.config),
                 character=StateDataInfo(lambda s: all_chars_to_used.get(s.players[port].character, 0),
                                         StateDataInfo.CATEGORICAL,
                                         size=n_characters,
@@ -645,13 +697,19 @@ class ObsBuilder:
                 # Projectiles
                 # TODO : get projectiles of players (and unowned for bombs)
                 # TODO: should split in two, continuous and binary!
-                projectile=StateDataInfo(lambda s: own_projectile_getter(s, port),
-                                         StateDataInfo.CONTINUOUS,
-                                         size=3,
-                                         scale=np.array([ObsBuilder.POS_SCALE, ObsBuilder.POS_SCALE, 1], dtype=np.float32),
-                                         player_port=port,
-                                         config=self.config
-                                         ),
+                # projectile=StateDataInfo(lambda s: own_projectile_getter(s, port),
+                #                          StateDataInfo.CONTINUOUS,
+                #                          size=3,
+                #                          scale=np.array([ObsBuilder.POS_SCALE, ObsBuilder.POS_SCALE, 1], dtype=np.float32),
+                #                          player_port=port,
+                #                          config=self.config
+                #                          ),
+                owned_projectiles=StateDataInfo(lambda s: get_projectiles(s, port),
+                                        StateDataInfo.CONTINUOUS,
+                                        size=config["obs_config"]["max_projectiles_per_owner"] * 7, # x, y, vx, vy, existence
+                                        player_port=port,
+                                        config=self.config,
+                ),
 
                 consecutive_hits=StateDataInfo(lambda s: 0. if "combo_counter" not in s.players[port].custom else s.players[port].custom["combo_counter"],
                                          StateDataInfo.CONTINUOUS,
@@ -660,18 +718,25 @@ class ObsBuilder:
                                          player_port=port,
                                          config=self.config
                                          ),
-                playstyle=StateDataInfo(lambda s: 0. if "playstyle" not in s.players[port].custom else s.players[port].custom["playstyle"],
-                                         StateDataInfo.CONTINUOUS,
-                                         size=num_tracked_options,
-                                         bounds=(0, 1),
-                                         player_port=port,
-                                         config=self.config
-                                         ),
+                # playstyle=StateDataInfo(lambda s: 0. if "playstyle" not in s.players[port].custom else s.players[port].custom["playstyle"],
+                #                          StateDataInfo.CONTINUOUS,
+                #                          size=num_tracked_options,
+                #                          bounds=(0, 1),
+                #                          player_port=port,
+                #                          config=self.config
+                #                          ),
                 # Luigi cyclone, etc.
                 character_specific=StateDataInfo(lambda s: 0. if "character_specific" not in s.players[port].custom else s.players[port].custom["character_specific"],
                                          StateDataInfo.CONTINUOUS,
                                          scale=1,
                                          bounds=(0, 1),
+                                         player_port=port,
+                                         config=self.config
+                ),
+                elo_delta=StateDataInfo(lambda s: 0. if "elo_delta" not in s.players[port].custom else (s.players[port].custom["elo_delta"] - s.players[(port % 2) + 1].custom["elo_delta"]),
+                                         StateDataInfo.CONTINUOUS,
+                                         scale=1/400,
+                                         bounds=(-1, 1),
                                          player_port=port,
                                          config=self.config
                 ),
@@ -705,8 +770,11 @@ class ObsBuilder:
                 "controller_shield",
                 "controller_z",
                 "controller_sticks"])
-        if not self.config["obs_config"]["projectiles"]:
-            to_pop.append("projectile")
+        if self.config["obs_config"]["max_projectiles_per_owner"] == 0:
+            to_pop.append("owned_projectiles")
+            stage_value_dict.pop("projectiles")
+
+
 
         for d in player_value_dict:
             for item in to_pop:
@@ -749,7 +817,7 @@ class ObsBuilder:
         for feature in self.features:
             feature.reset()
 
-    def build(self):
+    def build(self, delays: dict):
         obs_dict = {}
         # if hasattr(self, "obs_dict"):
         #     return self.obs_dict
@@ -761,23 +829,31 @@ class ObsBuilder:
                 StateDataInfo.CONTINUOUS: SortedDict(),
             }
             obs["ground_truth"] = deepcopy(obs)
-            self.build_for(port, obs)
+            self.build_for(port, obs, delays[port])
             obs_dict[port] = obs
         #self.obs_dict = obs_dict
         return obs_dict
 
-    def build_for(self, player_idx, obs):
+    def build_for(self, player_idx, obs, delay):
         for feature in self.features:
             if feature.is_player_dependent():
                 p = feature.player
 
                 obs_slot = feature.base_name + ObsBuilder.player_permuts[player_idx][p]
 
-                obs[feature.nature][obs_slot] = feature.observe(undelay=False) # undelay=p == player_idx
-                obs["ground_truth"][feature.nature][obs_slot] = feature.observe(undelay=True)
+                obs[feature.nature][obs_slot] = feature.observe(delay=delay)
+
+                if feature.name in ["hitlag_left", "hitstun_left"]:
+                    obs["ground_truth"][feature.nature][obs_slot] = feature.observe(delay=delay)
+                else:
+                    obs["ground_truth"][feature.nature][obs_slot] = feature.observe()
             else:
-                obs[feature.nature][feature.name] = feature.observe(undelay=True)
-                obs["ground_truth"][feature.nature][feature.name] = feature.observe(undelay=True)
+                obs[feature.nature][feature.name] = feature.observe(delay=delay)
+
+                if feature.name in ["hitlag_left", "hitstun_left"]:
+                    obs["ground_truth"][feature.nature][feature.name] = feature.observe(delay=delay)
+                else:
+                    obs["ground_truth"][feature.nature][feature.name] = feature.observe()
 
 
     def initialise(self):
@@ -796,3 +872,4 @@ class ObsBuilder:
         for v in game_state.players.values():
             v.character = Character.FOX
         self.update(game_state)
+

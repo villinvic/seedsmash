@@ -9,12 +9,12 @@ import psutil
 import ray
 
 import numpy as np
-from melee import Character, Stage
+from melee import Character, Stage, Action
 import tree
 from polaris_melee.enums import PlayerType
 from polaris_melee.env import SSBM
 from polaris_melee.configs import SSBMConfig, SSBMObsConfig
-from seedsmash.bot import Bot, BotConfig
+from seedsmash.bot import Bot, BotConfig, BotStats
 
 parser = argparse.ArgumentParser()
 
@@ -38,8 +38,10 @@ class PolarisEnvTest(unittest.TestCase):
             # do stuff
 
 
-        bot_configs = {1: Bot(**BotConfig(character=Character.DK, preferred_stage=Stage.YOSHIS_STORY)._asdict()),
-                       2: Bot(**BotConfig(character=Character.CPTFALCON, preferred_stage=Stage.YOSHIS_STORY)._asdict())}
+        bot_configs = {1: Bot(**BotConfig(character=Character.GAMEANDWATCH, preferred_stage=Stage.YOSHIS_STORY, preferred_move=Action.NAIR, elo=1200)._asdict()),
+                       2: Bot(**BotConfig(character=Character.GAMEANDWATCH, preferred_stage=Stage.YOSHIS_STORY,
+                                          stats=BotStats(aggressivity=0, adaptability=0, creativity=0, techskill=0,
+                                                         neutral=0, stagecontrol=0, offstage=0))._asdict())}
 
         env = SSBM(env_index=0, **ENV_CONFIG)
         env.reset(options=bot_configs)
@@ -51,14 +53,16 @@ class PolarisEnvTest(unittest.TestCase):
             t2 = time.time()
             obs, _, dones, _, _ = env.step(actions)
             gs = env.get_gamestate()
-            # for port, tracker in env.playstyle_trackers.items():
-            #     print(port)
-            #     tracker.print()
-            input()
-            print(obs[1].keys())
-            print(obs[1]["categorical"]["action_type1"], obs[2]["categorical"]["action_type1"],
-                  obs[1]["continuous"]["frames_before_next_hitbox1"] * 50, obs[2]["continuous"]["frames_before_next_hitbox1"] * 50,
-                  )
+
+            player = gs.players[1]
+
+            # abs_movement = (abs(player.speed_y_attack) + abs(player.speed_x_attack)
+            #                 + abs(player.speed_ground_x_self) + abs(player.speed_air_x_self)
+            #                 + abs(player.speed_y_self))
+            # print(abs_movement, player.speed_x_attack, player.speed_ground_x_self, player.speed_air_x_self)
+            print(player.on_ground)
+            #print(gs.players[1].custom, gs.player[2].custom)
+
             t3 = time.time()
             if dones["__all__"]:
                 print(env.get_episode_metrics())
@@ -99,9 +103,9 @@ if __name__ == '__main__':
             # Stage.DREAMLAND,
             # Stage.FOUNTAIN_OF_DREAMS
         ])
-        .player_types([PlayerType.BOT, PlayerType.BOT])
+        .player_types([PlayerType.HUMAN_DEBUG, PlayerType.HUMAN_DEBUG])
         .render()
-        .online_delay(0)
+        .online_delay(9)
         .polling_mode()
         .save_replays()
     )

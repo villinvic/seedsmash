@@ -11,10 +11,11 @@ class ObservationScope(Enum):
     OPPONENT = 2
 
 
-def filter_features(space, excluded, suffix):
+def filter_features(space, excluded=(), suffix=""):
     if suffix == "":
         return [f for f in space if f not in excluded and not (f.endswith("1") or f.endswith("2"))]
-    return [f for f in space if f not in f"{excluded}{suffix}" and f.endswith(suffix)]
+    excluded = [f"{e}{suffix}" for e in excluded]
+    return [f for f in space if f not in excluded and f.endswith(suffix)]
 
 
 def one_hot_encoding(space: gymnasium.spaces.Box) -> Callable:
@@ -43,20 +44,22 @@ class MeleeEmbedding:
         self.continuous_features = filter_features(observation_space["continuous"], excluded, feature_suffix)
         self.binary_features = filter_features(observation_space["binary"], excluded, feature_suffix)
 
-        categorical_features = filter_features(observation_space["categorical"], excluded, feature_suffix)
+        self.categorical_features = filter_features(observation_space["categorical"], excluded, feature_suffix)
+
         self.categorical_ops = {
             f: lookups.get(
                 f.rstrip(feature_suffix),
                 # one hot by default
                 one_hot_encoding(observation_space["categorical"][f]))
-            for f in categorical_features
+            for f in self.categorical_features
         }
 
     def __call__(
             self,
             obs,
             delayed: bool = False,
-            single_obs: bool = False
+            single_obs: bool = False,
+            categorical_logits : bool = False
     ):
         if not delayed:
             obs = obs["ground_truth"]
@@ -64,7 +67,14 @@ class MeleeEmbedding:
         continuous = [tf.cast(obs["continuous"][k], tf.float32) for k in self.continuous_features]
         binary = [tf.cast(obs["binary"][k], tf.float32) for k in self.binary_features]
 
-        categorical = [squeeze_one_hot(op(tf.cast(obs["categorical"][f], tf.int32)), single_obs) for f, op in self.categorical_ops.items()]
+        # use the list and not the dict for the ordering of features (to be consistent with the prediction module)
+        categorical = [squeeze_one_hot(self.categorical_ops[f](tf.cast(obs["categorical"][f], tf.int32)), single_obs) for f in self.categorical_features]
+
+        if categorical_logits:
+            binary_logits = [x * tf.math.log(10.) for x in binary]
+            categorical_logits = [x * tf.math.log(10. * tf.cast(x.shape[-1], tf.float32)) for x in categorical]
+
+            return continuous + binary + categorical, continuous + binary_logits + categorical_logits
 
         return continuous + binary + categorical
 

@@ -17,12 +17,9 @@ ex = Experiment(exp_name)
 obs_config = (
     SSBMObsConfig()
     .character()
-    # .ecb()
     .stage()
-    .projectiles()
-    # this may not be fair to observe oppponent controller states, but this helps learning faster
-    # .controller_state() # does not work with fastforwarding
-    .delay(4)  # 4 (* 3)
+    .max_projectiles_per_owner(3)
+    .delay(4)  # last used was 5 (half delay)
 )
 
 @ex.config
@@ -99,57 +96,59 @@ def cfg(
 
     num_workers = 64
     policy_path = 'policies.seedsmash_PPO'
-    model_path = 'models.default'
+    model_path = 'models.transformerlike'
     policy_class = 'PPO'
-    model_class = 'Default'
-    trajectory_length = 256 #128 # 256 ?
-    max_seq_len = 64
+    model_class = 'TransformerLikeModel'
+    trajectory_length = 256 # good for gae_lambda = 0.95
+    max_seq_len = 64 #64
     train_batch_size = 8192 * 4
     max_queue_size = train_batch_size * 10
-    # n_epochs=3
-    minibatch_size= train_batch_size//16
+    n_epochs=32
+    minibatch_size= train_batch_size
+    allow_older_samples= True
 
     default_policy_config = {
         # model
-        'action_state_embed_dim': 32,
-        'character_embed_dim': 8,
-        'stage_embed_dim': 8,
-        'mlp_dims': [256, 256],
-        'lstm_dim': 512,
         'policy_head_dims': [128],
-        'value_head_dims': [],
+        'value_head_dims': [128],
+        'projectile_mlp_dims': [16, 16],
 
-        'discount': 0.994,  # 0.997
+        'discount': 0.993,
         'action_state_reward_scale': 1.,
 
-        'gae_lambda': 0.95, # 0.98
-        'entropy_cost': 2e-3,#5e-4, # 1e-3 with impala, or around " 0.3, 0.4
-        'lr': 5e-4,
+        'gae_lambda': 0.95,
+        'entropy_cost': 2.2e-3,
+        'lr': 3e-4,
 
         'schedule': ParameterSchedule(
             lr = {
-                0: 5e-4,
-                10000: 4e-4,
-                20000: 2e-4,
-                40000: 1e-4,
+                0: 4e-4,
+                4000: 3e-4,
+                #6000: 1e-4,
+            },
+            discount = {
+                0: 0.993,
+                5000: 0.994,
+                10_000: 0.995,
+                20_000: 0.996,
             },
             n_epochs = {
-                0: 3,
-                20000: 1
-            },
+                0: 32,
+            }
         ),
 
         # PPO
         'grad_clip': 1.,
-        'ppo_clip': 0.25, # 0.3
+        'ppo_clip': 0.2, # 0.3
         'initial_kl_coeff': 1.,
-        'baseline_coeff': 0.1,
+        'baseline_coeff': 0.5,
         'vf_clip': 10.,
         'kl_target': 1e-2,
 
         # seedsmash
-        'aux_loss_weight': 0.1,
-        'distillation_weight': 0.05,
+        'aux_loss_weight': 1.,
+        'symmetry_weight': 0.5,
+        'distillation_weight': 0.04,
         'distillation_temperature': 2.,
     }
 
@@ -169,7 +168,7 @@ def cfg(
     negative_reward_scale = 0.93
 
     database_game_update_freq_s = 58 # read new bots and push games
-    database_state_update_freq_s = 60 * 20 #60*20 # for metrics
+    database_state_update_freq_s = 60 * 5 #60*20 # for metrics
     db_address = "http://192.168.1.100:5000"
 
     restore = False

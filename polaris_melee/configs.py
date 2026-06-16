@@ -41,7 +41,7 @@ class SSBMObsConfig(FunctionalConfig):
             stage=False,
             character=False,
             controller_state=False,
-            projectiles=False,
+            max_projectiles_per_owner=0,
             ecb=False,
         )
 
@@ -64,6 +64,11 @@ class SSBMObsConfig(FunctionalConfig):
         if delay < 0:
             raise ValueError("Cannot have negative delay.")
         return self.update_config("delay", delay)
+
+    def max_projectiles_per_owner(self, n) -> "SSBMObsConfig":
+        if n < 0:
+            raise  ValueError(f"Cannot have number of projectiles.")
+        return self.update_config("max_projectiles_per_owner", n)
 
 
 class SSBMConfig(FunctionalConfig):
@@ -140,6 +145,8 @@ class SSBMConfig(FunctionalConfig):
         if delay < 0:
             raise  ValueError(f"Cannot have negative delay.")
         return self.update_config("online_delay", delay)
+
+
 
 
 if __name__ == '__main__':

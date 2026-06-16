@@ -4,7 +4,7 @@ from enum import Enum, IntEnum
 from typing import Sequence, List, Union, Deque, Dict, Tuple, Any
 
 from gymnasium.spaces import Discrete
-from melee import ControllerState, enums, Controller, Console, PlayerState, stages, GameState, MarioMoves
+from melee import ControllerState, enums, Controller, Console, PlayerState, stages, GameState, MarioMoves, YoshiMoves
 from melee.enums import Button, Character, Action
 from functools import partial
 import itertools
@@ -16,6 +16,24 @@ class ComboPad(Controller):
     def __init__(self, console, port, type=enums.ControllerType.STANDARD):
         super().__init__(console, port, type)
         self.previous_state = ControllerInput()
+        self.toggled = set()
+
+    def encode(self):
+
+        pressed = self.previous_state.buttons | self.toggled
+
+        buttons = [
+            float(Button.BUTTON_A in pressed),
+            float(Button.BUTTON_B in pressed),
+            float(Button.BUTTON_X in pressed or Button.BUTTON_Y in pressed),
+            float(Button.BUTTON_Z in pressed),
+            float(Button.BUTTON_L in pressed or Button.BUTTON_R in pressed),
+        ]
+
+        return [
+            *self.previous_state.stick.value, *self.previous_state.c_stick.value,
+            *buttons, float(self.previous_state.analog_press),
+        ]
 
 
 class DummyPad(ComboPad):
@@ -128,30 +146,30 @@ class StickPosition(Enum):
     DOWN_RIGHT = (0.707, -0.707)
     UP_RIGHT = (0.707, 0.707)
 
-    UP_TILT = (0.0, 0.4)
-    DOWN_TILT = (0.0, -0.4)
-    RIGHT_TILT = (0.4, 0.0)
-    LEFT_TILT = (-0.4, 0.0)
+    UP_TILT = (0.0, 0.65)
+    DOWN_TILT = (0.0, -0.65)
+    RIGHT_TILT = (0.78, 0.0)
+    LEFT_TILT = (-0.78, 0.0)
 
     WAVE_LEFT = (-0.953, -0.294)
     WAVE_RIGHT = (0.953, -0.294)
 
-    # TODO
-    # SHIELD_DROP1 = (0., -0.43)  # 0.675
-    # SHIELD_DROP2 = (0., -0.44)  # 0.675
+    SHIELD_DROP1 = (0., -0.6)  # 0.675
+    SHIELD_DROP2 = (0., -0.68)  # 0.675
 
 
 class ControllerInput:
     def __init__(self, buttons: Union[Button, Tuple[Button, Button]] = (), stick=StickPosition.NEUTRAL,
                  c_stick=StickPosition.NEUTRAL, analog_press=False, duration=3,
                  test_func=lambda game_state, char_state, curr_action: True,
+                 toggle=False,
                  energy_cost=1.):
         self.buttons = {buttons} if isinstance(buttons, Button) else set(buttons)
         self.stick = stick
         self.c_stick = c_stick
         self.analog_press = analog_press
         self.test_func = test_func
-
+        self.toggle=toggle
         self.duration = duration
         self.idx = 0
         self.energy_cost = energy_cost # cost per frame, so total cost is duration * energy_cost
@@ -339,7 +357,15 @@ class ActionControllerInterface:
 
         if action.test_func(game_state, char_state, current_action_sequence):
 
-            to_release = pad.previous_state.buttons - action.buttons
+            if action.toggle:
+                # check to untoggle buttons
+                for button in action.buttons:
+                    if button in pad.toggled:
+                        pad.toggled.remove(button)
+                    else:
+                        pad.toggled.add(button)
+
+            to_release = pad.previous_state.buttons - (action.buttons | pad.toggled)
             press_new = action.buttons - pad.previous_state.buttons
 
             if action.analog_press:
@@ -374,15 +400,12 @@ def disable_in_air(game_state, char_state: PlayerState, curr_action: InputSequen
         curr_action.terminate()
     return allow
 
-def disable_on_shield(game_state, char_state: PlayerState, curr_action: InputSequence):
-    allow = not char_state.action in (Action.SHIELD_START, Action.SHIELD, Action.SHIELD_STUN) # TODO: shield release as well ?
-    if not allow:
-        curr_action.terminate()
-    return allow
-
-
 def disable_on_shield_air(game_state, char_state: PlayerState, curr_action: InputSequence):
-    allow = (not char_state.action in (Action.SHIELD_START, Action.SHIELD, Action.SHIELD_STUN)) and char_state.on_ground # TODO: shield release as well ?
+    if char_state.character == Character.YOSHI:
+        allow = (not char_state.action in (Action(YoshiMoves.ShieldStartup.value), Action(YoshiMoves.ShieldHold.value),
+                                           Action(YoshiMoves.ShieldDamage.value), Action.SHIELD_REFLECT)) and char_state.on_ground
+    else:
+        allow = (not char_state.action in (Action.SHIELD_START, Action.SHIELD, Action.SHIELD_STUN, Action.SHIELD_REFLECT)) and char_state.on_ground
     if not allow:
         curr_action.terminate()
     return allow
@@ -400,7 +423,12 @@ def allow_shield_drop1(game_state, char_state: PlayerState, curr_action: InputSe
     return allow
 
 def allow_shield_drop(game_state, char_state: PlayerState, curr_action: InputSequence):
-    allow = char_state.action in (Action.SHIELD_START, Action.SHIELD, Action.SHIELD_REFLECT, Action.SHIELD_STUN) and char_state.y > 8
+    if char_state.character == Character.YOSHI:
+        allow = char_state.action in (Action(YoshiMoves.ShieldStartup.value), Action(YoshiMoves.ShieldHold.value),
+                                      Action.SHIELD_REFLECT, Action(YoshiMoves.ShieldDamage.value)) and char_state.y > 8
+
+    else:
+        allow = char_state.action in (Action.SHIELD_START, Action.SHIELD, Action.SHIELD_REFLECT, Action.SHIELD_STUN) and char_state.y > 8
     if not allow:
         curr_action.terminate()
     return allow
@@ -467,7 +495,7 @@ def allow_tornado_init(game_state, char_state: PlayerState, curr_action: InputSe
     return allow
 
 def allow_jc_grab(game_state, char_state: PlayerState, curr_action: InputSequence):
-    allow = char_state.action in (Action.RUNNING, Action.DASHING, Action.WALK_FAST, Action.WALK_MIDDLE)
+    allow = char_state.on_ground
     if not allow:
         curr_action.terminate()
     return allow
@@ -478,6 +506,24 @@ def mario_upb(game_state, char_state: PlayerState, curr_action: InputSequence):
         curr_action.terminate()
     return allow
 
+
+def allow_down_b(game_state, char_state: PlayerState, curr_action: InputSequence):
+    allow = char_state.character != Character.DK # just ban this move, it is not very good, and hard to learn against for bots
+    if not allow:
+        curr_action.terminate()
+    return allow
+
+def allow_side_b(game_state, char_state: PlayerState, curr_action: InputSequence):
+    stage_edge = stages.EDGE_POSITION[game_state.stage]
+    stage_top_platform = stages.top_platform_position(game_state.stage)[0]
+
+    if char_state.character == Character.JIGGLYPUFF:
+        allow = -40 < char_state.position.y < stage_top_platform + 30 and abs(char_state.position.x) < stage_edge + 50
+    else:
+        allow = True
+    if not allow:
+        curr_action.terminate()
+    return allow
 
 def debug(game_state, char_state: PlayerState, curr_action: InputSequence):
     print("debuging action", char_state.action)
@@ -518,14 +564,27 @@ ControllerInput(buttons=Button.BUTTON_A, duration=31+8, test_func=continue_gentl
 
 TAP_DOWN_B = [
     ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.DOWN, duration=2),
-    ControllerInput(duration=1),
+    ControllerInput(duration=4), # nerf multishine a bit ...
+]
+
+TILT_LEFT_B = [
+    ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.LEFT_TILT, duration=3),
+]
+
+TILT_RIGHT_B = [
+    ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.RIGHT_TILT, duration=3),
 ]
 
 char_specials = {
     Character.CPTFALCON: InputSequence(LONG_A_PRESS, 30, "LONG_A_PRESS"),
     Character.FALCO: InputSequence(TAP_DOWN_B, name="TAP_DOWN_B"),
-    Character.FOX: InputSequence(TAP_DOWN_B, name="TAP_DOWN_B")
+    Character.FOX: InputSequence(TAP_DOWN_B, name="TAP_DOWN_B"),
+    #Character.SAMUS: InputSequence(TILT_LEFT_B, name="TILT_LEFT_B"),
+    Character.PEACH: InputSequence(ControllerInput(stick=StickPosition.DOWN, buttons=Button.BUTTON_X, toggle=True, energy_cost=0.)),
+}
 
+char_specials2 = {
+    Character.SAMUS: InputSequence(TILT_RIGHT_B, name="TILT_RIGHT_B"),
 }
 
 for char in (Character.MARIO, Character.LUIGI, Character.DOC):
@@ -573,10 +632,9 @@ class SSBMActionSpace:
     )
 
     # TODO: cannot work if we are already shielding
-    SHIELD_DROP_LEFT = lambda *_: InputSequence([
-        ControllerInput(stick=StickPosition.LEFT, test_func=disable_on_shield_air, duration=1),
-        ControllerInput(stick=StickPosition.LEFT, buttons=Button.BUTTON_L, test_func=allow_shield_drop1, duration=1),
-        ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.DOWN_LEFT, duration=1, test_func=allow_shield_drop),
+    SHIELD_DROP = lambda *_: InputSequence([
+        ControllerInput(stick=StickPosition.SHIELD_DROP1, buttons=Button.BUTTON_L,  test_func=allow_shield_drop, duration=2),
+        ControllerInput(stick=StickPosition.SHIELD_DROP2, buttons=Button.BUTTON_L, duration=2),
     ])
 
     B_NEUTRAL = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_B))
@@ -612,9 +670,9 @@ class SSBMActionSpace:
             for character, short_hop_frames in char2kneebend.items()
         }
     )
-    B_DOWN = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.DOWN))
-    B_LEFT = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.LEFT))
-    B_RIGHT = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.RIGHT))
+    B_DOWN = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.DOWN, test_func=allow_down_b))
+    B_LEFT = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.LEFT, test_func=allow_side_b))
+    B_RIGHT = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_B, stick=StickPosition.RIGHT, test_func=allow_side_b))
     C_UP = lambda *_: InputSequence(ControllerInput(c_stick=StickPosition.UP))
     C_RIGHT = lambda *_: InputSequence(ControllerInput(c_stick=StickPosition.RIGHT))
     C_LEFT = lambda *_: InputSequence(ControllerInput(c_stick=StickPosition.LEFT))
@@ -634,10 +692,11 @@ class SSBMActionSpace:
     L_NEUTRAL_LIGHT = lambda *_: InputSequence(
         ControllerInput(analog_press=True)) # was disabled in air
     # dont disable in air
-    L_RIGHT = lambda *_: InputSequence(
-        ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.RIGHT))
-    L_LEFT = lambda *_: InputSequence(
-        ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.LEFT))
+    # TODO: put back ?
+    # L_RIGHT = lambda *_: InputSequence(
+    #     ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.RIGHT))
+    # L_LEFT = lambda *_: InputSequence(
+    #     ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.LEFT))
 
     # Do not use those actions on ground, this is the same as L_LEFT and L_RIGHT otherwise
     WAVELAND_LEFT = lambda *_: InputSequence(ControllerInput(buttons=Button.BUTTON_L, stick=StickPosition.DOWN_LEFT,
@@ -759,6 +818,11 @@ class SSBMActionSpace:
         for character in Character
     })
 
+    # CHAR_SPECIAL_2 = lambda *_: CharDependentInputSequence({
+    #     character: deepcopy(char_specials2.get(character, InputSequence(ControllerInput(energy_cost=0.))))
+    #     for character in Character
+    # })
+
     def __init__(self, delay: int):
 
         to_register = list()
@@ -776,6 +840,9 @@ class SSBMActionSpace:
         self._by_idx = {
             i: action for i, action in enumerate(to_register)
         }
+
+        assert len(self._by_idx) == 43, ("Need to update symmetric actions !", len(self._by_idx))
+
         self._by_name = {
             action.name: action for action in to_register
         }
@@ -805,6 +872,48 @@ class SSBMActionSpace:
     def __repr__(self):
         return self._by_idx.__repr__()
 
+
+# TODO: This is static
+# 2: Sequence[B_LEFT(0/1)]
+# 4: Sequence[B_RIGHT(0/1)]
+# 5: Sequence[B_UP_LEFT(None)]
+# 6: Sequence[B_UP_RIGHT(None)]
+# 9: Sequence[C_LEFT(0/1)]
+# 10: Sequence[C_RIGHT(0/1)]
+# 13: Sequence[DOWN_LEFT(0/1)]
+# 14: Sequence[DOWN_RIGHT(0/1)]
+# 16: Sequence[LEFT(0/1)]
+# 22: Sequence[RIGHT(0/1)]
+# 25: Sequence[SHORT_HOP_LEFT(0/2)]
+# 27: Sequence[SHORT_HOP_RIGHT(0/2)]
+# 29: Sequence[TILT_LEFT(0/2)]
+# 30: Sequence[TILT_RIGHT(0/2)]
+# 33: Sequence[UP_LEFT(0/1)]
+# 34: Sequence[UP_RIGHT(0/1)]
+# 35: Sequence[WAVEDASH_LEFT(None)]
+# 37: Sequence[WAVEDASH_RIGHT(None)]
+# 38: Sequence[WAVEDASH_SLIGHT_LEFT(None)]
+# 39: Sequence[WAVEDASH_SLIGHT_RIGHT(None)]
+# 40: Sequence[WAVELAND_LEFT(0/1)]
+# 41: Sequence[WAVELAND_RIGHT(0/1)]
+action_indices = np.arange(SSBMActionSpace(delay=0).n)
+swaps = [
+    (2, 4),
+    (5, 6),
+    (9, 10),
+    (13, 14),
+    (16, 22),
+    (25, 27),
+    (29, 30),
+    (33, 34),
+    (35, 37),
+    (38, 39),
+    (40, 41)
+]
+x_swapped_actions = action_indices.copy()
+
+for i, j in swaps:
+    x_swapped_actions[i], x_swapped_actions[j] = x_swapped_actions[j], x_swapped_actions[i]
 
 if __name__ == '__main__':
     action_space = SSBMActionSpace()

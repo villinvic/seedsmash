@@ -3,7 +3,7 @@ from collections import defaultdict
 from typing import Dict
 
 import numpy as np
-from melee import LCancelState
+from melee import LCancelState, YoshiMoves
 from melee.enums import Character, Action
 from melee.gamestate import GameState, PlayerState
 from polaris_melee.preferences import RewardModule
@@ -19,8 +19,6 @@ class Helper:
     """
 
     weights = {}
-
-    clip = 0.4
 
     def __init__(self, hist_len=6):
 
@@ -39,17 +37,13 @@ class Helper:
         self.previous_player_states.pop(0)
         self.previous_player_states.append(ps)
 
-    def __call__(self, player_state: PlayerState, is_near: bool):
+    def __call__(self, player_state: PlayerState, distance: bool):
         bonus = 0.
         for func_name, func in self.funcs.items():
-            func_bonus = float(func(player_state, is_near))
+            func_bonus = float(func(player_state, distance))
             clean_name = func_name.replace("_", " ").capitalize()
 
-            total_collected = self.metrics[clean_name] * self.weights.get(func_name, 0.0)
-            if total_collected > self.clip:
-                scaled_bonus = 0.
-            else:
-                scaled_bonus = func_bonus * self.weights.get(func_name, 0.0)
+            scaled_bonus = func_bonus * self.weights.get(func_name, 0.0)
 
             self.metrics[clean_name] += func_bonus
             bonus += scaled_bonus
@@ -82,17 +76,17 @@ class TechSkillHelper(Helper):
                          Action.JUMPING_FORWARD, Action.JUMPING_FORWARD)
 
     weights = {
-        "dashing": P * 0.25,
-        "ledge_canceling": P * 2.5,
-        "lcanceling": P * 2.5,
-        "wavelanding": P * 1.25,
-        "wavedash": P * 0.35, # easy action
-        "wavedash_off_platform": P * 1.25,
+        "dashing": P * 0.1,
+        "ledge_canceling": P * 6.,
+        "lcanceling": P * 3,
+        "wavelanding": P * 2.25,
+        "wavedash": P * 0.32, # easy action
+        "wavedash_off_platform": P * 2.25,
         "walljump": P * 5,
-        "shielding": 2.5 * P, # just to incentivise learning shields as it is much harder than hitting smashes early on
-        "edge_drop": 0.,
+        "edge_drop": P * 3.5,
         "moonwalk": 0.,
         "fast_fall": 0.00, # todo
+        "shield_drop": P * 3.,
     }
 
     def __init__(self):
@@ -100,31 +94,41 @@ class TechSkillHelper(Helper):
         self.lcancel_fails = 0
         self.lcancel_successes = 0
 
-    def dashing(self, player_state: PlayerState, is_near: bool):
+    def dashing(self, player_state: PlayerState, distance):
         return player_state.action == Action.DASHING# and self.previous_player_states[-1].action != Action.DASHING
 
-    def fast_fall(self, player_state: PlayerState, is_near: bool):
+    def fast_fall(self, player_state: PlayerState, distance):
         # todo we should find a way to detect players fast falling, using normall fall speed vs fast fall.
         prev_state = self.previous_player_states[-1]
         faster_falling = prev_state.speed_y_self - player_state.speed_y_self < 0
         return faster_falling and (prev_state.action in self.NORMAL_AIR_STATES and player_state.action in self.NORMAL_AIR_STATES)
 
-    def edge_drop(self, player_state: PlayerState, is_near: bool):
+    def shield_drop(self, player_state: PlayerState, distance):
+        # todo we should find a way to detect players fast falling, using normall fall speed vs fast fall.
+        prev_state = self.previous_player_states[-1]
+        if player_state.character == Character.YOSHI:
+            return (prev_state.action in (Action(YoshiMoves.ShieldDamage.value),)
+                and player_state.action == Action.PLATFORM_DROP)
+
+        return (prev_state.action in (Action.SHIELD_STUN, )
+                and player_state.action == Action.PLATFORM_DROP)
+
+    def edge_drop(self, player_state: PlayerState, distance):
         prev_state = self.previous_player_states[-1]
 
         return prev_state.action in (Action.EDGE_HANGING, Action.EDGE_CATCHING) and player_state.action in (
             Action.FALLING, Action.FALLING_FORWARD, Action.FALLING_BACKWARD)
 
-    def ledge_canceling(self, player_state: PlayerState, is_near: bool):
+    def ledge_canceling(self, player_state: PlayerState, distance):
         # in landing-lag > in air
         # could be air-dodge into waveland cancel
         return (self.previous_player_states[-1].action in TechSkillHelper.LANDING_ACTIONS
         and not (self.previous_player_states[-4].on_ground
                  and self.previous_player_states[-4] not in TechSkillHelper.NORMAL_AIR_STATES)
-        and not player_state.on_ground and is_near
+        and not player_state.on_ground and distance < 50
         )
 
-    def lcanceling(self, player_state: PlayerState, is_near: bool):
+    def lcanceling(self, player_state: PlayerState, distance):
         prev_state = self.previous_player_states[-1]
 
         if player_state.lcancel_status == prev_state.lcancel_status:
@@ -134,15 +138,17 @@ class TechSkillHelper(Helper):
         self.lcancel_fails += int(not success)
         self.lcancel_successes += int(success)
 
-        return success and is_near
+        s = np.maximum(1. - distance / 70, 0.)
 
-    # def dashdance(self, player_state: PlayerState, is_near: bool):
+        return s * (float(success) * 2 - 1)
+
+    # def dashdance(self, player_state: PlayerState, distance):
     #     # todo: here this encourages fast ddance
     #     return (player_state.action == Action.DASHING and  self.previous_player_states[-1].action == Action.TURNING and
     #         self.previous_player_states[-2].action == Action.DASHING
     #         and self.previous_player_states[-3].action == Action.DASHING)
 
-    def wavelanding(self, player_state: PlayerState, is_near: bool):
+    def wavelanding(self, player_state: PlayerState, distance):
         # todo: check again
         prev_state = self.previous_player_states[-1]
 
@@ -158,7 +164,7 @@ class TechSkillHelper(Helper):
             and prev_state.action in TechSkillHelper.NORMAL_AIR_STATES + (Action.AIRDODGE,)
             and was_in_air)
 
-    def wavedash(self, player_state: PlayerState, is_near: bool):
+    def wavedash(self, player_state: PlayerState, distance):
         old_state = self.previous_player_states[-1]
         not_hit = player_state.percent == old_state.percent
 
@@ -169,14 +175,14 @@ class TechSkillHelper(Helper):
             and (old_state.action == Action.KNEE_BEND)
         )
 
-    def wavedash_off_platform(self, player_state: PlayerState, is_near: bool):
+    def wavedash_off_platform(self, player_state: PlayerState, distance):
         old_state = self.previous_player_states[-1]
         return (
             not player_state.on_ground
             and (old_state.action == Action.LANDING_SPECIAL and abs(old_state.speed_ground_x_self)>2)
         )
 
-    def walljump(self, player_state: PlayerState, is_near: bool):
+    def walljump(self, player_state: PlayerState, distance):
         old_state = self.previous_player_states[-1]
 
         # WALL_TECH_JUMP -> both wall tech jump and wall jump
@@ -185,17 +191,8 @@ class TechSkillHelper(Helper):
             and old_state.action in TechSkillHelper.NORMAL_AIR_STATES
         )
 
-    def shielding(self, player_state: PlayerState, is_near: bool):
-        old_state = self.previous_player_states[-1]
-
-        # WALL_TECH_JUMP -> both wall tech jump and wall jump
-        return (
-            player_state.action == Action.SHIELD_STUN
-            and old_state.action in (Action.SHIELD, Action.SHIELD_REFLECT, Action.SHIELD_START)
-        )
-
     # do we make this char specific ?
-    def moonwalk(self, player_state: PlayerState, is_near: bool):
+    def moonwalk(self, player_state: PlayerState, distance):
         # TODO: improve
         old_state = self.previous_player_states[0]
         prev_state = self.previous_player_states[-1]
@@ -220,8 +217,8 @@ class CptFalconHelper(Helper):
     def __init__(self):
         super().__init__(hist_len=1)
 
-    def gentleman(self, player_state: PlayerState, is_near: bool):
-        return is_near and (player_state.action == Action.NEUTRAL_ATTACK_3 and player_state.action_frame == 30)
+    def gentleman(self, player_state: PlayerState, distance):
+        return (player_state.action == Action.NEUTRAL_ATTACK_3 and player_state.action_frame == 30)
 
 
 class MarioHelper(Helper):
@@ -233,7 +230,7 @@ class MarioHelper(Helper):
     def __init__(self):
         super().__init__(hist_len=1)
 
-    def upb_walljump(self, player_state: PlayerState, is_near: bool):
+    def upb_walljump(self, player_state: PlayerState, distance):
         # TODO: looks too random.
         old_state = self.previous_player_states[-1]
         return old_state.action == Action.NEUTRAL_B_FULL_CHARGE_AIR and player_state.action == Action.WALL_TECH_JUMP
@@ -247,10 +244,10 @@ class DocHelper(Helper):
     def __init__(self):
         super().__init__(hist_len=1)
 
-    def upb_cancel(self, player_state: PlayerState, is_near: bool):
+    def upb_cancel(self, player_state: PlayerState, distance):
         prev_state = self.previous_player_states[-1]
 
-        return (is_near and prev_state.action == Action.NEUTRAL_B_ATTACKING_AIR
+        return (distance < 30 and prev_state.action == Action.NEUTRAL_B_ATTACKING_AIR
                 and (player_state.action == Action.LANDING_SPECIAL
                      )
                 )
@@ -258,28 +255,44 @@ class DocHelper(Helper):
 
 class ChargingHelper(Helper):
     weights = {
-        "neutralb_charge": P * 2,
+        "neutralb_charge": P * 15.,
+        "neutralb_discharge": -P * 10.,
     }
 
     def __init__(self):
         super().__init__(hist_len=1)
+        # TODO: move this to "char" helpers
+        self.initialised = False
 
-    def neutralb_charge(self, player_state: PlayerState, is_near: bool):
+    def neutralb_charge(self, player_state: PlayerState, distance):
         if "character_specific" not in self.previous_player_states[-1].custom:
             return False
         prev_charge = self.previous_player_states[-1].custom["character_specific"]
         curr_charge = player_state.custom["character_specific"]
-        return curr_charge > prev_charge
+        return np.maximum(curr_charge - prev_charge, 0)
+
+    def neutralb_discharge(self, player_state: PlayerState, distance):
+        if "character_specific" not in self.previous_player_states[-1].custom:
+            return False
+
+        prev_charge = self.previous_player_states[-1].custom["character_specific"]
+        curr_charge = player_state.custom["character_specific"]
+
+        if player_state.action.value < 0xA:
+            return False
+
+        return np.maximum(prev_charge - curr_charge, 0)
+
 
 class LuigiHelper(Helper):
     weights = {
-        "cyclone_charge": P * 3,
+        "cyclone_charge": P * 5,
     }
 
     def __init__(self):
         super().__init__(hist_len=1)
 
-    def neutralb_charge(self, player_state: PlayerState, is_near: bool):
+    def neutralb_charge(self, player_state: PlayerState, distance):
         if "character_specific" not in self.previous_player_states[-1].custom:
             return False
         prev_charge = self.previous_player_states[-1].custom["character_specific"]
@@ -297,14 +310,14 @@ class LinkHelper(Helper):
     def __init__(self):
         super().__init__(hist_len=10)
 
-    def neutral_b_charge(self, player_state: PlayerState, is_near: bool):
+    def neutral_b_charge(self, player_state: PlayerState, distance):
         old_state = self.previous_player_states[-6]
 
         return (old_state.action in (Action.NEUTRAL_B_CHARGING_AIR, Action.NEUTRAL_B_CHARGING)
                 and player_state.action in (Action.NEUTRAL_B_CHARGING_AIR, Action.NEUTRAL_B_CHARGING)
                 )
 
-    def wall_hook(self, player_state: PlayerState, is_near: bool):
+    def wall_hook(self, player_state: PlayerState, distance):
         # todo: determine action state
         return False
 
@@ -326,8 +339,8 @@ char_helpers = {
 }
 
 class Techskill(RewardModule):
-    def __init__(self, char: Character):
-        super().__init__()
+    def __init__(self, char: Character, discount: float):
+        super().__init__(discount)
         self.helpers = [
             char_helpers.get(char, EmptyHelper)(),
             TechSkillHelper()
@@ -341,11 +354,9 @@ class Techskill(RewardModule):
             opponent: PlayerState,
             gamestate: GameState,
     ):
-        is_near = np.sqrt(np.square(gamestate.players[1].x - gamestate.players[2].x)
-                          + np.square(gamestate.players[1].y - gamestate.players[2].y)) < 50
         self.frame_score = 0
         for helper in self.helpers:
-            self.frame_score += helper(player, is_near)
+            self.frame_score += helper(player, gamestate.distance)
 
     def reward(
             self,
