@@ -7,5 +7,5 @@
 </p>
 
 <p align="center">
-  <a href="./docs/seedsmash-overview.pdf"><strong>View the full project overview</strong></a>
+  <a href="./docs/seedsmash_overview.pdf"><strong>View the full project overview</strong></a>
 </p>
